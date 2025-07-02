@@ -242,10 +242,10 @@
         <div class="control-group">
             <label for="colorBy">Color by:</label>
             <select id="colorBy">
-                <option value="Driver Name">Driver Name</option>
-                <option value="Group Number">Group Number</option>
+                <option value="Name">Driver Name</option>
+                <option value="Group">Group</option>
                 <option value="Number of dogs">Number of Dogs</option>
-                <option value="Capacity left">Capacity Left</option>
+                <option value="Capacity">Capacity</option>
             </select>
         </div>
         
@@ -278,7 +278,7 @@
         const CONFIG = {
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
-            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI', // REPLACE WITH: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
+            API_KEY: 'YOUR_API_KEY_HERE', // REPLACE WITH: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
             DEFAULT_LAT: 42.3601,
             DEFAULT_LNG: -71.3589,
             DEFAULT_ZOOM: 11
@@ -381,28 +381,28 @@
                     {
                         'Address': '5 Doeskin Dr, Framingham, MA',
                         'Dog Name': 'Sydney (Sample)',
-                        'Driver Name': 'Victor',
+                        'Name': 'Victor',
                         'Latitude': 42.341412,
                         'Longitude': -71.459623,
                         'Number of dogs': 1,
-                        'Group Number': '1',
+                        'Group': '1',
                         'Today': 'Sample data - connect to Google Sheets to see real data',
                         'Dog ID': 1,
                         'New Assignment': 'Route A',
-                        'Capacity left': 3
+                        'Capacity': 3
                     },
                     {
                         'Address': '384 Dutton Rd, Sudbury, MA',
                         'Dog Name': 'Freddie & Norman (Sample)',
-                        'Driver Name': 'Nate',
+                        'Name': 'Nate',
                         'Latitude': 42.37838771,
                         'Longitude': -71.45234923,
                         'Number of dogs': 2,
-                        'Group Number': '2',
+                        'Group': '2',
                         'Today': 'Sample data - connect to Google Sheets to see real data',
                         'Dog ID': 6,
                         'New Assignment': 'Route B',
-                        'Capacity left': 1
+                        'Capacity': 1
                     }
                 ];
                 updateMap();
@@ -416,7 +416,7 @@
 
             // Filter data based on search
             filteredData = allData.filter(row => {
-                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Driver Name']} ${row['Group Number']} ${row['New Assignment']} ${row['Capacity left']}`.toLowerCase();
+                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Name']} ${row['Group']} ${row['New Assignment']} ${row['Capacity']}`.toLowerCase();
                 return searchText.includes(searchTerm);
             });
 
@@ -489,11 +489,11 @@
                     </div>
                     <div class="form-group">
                         <label>Driver Name:</label>
-                        <input type="text" id="driverName_${index}" value="${row['Driver Name'] || ''}" />
+                        <input type="text" id="driverName_${index}" value="${row['Name'] || ''}" />
                     </div>
                     <div class="form-group">
-                        <label>Group Number:</label>
-                        <input type="text" id="groupNumber_${index}" value="${row['Group Number'] || ''}" />
+                        <label>Group:</label>
+                        <input type="text" id="group_${index}" value="${row['Group'] || ''}" />
                     </div>
                     <div class="form-group">
                         <label>Number of Dogs:</label>
@@ -504,8 +504,8 @@
                         <input type="text" id="newAssignment_${index}" value="${row['New Assignment'] || ''}" />
                     </div>
                     <div class="form-group">
-                        <label>Capacity Left:</label>
-                        <input type="number" id="capacityLeft_${index}" value="${row['Capacity left'] || ''}" min="0" />
+                        <label>Capacity:</label>
+                        <input type="number" id="capacity_${index}" value="${row['Capacity'] || ''}" min="0" />
                     </div>
                     <div class="form-group">
                         <label>Today's Notes:</label>
@@ -527,11 +527,11 @@
             const updatedData = {
                 'Dog Name': document.getElementById(`dogName_${index}`).value,
                 'Address': document.getElementById(`address_${index}`).value,
-                'Driver Name': document.getElementById(`driverName_${index}`).value,
-                'Group Number': document.getElementById(`groupNumber_${index}`).value,
+                'Name': document.getElementById(`driverName_${index}`).value,
+                'Group': document.getElementById(`group_${index}`).value,
                 'Number of dogs': parseInt(document.getElementById(`numDogs_${index}`).value),
                 'New Assignment': document.getElementById(`newAssignment_${index}`).value,
-                'Capacity left': parseInt(document.getElementById(`capacityLeft_${index}`).value) || 0,
+                'Capacity': parseInt(document.getElementById(`capacity_${index}`).value) || 0,
                 'Today': document.getElementById(`today_${index}`).value
             };
 
