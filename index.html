@@ -18,29 +18,34 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: #f8f9fa;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
+            padding: 15px 20px;
             text-align: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            flex-shrink: 0;
         }
 
         .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
+            font-size: 1.8em;
+            margin-bottom: 5px;
         }
 
         .controls {
             background: white;
-            padding: 15px 20px;
+            padding: 10px 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             display: flex;
             gap: 20px;
             align-items: center;
             flex-wrap: wrap;
+            flex-shrink: 0;
         }
 
         .control-group {
@@ -55,7 +60,7 @@
         }
 
         select, input {
-            padding: 8px 12px;
+            padding: 6px 10px;
             border: 2px solid #e1e5e9;
             border-radius: 6px;
             font-size: 14px;
@@ -67,52 +72,84 @@
             border-color: #667eea;
         }
 
-        #map {
-            height: 70vh;
-            min-height: 500px;
-            margin: 0;
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
         }
 
-        .status {
+        .left-panel {
+            width: 350px;
             background: white;
-            padding: 10px 20px;
+            border-right: 2px solid #e1e5e9;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .legend-section {
+            border-bottom: 2px solid #e1e5e9;
+            padding: 15px;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+
+        .legend h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .legend-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .legend-item.active {
+            background-color: #e3f2fd;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #333;
+            flex-shrink: 0;
+        }
+
+        .edit-section {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .edit-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .no-selection {
             text-align: center;
-            font-weight: 600;
-            border-top: 1px solid #e1e5e9;
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 50px;
         }
 
-        .status.loading {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        /* Custom popup styling */
-        .custom-popup {
-            min-width: 300px;
-        }
-
-        .popup-header {
-            background: #667eea;
-            color: white;
-            padding: 10px 15px;
-            margin: -10px -15px 15px -15px;
-            border-radius: 3px 3px 0 0;
-            font-weight: bold;
-        }
-
-        .popup-form {
+        .edit-form {
             display: grid;
-            gap: 10px;
+            gap: 15px;
         }
 
         .form-group {
@@ -124,19 +161,23 @@
         .form-group label {
             font-weight: 600;
             color: #333;
-            font-size: 12px;
+            font-size: 13px;
         }
 
-        .form-group input, .form-group textarea {
+        .form-group input {
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
         }
 
-        .form-group textarea {
-            resize: vertical;
-            min-height: 60px;
+        .readonly-field {
+            padding: 8px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #495057;
+            font-size: 14px;
         }
 
         .button-group {
@@ -146,13 +187,14 @@
         }
 
         .btn {
-            padding: 10px 20px;
+            padding: 10px 15px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.2s;
             flex: 1;
+            font-size: 14px;
         }
 
         .btn-primary {
@@ -173,43 +215,70 @@
             background: #545b62;
         }
 
-        .legend {
-            position: absolute;
-            top: 10px;
-            right: 10px;
+        .btn-clear {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-clear:hover {
+            background: #218838;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .status {
             background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            max-height: 300px;
-            overflow-y: auto;
-            min-width: 200px;
-            z-index: 1000;
-        }
-
-        .legend h3 {
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 16px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
+            padding: 8px 20px;
+            text-align: center;
+            font-weight: 600;
+            border-top: 1px solid #e1e5e9;
             font-size: 14px;
-        }
-
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 10px;
-            border: 2px solid #333;
             flex-shrink: 0;
         }
 
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .selected-marker {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .clear-selection {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
         @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .left-panel {
+                width: 100%;
+                height: 300px;
+            }
+            
             .controls {
                 flex-direction: column;
                 align-items: stretch;
@@ -218,24 +287,13 @@
             .control-group {
                 justify-content: space-between;
             }
-
-            .legend {
-                position: relative;
-                top: auto;
-                right: auto;
-                margin: 20px;
-            }
-
-            #map {
-                height: 60vh;
-            }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🐕 Dog Walking Interactive Map</h1>
-        <p>Click any marker to edit dog information</p>
+        <p>Click any marker to edit • Click legend items to filter</p>
     </div>
 
     <div class="controls">
@@ -244,26 +302,41 @@
             <select id="colorBy">
                 <option value="Name">Driver Name</option>
                 <option value="Group">Group</option>
-                <option value="Number of dogs">Number of Dogs</option>
                 <option value="Capacity">Capacity</option>
             </select>
         </div>
         
         <div class="control-group">
             <label for="searchInput">Search:</label>
-            <input type="text" id="searchInput" placeholder="Search dogs, addresses, drivers, capacity..." />
+            <input type="text" id="searchInput" placeholder="Search dogs, addresses, drivers..." />
         </div>
 
         <div class="control-group">
-            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh Data</button>
+            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
         </div>
     </div>
 
-    <div id="map"></div>
-    
-    <div class="legend" id="legend">
-        <h3>Legend</h3>
-        <div id="legendContent">Loading...</div>
+    <div class="main-content">
+        <div class="left-panel">
+            <div class="legend-section">
+                <h3>🎨 Legend (Click to Filter)</h3>
+                <div id="legendContent">Loading...</div>
+                <div class="clear-selection">
+                    <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; margin-top: 10px;">Show All</button>
+                </div>
+            </div>
+            
+            <div class="edit-section">
+                <h3>✏️ Edit Selected Dog</h3>
+                <div id="editContent" class="no-selection">
+                    Click a marker on the map to edit dog information
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
     </div>
 
     <div class="status" id="status">
@@ -274,11 +347,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-        // Configuration - REPLACE THE API KEY WITH YOUR ACTUAL KEY
+        // Configuration
         const CONFIG = {
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
-            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI', // REPLACE WITH: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
+            API_KEY: 'YOUR_API_KEY_HERE', // REPLACE WITH: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
             DEFAULT_LAT: 42.3601,
             DEFAULT_LNG: -71.3589,
             DEFAULT_ZOOM: 11
@@ -304,6 +377,9 @@
         let allData = [];
         let filteredData = [];
         let colorMap = {};
+        let selectedMarker = null;
+        let selectedRow = null;
+        let currentFilter = null;
 
         // Initialize the map
         function initMap() {
@@ -324,7 +400,7 @@
             
             try {
                 // Check if API key is set
-                if (CONFIG.API_KEY === 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI') {
+                if (CONFIG.API_KEY === 'YOUR_API_KEY_HERE') {
                     throw new Error('API key not configured. Please replace YOUR_API_KEY_HERE with your actual Google Sheets API key.');
                 }
 
@@ -384,9 +460,7 @@
                         'Name': 'Victor',
                         'Latitude': 42.341412,
                         'Longitude': -71.459623,
-                        'Number of dogs': 1,
                         'Group': '1',
-                        'Today': 'Sample data - connect to Google Sheets to see real data',
                         'Dog ID': 1,
                         'New Assignment': 'Route A',
                         'Capacity': 3
@@ -397,9 +471,7 @@
                         'Name': 'Nate',
                         'Latitude': 42.37838771,
                         'Longitude': -71.45234923,
-                        'Number of dogs': 2,
                         'Group': '2',
-                        'Today': 'Sample data - connect to Google Sheets to see real data',
                         'Dog ID': 6,
                         'New Assignment': 'Route B',
                         'Capacity': 1
@@ -414,10 +486,12 @@
             const colorBy = document.getElementById('colorBy').value;
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
 
-            // Filter data based on search
+            // Filter data based on search and legend filter
             filteredData = allData.filter(row => {
                 const searchText = `${row['Dog Name']} ${row['Address']} ${row['Name']} ${row['Group']} ${row['New Assignment']} ${row['Capacity']}`.toLowerCase();
-                return searchText.includes(searchTerm);
+                const matchesSearch = searchText.includes(searchTerm);
+                const matchesFilter = currentFilter === null || row[colorBy] === currentFilter;
+                return matchesSearch && matchesFilter;
             });
 
             // Clear existing markers
@@ -439,20 +513,24 @@
                 const marker = L.circleMarker([lat, lng], {
                     radius: 8,
                     fillColor: color,
-                    color: '#ffffff',
-                    weight: 2,
+                    color: selectedRow === row ? '#000000' : '#ffffff',
+                    weight: selectedRow === row ? 3 : 2,
                     opacity: 1,
                     fillOpacity: 0.9
                 }).addTo(map);
 
-                // Create popup content
-                const popupContent = createPopupContent(row, index);
-                marker.bindPopup(popupContent, {
-                    maxWidth: 400,
-                    className: 'custom-popup'
+                // Add click event to select marker
+                marker.on('click', () => {
+                    selectMarker(marker, row, index);
                 });
 
-                markers.push(marker);
+                // Add hover tooltip
+                marker.bindTooltip(`<strong>${row['Dog Name']}</strong><br>${row['Address']}`, {
+                    permanent: false,
+                    direction: 'top'
+                });
+
+                markers.push({marker, row, index});
             });
 
             // Update legend
@@ -460,6 +538,12 @@
             
             // Update status
             updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
+
+            // Fit map to markers if filtering
+            if (currentFilter && filteredData.length > 0) {
+                const group = new L.featureGroup(markers.map(m => m.marker));
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
         }
 
         // Generate color mapping
@@ -472,67 +556,83 @@
             });
         }
 
-        // Create popup content for editing
-        function createPopupContent(row, index) {
-            return `
-                <div class="popup-header">
+        // Select a marker
+        function selectMarker(marker, row, index) {
+            // Reset previous selection
+            if (selectedMarker) {
+                selectedMarker.setStyle({
+                    color: '#ffffff',
+                    weight: 2
+                });
+            }
+
+            // Set new selection
+            selectedMarker = marker;
+            selectedRow = row;
+            
+            marker.setStyle({
+                color: '#000000',
+                weight: 3
+            });
+
+            // Show edit form
+            showEditForm(row, index);
+        }
+
+        // Show edit form in left panel
+        function showEditForm(row, index) {
+            const editContent = document.getElementById('editContent');
+            editContent.innerHTML = `
+                <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">
                     ${row['Dog Name']}
                 </div>
-                <div class="popup-form">
-                    <div class="form-group">
-                        <label>Dog Name:</label>
-                        <input type="text" id="dogName_${index}" value="${row['Dog Name'] || ''}" />
-                    </div>
-                    <div class="form-group">
-                        <label>Address:</label>
-                        <input type="text" id="address_${index}" value="${row['Address'] || ''}" />
-                    </div>
-                    <div class="form-group">
-                        <label>Driver Name:</label>
-                        <input type="text" id="driverName_${index}" value="${row['Name'] || ''}" />
-                    </div>
-                    <div class="form-group">
-                        <label>Group:</label>
-                        <input type="text" id="group_${index}" value="${row['Group'] || ''}" />
-                    </div>
-                    <div class="form-group">
-                        <label>Number of Dogs:</label>
-                        <input type="number" id="numDogs_${index}" value="${row['Number of dogs'] || 1}" min="1" />
-                    </div>
-                    <div class="form-group">
-                        <label>New Assignment:</label>
-                        <input type="text" id="newAssignment_${index}" value="${row['New Assignment'] || ''}" />
-                    </div>
-                    <div class="form-group">
-                        <label>Capacity:</label>
-                        <input type="number" id="capacity_${index}" value="${row['Capacity'] || ''}" min="0" />
-                    </div>
-                    <div class="form-group">
-                        <label>Today's Notes:</label>
-                        <textarea id="today_${index}">${row['Today'] || ''}</textarea>
-                    </div>
-                    <div class="button-group">
-                        <button class="btn btn-primary" onclick="saveChanges(${index})">💾 Save Changes</button>
-                        <button class="btn btn-secondary" onclick="map.closePopup()">Cancel</button>
-                    </div>
+                <div style="font-size: 14px; color: #666; margin-bottom: 6px;">
+                    ${row['Address']}
+                </div>
+                <div style="font-size: 13px; color: #888; margin-bottom: 8px;">
+                    (${row['Group']}) (Capacity: ${row['Capacity'] || 'Not set'})
+                </div>
+                <div style="font-size: 14px; color: #555; margin-bottom: 15px; font-style: italic;">
+                    ${row['New Assignment'] || 'No assignment'}
+                </div>
+                
+                <div class="form-group">
+                    <label>Driver Name:</label>
+                    <input type="text" id="driverName_edit" value="${row['Name'] || ''}" />
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="saveChanges(${index})">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="clearSelection()">Cancel</button>
                 </div>
             `;
         }
 
+        // Clear selection
+        function clearSelection() {
+            if (selectedMarker) {
+                selectedMarker.setStyle({
+                    color: '#ffffff',
+                    weight: 2
+                });
+            }
+            selectedMarker = null;
+            selectedRow = null;
+            
+            document.getElementById('editContent').innerHTML = '<div class="no-selection">Click a marker on the map to edit dog information</div>';
+        }
+
         // Save changes to Google Sheets
         async function saveChanges(index) {
-            const row = filteredData[index];
+            const row = selectedRow;
             
-            // Get updated values
+            // Get updated values (only editable fields)
             const updatedData = {
-                'Dog Name': document.getElementById(`dogName_${index}`).value,
-                'Address': document.getElementById(`address_${index}`).value,
-                'Name': document.getElementById(`driverName_${index}`).value,
-                'Group': document.getElementById(`group_${index}`).value,
-                'Number of dogs': parseInt(document.getElementById(`numDogs_${index}`).value),
-                'New Assignment': document.getElementById(`newAssignment_${index}`).value,
-                'Capacity': parseInt(document.getElementById(`capacity_${index}`).value) || 0,
-                'Today': document.getElementById(`today_${index}`).value
+                'Dog Name': document.getElementById('dogName_edit').value,
+                'Address': document.getElementById('address_edit').value,
+                'Name': document.getElementById('driverName_edit').value,
+                'Group': document.getElementById('group_edit').value,
+                'New Assignment': document.getElementById('newAssignment_edit').value
             };
 
             try {
@@ -542,11 +642,9 @@
                 Object.assign(row, updatedData);
                 
                 updateStatus('⚠️ Changes saved locally! Note: Writing back to Google Sheets requires additional OAuth setup.', 'success');
-                map.closePopup();
                 updateMap();
                 
                 // TODO: Implement actual Google Sheets writing
-                // This requires OAuth2 authentication or a backend service
                 
             } catch (error) {
                 console.error('Error saving changes:', error);
@@ -554,15 +652,16 @@
             }
         }
 
-        // Update legend
+        // Update legend with clickable items
         function updateLegend() {
             const colorBy = document.getElementById('colorBy').value;
             const legendContent = document.getElementById('legendContent');
             
             let html = '';
             Object.entries(colorMap).forEach(([category, color]) => {
+                const isActive = currentFilter === category;
                 html += `
-                    <div class="legend-item">
+                    <div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
                         <span>${category}</span>
                     </div>
@@ -570,6 +669,19 @@
             });
             
             legendContent.innerHTML = html;
+        }
+
+        // Filter by category when legend item is clicked
+        function filterByCategory(category) {
+            currentFilter = currentFilter === category ? null : category;
+            updateMap();
+        }
+
+        // Clear filter
+        function clearFilter() {
+            currentFilter = null;
+            document.getElementById('searchInput').value = '';
+            updateMap();
         }
 
         // Update status message
@@ -581,6 +693,7 @@
 
         // Refresh data
         function refreshData() {
+            clearSelection();
             loadData();
         }
 
