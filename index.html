@@ -275,9 +275,9 @@
     <script>
         // Configuration
         const CONFIG = {
-            SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
-            WORKSHEET_NAME: 'Map',
-            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI', // You'll need to replace this
+            SHEET_ID: '17QMFeALjTRJZdMAn9fJPgeh7meL80scQ1KipKJ4jz2A',
+            WORKSHEET_NAME: 'Sheet1', // Change this to your actual tab name
+            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI', // Replace with: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
             DEFAULT_LAT: 42.3601,
             DEFAULT_LNG: -71.3589,
             DEFAULT_ZOOM: 11
@@ -319,11 +319,51 @@
 
         // Load data from Google Sheets
         async function loadData() {
-            updateStatus('Loading dog walking data...', 'loading');
+            updateStatus('Loading dog walking data from Google Sheets...', 'loading');
             
             try {
-                // For now, we'll use sample data. In production, this would call Google Sheets API
-                const sampleData = [
+                // Construct Google Sheets API URL
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.values || data.values.length < 2) {
+                    throw new Error('No data found in the sheet');
+                }
+                
+                // Parse the data
+                const headers = data.values[0];
+                const rows = data.values.slice(1);
+                
+                // Convert to objects
+                allData = rows.map(row => {
+                    const obj = {};
+                    headers.forEach((header, index) => {
+                        obj[header] = row[index] || '';
+                    });
+                    return obj;
+                }).filter(row => {
+                    // Filter out rows with missing coordinates
+                    const lat = parseFloat(row['Latitude']);
+                    const lng = parseFloat(row['Longitude']);
+                    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+                });
+
+                updateStatus(`Successfully loaded ${allData.length} locations!`, 'success');
+                updateMap();
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                updateStatus(`Error loading data: ${error.message}. Check console for details.`, 'error');
+                
+                // Fallback to sample data for testing
+                allData = [
                     {
                         'Address': '5 Doeskin Dr, Framingham, MA',
                         'Dog Name': 'Sydney',
@@ -336,30 +376,9 @@
                         'Group': '',
                         'Dog ID': 1,
                         'New Assignment': ''
-                    },
-                    {
-                        'Address': '384 Dutton Rd, Sudbury, MA',
-                        'Dog Name': 'Freddie & Norman',
-                        'District': 'A1 Sudbury West',
-                        'Latitude': 42.37838771,
-                        'Longitude': -71.45234923,
-                        'Number of dogs': 2,
-                        'Filter': 'Nate:2',
-                        'Today': 'Remove e-fence collar!',
-                        'Group': '',
-                        'Dog ID': 6,
-                        'New Assignment': ''
                     }
-                    // Add more sample data here...
                 ];
-
-                allData = sampleData;
-                updateStatus(`Loaded ${allData.length} locations successfully!`, 'success');
                 updateMap();
-                
-            } catch (error) {
-                console.error('Error loading data:', error);
-                updateStatus('Error loading data. Please check your connection.', 'error');
             }
         }
 
