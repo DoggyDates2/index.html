@@ -273,11 +273,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-        // Configuration
+        // Configuration - REPLACE THE API KEY WITH YOUR ACTUAL KEY
         const CONFIG = {
-            SHEET_ID: '17QMFeALjTRJZdMAn9fJPgeh7meL80scQ1KipKJ4jz2A',
-            WORKSHEET_NAME: 'Sheet1', // Change this to your actual tab name
-            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI', // Replace with: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
+            SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
+            WORKSHEET_NAME: 'Map',
+            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI', // REPLACE WITH: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
             DEFAULT_LAT: 42.3601,
             DEFAULT_LNG: -71.3589,
             DEFAULT_ZOOM: 11
@@ -322,24 +322,35 @@
             updateStatus('Loading dog walking data from Google Sheets...', 'loading');
             
             try {
+                // Check if API key is set
+                if (CONFIG.API_KEY === 'YOUR_API_KEY_HERE') {
+                    throw new Error('API key not configured. Please replace YOUR_API_KEY_HERE with your actual Google Sheets API key.');
+                }
+
                 // Construct Google Sheets API URL
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+                
+                console.log('Fetching data from:', url);
                 
                 const response = await fetch(url);
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
                 }
                 
                 const data = await response.json();
                 
                 if (!data.values || data.values.length < 2) {
-                    throw new Error('No data found in the sheet');
+                    throw new Error('No data found in the sheet. Make sure your sheet has data and is publicly accessible.');
                 }
                 
                 // Parse the data
                 const headers = data.values[0];
                 const rows = data.values.slice(1);
+                
+                console.log('Headers found:', headers);
+                console.log('Total rows:', rows.length);
                 
                 // Convert to objects
                 allData = rows.map(row => {
@@ -352,29 +363,44 @@
                     // Filter out rows with missing coordinates
                     const lat = parseFloat(row['Latitude']);
                     const lng = parseFloat(row['Longitude']);
-                    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+                    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && row['Dog Name'];
                 });
 
-                updateStatus(`Successfully loaded ${allData.length} locations!`, 'success');
+                console.log('Filtered data:', allData.length, 'valid locations');
+                updateStatus(`Successfully loaded ${allData.length} locations from Google Sheets!`, 'success');
                 updateMap();
                 
             } catch (error) {
                 console.error('Error loading data:', error);
-                updateStatus(`Error loading data: ${error.message}. Check console for details.`, 'error');
+                updateStatus(`Error: ${error.message}`, 'error');
                 
                 // Fallback to sample data for testing
+                console.log('Loading sample data for testing...');
                 allData = [
                     {
                         'Address': '5 Doeskin Dr, Framingham, MA',
-                        'Dog Name': 'Sydney',
+                        'Dog Name': 'Sydney (Sample)',
                         'District': 'A0 Wayside',
                         'Latitude': 42.341412,
                         'Longitude': -71.459623,
                         'Number of dogs': 1,
                         'Filter': 'Victor:1',
-                        'Today': '',
+                        'Today': 'Sample data - connect to Google Sheets to see real data',
                         'Group': '',
                         'Dog ID': 1,
+                        'New Assignment': ''
+                    },
+                    {
+                        'Address': '384 Dutton Rd, Sudbury, MA',
+                        'Dog Name': 'Freddie & Norman (Sample)',
+                        'District': 'A1 Sudbury West',
+                        'Latitude': 42.37838771,
+                        'Longitude': -71.45234923,
+                        'Number of dogs': 2,
+                        'Filter': 'Nate:2',
+                        'Today': 'Sample data - connect to Google Sheets to see real data',
+                        'Group': '',
+                        'Dog ID': 6,
                         'New Assignment': ''
                     }
                 ];
@@ -501,13 +527,15 @@
             try {
                 updateStatus('Saving changes...', 'loading');
                 
-                // Here you would make the API call to update Google Sheets
-                // For now, we'll just update locally
+                // Update local data
                 Object.assign(row, updatedData);
                 
-                updateStatus('Changes saved successfully!', 'success');
+                updateStatus('⚠️ Changes saved locally! Note: Writing back to Google Sheets requires additional OAuth setup.', 'success');
                 map.closePopup();
                 updateMap();
+                
+                // TODO: Implement actual Google Sheets writing
+                // This requires OAuth2 authentication or a backend service
                 
             } catch (error) {
                 console.error('Error saving changes:', error);
