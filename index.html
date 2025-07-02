@@ -242,15 +242,16 @@
         <div class="control-group">
             <label for="colorBy">Color by:</label>
             <select id="colorBy">
-                <option value="Filter">Filter Assignment</option>
-                <option value="District">District</option>
+                <option value="Driver Name">Driver Name</option>
+                <option value="Group Number">Group Number</option>
                 <option value="Number of dogs">Number of Dogs</option>
+                <option value="Capacity left">Capacity Left</option>
             </select>
         </div>
         
         <div class="control-group">
             <label for="searchInput">Search:</label>
-            <input type="text" id="searchInput" placeholder="Search dogs, addresses..." />
+            <input type="text" id="searchInput" placeholder="Search dogs, addresses, drivers, capacity..." />
         </div>
 
         <div class="control-group">
@@ -277,7 +278,7 @@
         const CONFIG = {
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
-            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI', // REPLACE WITH: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
+            API_KEY: 'YOUR_API_KEY_HERE', // REPLACE WITH: AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI
             DEFAULT_LAT: 42.3601,
             DEFAULT_LNG: -71.3589,
             DEFAULT_ZOOM: 11
@@ -380,28 +381,28 @@
                     {
                         'Address': '5 Doeskin Dr, Framingham, MA',
                         'Dog Name': 'Sydney (Sample)',
-                        'District': 'A0 Wayside',
+                        'Driver Name': 'Victor',
                         'Latitude': 42.341412,
                         'Longitude': -71.459623,
                         'Number of dogs': 1,
-                        'Filter': 'Victor:1',
+                        'Group Number': '1',
                         'Today': 'Sample data - connect to Google Sheets to see real data',
-                        'Group': '',
                         'Dog ID': 1,
-                        'New Assignment': ''
+                        'New Assignment': 'Route A',
+                        'Capacity left': 3
                     },
                     {
                         'Address': '384 Dutton Rd, Sudbury, MA',
                         'Dog Name': 'Freddie & Norman (Sample)',
-                        'District': 'A1 Sudbury West',
+                        'Driver Name': 'Nate',
                         'Latitude': 42.37838771,
                         'Longitude': -71.45234923,
                         'Number of dogs': 2,
-                        'Filter': 'Nate:2',
+                        'Group Number': '2',
                         'Today': 'Sample data - connect to Google Sheets to see real data',
-                        'Group': '',
                         'Dog ID': 6,
-                        'New Assignment': ''
+                        'New Assignment': 'Route B',
+                        'Capacity left': 1
                     }
                 ];
                 updateMap();
@@ -415,7 +416,7 @@
 
             // Filter data based on search
             filteredData = allData.filter(row => {
-                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Filter']}`.toLowerCase();
+                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Driver Name']} ${row['Group Number']} ${row['New Assignment']} ${row['Capacity left']}`.toLowerCase();
                 return searchText.includes(searchTerm);
             });
 
@@ -487,16 +488,24 @@
                         <input type="text" id="address_${index}" value="${row['Address'] || ''}" />
                     </div>
                     <div class="form-group">
-                        <label>District:</label>
-                        <input type="text" id="district_${index}" value="${row['District'] || ''}" />
+                        <label>Driver Name:</label>
+                        <input type="text" id="driverName_${index}" value="${row['Driver Name'] || ''}" />
                     </div>
                     <div class="form-group">
-                        <label>Filter Assignment:</label>
-                        <input type="text" id="filter_${index}" value="${row['Filter'] || ''}" />
+                        <label>Group Number:</label>
+                        <input type="text" id="groupNumber_${index}" value="${row['Group Number'] || ''}" />
                     </div>
                     <div class="form-group">
                         <label>Number of Dogs:</label>
                         <input type="number" id="numDogs_${index}" value="${row['Number of dogs'] || 1}" min="1" />
+                    </div>
+                    <div class="form-group">
+                        <label>New Assignment:</label>
+                        <input type="text" id="newAssignment_${index}" value="${row['New Assignment'] || ''}" />
+                    </div>
+                    <div class="form-group">
+                        <label>Capacity Left:</label>
+                        <input type="number" id="capacityLeft_${index}" value="${row['Capacity left'] || ''}" min="0" />
                     </div>
                     <div class="form-group">
                         <label>Today's Notes:</label>
@@ -518,9 +527,11 @@
             const updatedData = {
                 'Dog Name': document.getElementById(`dogName_${index}`).value,
                 'Address': document.getElementById(`address_${index}`).value,
-                'District': document.getElementById(`district_${index}`).value,
-                'Filter': document.getElementById(`filter_${index}`).value,
+                'Driver Name': document.getElementById(`driverName_${index}`).value,
+                'Group Number': document.getElementById(`groupNumber_${index}`).value,
                 'Number of dogs': parseInt(document.getElementById(`numDogs_${index}`).value),
+                'New Assignment': document.getElementById(`newAssignment_${index}`).value,
+                'Capacity left': parseInt(document.getElementById(`capacityLeft_${index}`).value) || 0,
                 'Today': document.getElementById(`today_${index}`).value
             };
 
