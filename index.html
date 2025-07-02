@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐕 Dog Walking Interactive Map</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        select, input {
+            padding: 8px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #map {
+            height: 70vh;
+            min-height: 500px;
+            margin: 0;
+        }
+
+        .status {
+            background: white;
+            padding: 10px 20px;
+            text-align: center;
+            font-weight: 600;
+            border-top: 1px solid #e1e5e9;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Custom popup styling */
+        .custom-popup {
+            min-width: 300px;
+        }
+
+        .popup-header {
+            background: #667eea;
+            color: white;
+            padding: 10px 15px;
+            margin: -10px -15px 15px -15px;
+            border-radius: 3px 3px 0 0;
+            font-weight: bold;
+        }
+
+        .popup-form {
+            display: grid;
+            gap: 10px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 12px;
+        }
+
+        .form-group input, .form-group textarea {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .legend {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-height: 300px;
+            overflow-y: auto;
+            min-width: 200px;
+            z-index: 1000;
+        }
+
+        .legend h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #333;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-group {
+                justify-content: space-between;
+            }
+
+            .legend {
+                position: relative;
+                top: auto;
+                right: auto;
+                margin: 20px;
+            }
+
+            #map {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐕 Dog Walking Interactive Map</h1>
+        <p>Click any marker to edit dog information</p>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="colorBy">Color by:</label>
+            <select id="colorBy">
+                <option value="Filter">Filter Assignment</option>
+                <option value="District">District</option>
+                <option value="Number of dogs">Number of Dogs</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="searchInput">Search:</label>
+            <input type="text" id="searchInput" placeholder="Search dogs, addresses..." />
+        </div>
+
+        <div class="control-group">
+            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh Data</button>
+        </div>
+    </div>
+
+    <div id="map"></div>
+    
+    <div class="legend" id="legend">
+        <h3>Legend</h3>
+        <div id="legendContent">Loading...</div>
+    </div>
+
+    <div class="status" id="status">
+        Loading dog walking data...
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Configuration
+        const CONFIG = {
+            SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
+            WORKSHEET_NAME: 'Map',
+            API_KEY: 'YOUR_API_KEY_HERE', // You'll need to replace this
+            DEFAULT_LAT: 42.3601,
+            DEFAULT_LNG: -71.3589,
+            DEFAULT_ZOOM: 11
+        };
+
+        // Color palette for different categories
+        const COLORS = [
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+            '#DDA0DD', '#98D8C8', '#FFD93D', '#6C5CE7', '#A29BFE',
+            '#FD79A8', '#FDCB6E', '#E17055', '#00B894', '#81ECEC',
+            '#FF7675', '#74B9FF', '#00CEC9', '#E84393', '#55A3FF',
+            '#FF6348', '#26DE81', '#FC427B', '#FF9F43', '#70A1FF',
+            '#5352ED', '#FF3838', '#2ED573', '#1E90FF', '#FF6B35',
+            '#F7931E', '#FFD23F', '#EE5A24', '#009432', '#006BA6',
+            '#0582CA', '#00A8CC', '#F18F01', '#C44569', '#F8B500',
+            '#6A0572', '#AB83A1', '#3B3B98', '#1B9CFC', '#00C9FF',
+            '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F1A'
+        ];
+
+        // Global variables
+        let map;
+        let markers = [];
+        let allData = [];
+        let filteredData = [];
+        let colorMap = {};
+
+        // Initialize the map
+        function initMap() {
+            map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add event listeners
+            document.getElementById('colorBy').addEventListener('change', updateMap);
+            document.getElementById('searchInput').addEventListener('input', updateMap);
+        }
+
+        // Load data from Google Sheets
+        async function loadData() {
+            updateStatus('Loading dog walking data...', 'loading');
+            
+            try {
+                // For now, we'll use sample data. In production, this would call Google Sheets API
+                const sampleData = [
+                    {
+                        'Address': '5 Doeskin Dr, Framingham, MA',
+                        'Dog Name': 'Sydney',
+                        'District': 'A0 Wayside',
+                        'Latitude': 42.341412,
+                        'Longitude': -71.459623,
+                        'Number of dogs': 1,
+                        'Filter': 'Victor:1',
+                        'Today': '',
+                        'Group': '',
+                        'Dog ID': 1,
+                        'New Assignment': ''
+                    },
+                    {
+                        'Address': '384 Dutton Rd, Sudbury, MA',
+                        'Dog Name': 'Freddie & Norman',
+                        'District': 'A1 Sudbury West',
+                        'Latitude': 42.37838771,
+                        'Longitude': -71.45234923,
+                        'Number of dogs': 2,
+                        'Filter': 'Nate:2',
+                        'Today': 'Remove e-fence collar!',
+                        'Group': '',
+                        'Dog ID': 6,
+                        'New Assignment': ''
+                    }
+                    // Add more sample data here...
+                ];
+
+                allData = sampleData;
+                updateStatus(`Loaded ${allData.length} locations successfully!`, 'success');
+                updateMap();
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                updateStatus('Error loading data. Please check your connection.', 'error');
+            }
+        }
+
+        // Update map with current filters
+        function updateMap() {
+            const colorBy = document.getElementById('colorBy').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+            // Filter data based on search
+            filteredData = allData.filter(row => {
+                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Filter']}`.toLowerCase();
+                return searchText.includes(searchTerm);
+            });
+
+            // Clear existing markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            // Generate color map
+            generateColorMap(colorBy);
+
+            // Add markers
+            filteredData.forEach((row, index) => {
+                const lat = parseFloat(row['Latitude']);
+                const lng = parseFloat(row['Longitude']);
+                
+                if (isNaN(lat) || isNaN(lng)) return;
+
+                const color = colorMap[row[colorBy]] || '#999999';
+                
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).addTo(map);
+
+                // Create popup content
+                const popupContent = createPopupContent(row, index);
+                marker.bindPopup(popupContent, {
+                    maxWidth: 400,
+                    className: 'custom-popup'
+                });
+
+                markers.push(marker);
+            });
+
+            // Update legend
+            updateLegend();
+            
+            // Update status
+            updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
+        }
+
+        // Generate color mapping
+        function generateColorMap(attribute) {
+            const uniqueValues = [...new Set(allData.map(row => row[attribute]))];
+            colorMap = {};
+            
+            uniqueValues.forEach((value, index) => {
+                colorMap[value] = COLORS[index % COLORS.length];
+            });
+        }
+
+        // Create popup content for editing
+        function createPopupContent(row, index) {
+            return `
+                <div class="popup-header">
+                    ${row['Dog Name']}
+                </div>
+                <div class="popup-form">
+                    <div class="form-group">
+                        <label>Dog Name:</label>
+                        <input type="text" id="dogName_${index}" value="${row['Dog Name'] || ''}" />
+                    </div>
+                    <div class="form-group">
+                        <label>Address:</label>
+                        <input type="text" id="address_${index}" value="${row['Address'] || ''}" />
+                    </div>
+                    <div class="form-group">
+                        <label>District:</label>
+                        <input type="text" id="district_${index}" value="${row['District'] || ''}" />
+                    </div>
+                    <div class="form-group">
+                        <label>Filter Assignment:</label>
+                        <input type="text" id="filter_${index}" value="${row['Filter'] || ''}" />
+                    </div>
+                    <div class="form-group">
+                        <label>Number of Dogs:</label>
+                        <input type="number" id="numDogs_${index}" value="${row['Number of dogs'] || 1}" min="1" />
+                    </div>
+                    <div class="form-group">
+                        <label>Today's Notes:</label>
+                        <textarea id="today_${index}">${row['Today'] || ''}</textarea>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn btn-primary" onclick="saveChanges(${index})">💾 Save Changes</button>
+                        <button class="btn btn-secondary" onclick="map.closePopup()">Cancel</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Save changes to Google Sheets
+        async function saveChanges(index) {
+            const row = filteredData[index];
+            
+            // Get updated values
+            const updatedData = {
+                'Dog Name': document.getElementById(`dogName_${index}`).value,
+                'Address': document.getElementById(`address_${index}`).value,
+                'District': document.getElementById(`district_${index}`).value,
+                'Filter': document.getElementById(`filter_${index}`).value,
+                'Number of dogs': parseInt(document.getElementById(`numDogs_${index}`).value),
+                'Today': document.getElementById(`today_${index}`).value
+            };
+
+            try {
+                updateStatus('Saving changes...', 'loading');
+                
+                // Here you would make the API call to update Google Sheets
+                // For now, we'll just update locally
+                Object.assign(row, updatedData);
+                
+                updateStatus('Changes saved successfully!', 'success');
+                map.closePopup();
+                updateMap();
+                
+            } catch (error) {
+                console.error('Error saving changes:', error);
+                updateStatus('Error saving changes. Please try again.', 'error');
+            }
+        }
+
+        // Update legend
+        function updateLegend() {
+            const colorBy = document.getElementById('colorBy').value;
+            const legendContent = document.getElementById('legendContent');
+            
+            let html = '';
+            Object.entries(colorMap).forEach(([category, color]) => {
+                html += `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: ${color}"></div>
+                        <span>${category}</span>
+                    </div>
+                `;
+            });
+            
+            legendContent.innerHTML = html;
+        }
+
+        // Update status message
+        function updateStatus(message, type = '') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // Refresh data
+        function refreshData() {
+            loadData();
+        }
+
+        // Initialize everything when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            loadData();
+        });
+    </script>
+</body>
+</html>
