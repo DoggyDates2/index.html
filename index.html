@@ -79,7 +79,7 @@
         }
 
         .left-panel {
-            width: 350px;
+            width: 280px;
             background: white;
             border-right: 2px solid #e1e5e9;
             display: flex;
@@ -106,17 +106,22 @@
             margin-bottom: 8px;
             font-size: 14px;
             cursor: pointer;
-            padding: 5px;
+            padding: 8px;
             border-radius: 4px;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
+            border: 1px solid transparent;
         }
 
         .legend-item:hover {
             background-color: #f8f9fa;
+            border-color: #dee2e6;
+            transform: translateX(2px);
         }
 
         .legend-item.active {
             background-color: #e3f2fd;
+            border-color: #2196F3;
+            font-weight: bold;
         }
 
         .legend-color {
@@ -320,6 +325,7 @@
         <div class="left-panel">
             <div class="legend-section">
                 <h3>🎨 Legend (Click to Filter)</h3>
+                <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
                 <div id="legendContent">Loading...</div>
                 <div class="clear-selection">
                     <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; margin-top: 10px;">Show All</button>
@@ -524,8 +530,8 @@
                     selectMarker(marker, row, index);
                 });
 
-                // Add hover tooltip
-                marker.bindTooltip(`<strong>${row['Dog Name']}</strong><br>${row['Address']}`, {
+                // Add hover tooltip with driver and group info
+                marker.bindTooltip(`<strong>${row['Dog Name']} - ${row['Name'] || 'No Driver'}: ${row['Group'] || 'No Group'}</strong><br>${row['Address']}`, {
                     permanent: false,
                     direction: 'top'
                 });
@@ -535,6 +541,18 @@
 
             // Update legend
             updateLegend();
+            
+            // Update filter status
+            const filterStatus = document.getElementById('filterStatus');
+            if (currentFilter) {
+                filterStatus.textContent = `Showing only: ${currentFilter}`;
+                filterStatus.style.color = '#2196F3';
+                filterStatus.style.fontWeight = 'bold';
+            } else {
+                filterStatus.textContent = 'Click any item below to filter';
+                filterStatus.style.color = '#666';
+                filterStatus.style.fontWeight = 'normal';
+            }
             
             // Update status
             updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
@@ -626,13 +644,9 @@
         async function saveChanges(index) {
             const row = selectedRow;
             
-            // Get updated values (only editable fields)
+            // Get updated driver name (only editable field)
             const updatedData = {
-                'Dog Name': document.getElementById('dogName_edit').value,
-                'Address': document.getElementById('address_edit').value,
-                'Name': document.getElementById('driverName_edit').value,
-                'Group': document.getElementById('group_edit').value,
-                'New Assignment': document.getElementById('newAssignment_edit').value
+                'Name': document.getElementById('driverName_edit').value
             };
 
             try {
@@ -641,8 +655,11 @@
                 // Update local data
                 Object.assign(row, updatedData);
                 
-                updateStatus('⚠️ Changes saved locally! Note: Writing back to Google Sheets requires additional OAuth setup.', 'success');
+                updateStatus('⚠️ Driver name updated locally! Note: Writing back to Google Sheets requires additional OAuth setup.', 'success');
                 updateMap();
+                
+                // Refresh the edit form to show updated data
+                showEditForm(row, index);
                 
                 // TODO: Implement actual Google Sheets writing
                 
@@ -660,8 +677,9 @@
             let html = '';
             Object.entries(colorMap).forEach(([category, color]) => {
                 const isActive = currentFilter === category;
+                const escapedCategory = category.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 html += `
-                    <div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
+                    <div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${escapedCategory}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
                         <span>${category}</span>
                     </div>
@@ -673,14 +691,30 @@
 
         // Filter by category when legend item is clicked
         function filterByCategory(category) {
-            currentFilter = currentFilter === category ? null : category;
+            console.log('Filtering by category:', category);
+            console.log('Current filter before:', currentFilter);
+            
+            // Toggle filter - if clicking same category, clear it
+            if (currentFilter === category) {
+                currentFilter = null;
+            } else {
+                currentFilter = category;
+            }
+            
+            console.log('Current filter after:', currentFilter);
+            
+            // Clear selection when filtering
+            clearSelection();
+            
             updateMap();
         }
 
         // Clear filter
         function clearFilter() {
+            console.log('Clearing all filters');
             currentFilter = null;
             document.getElementById('searchInput').value = '';
+            clearSelection();
             updateMap();
         }
 
