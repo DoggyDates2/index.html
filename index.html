@@ -285,7 +285,7 @@
 <body>
     <div class="header">
         <h1>🐕 Dog Walking Interactive Map</h1>
-        <p>📍 Pins (default) • 🅿️ Parking • 😊 Fields • ♦️ Diamonds (colon in group) • Smart colors!</p>
+        <p>📍 Pins • 🅿️ Parking • 😊 Fields • ♦️ Special Groups • Smart Colors with Conflict Detection!</p>
     </div>
 
     <div class="controls">
@@ -312,14 +312,6 @@
         <div class="left-panel">
             <div class="legend-section">
                 <h3>🎨 Legend (Click to Filter)</h3>
-                <div style="font-size: 11px; color: #666; margin-bottom: 8px; line-height: 1.3;">
-                    <strong>Simple Shape System:</strong><br>
-                    1. 🅿️ Parking emoji = "parking" in Dog Name<br>
-                    2. 😊 Smiley emoji = "field" in Dog Name<br>
-                    3. ♦️ Diamond = Group contains ":" (colon)<br>
-                    4. 📍 Pin = Everything else (default)<br>
-                    <strong>Smart Colors:</strong> Each driver gets a color based on first letter, with geographic conflict detection!
-                </div>
                 <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
                 <div id="legendContent">Loading...</div>
                 <div class="clear-selection">
@@ -419,15 +411,21 @@
         }
 
         function createPinIcon(color, isSelected = false) {
-            const size = 24;
+            const size = 30;
             const strokeColor = isSelected ? '#000000' : '#ffffff';
             const strokeWidth = isSelected ? 3 : 2;
             
             return L.divIcon({
-                html: `<svg width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}" filter="drop-shadow(2px 2px 4px rgba(0,0,0,0.3))"/></svg>`,
+                html: `<svg width="${size}" height="${size}" viewBox="0 0 30 40" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                    <path d="M15 0C6.7 0 0 6.7 0 15c0 8.3 15 25 15 25s15-16.7 15-25c0-8.3-6.7-15-15-15z" 
+                          fill="${color}" 
+                          stroke="${strokeColor}" 
+                          stroke-width="${strokeWidth}"/>
+                    <circle cx="15" cy="15" r="6" fill="rgba(255,255,255,0.3)"/>
+                </svg>`,
                 className: 'custom-pin-marker',
-                iconSize: [size, size],
-                iconAnchor: [size/2, size-2]
+                iconSize: [size, size + 10],
+                iconAnchor: [size/2, size + 10]
             });
         }
 
@@ -447,7 +445,9 @@
         // Initialize map
         function initMap() {
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            
+            // Google Maps-like styling with better contrast and cleaner roads
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap contributors, © CARTO',
                 subdomains: 'abcd',
                 maxZoom: 19
