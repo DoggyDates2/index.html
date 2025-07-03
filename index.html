@@ -274,6 +274,66 @@
             margin-bottom: 15px;
         }
 
+        /* Custom styling for markers to look like Google Maps pins */
+        .custom-marker {
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+        }
+
+        .leaflet-marker-pane .custom-marker:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        /* Custom styling for star markers */
+        .custom-star-marker {
+            cursor: pointer;
+        }
+
+        .custom-star-marker:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        /* Custom styling for diamond markers */
+        .custom-diamond-marker {
+            cursor: pointer;
+        }
+
+        .custom-diamond-marker:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        /* Custom styling for square markers */
+        .custom-square-marker {
+            cursor: pointer;
+        }
+
+        .custom-square-marker:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        /* Custom styling for pin markers */
+        .custom-pin-marker {
+            cursor: pointer;
+        }
+
+        .custom-pin-marker:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        /* Custom styling for emoji markers */
+        .custom-emoji-marker {
+            cursor: pointer;
+        }
+
+        .custom-emoji-marker:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s ease-in-out;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -298,7 +358,7 @@
 <body>
     <div class="header">
         <h1>🐕 Dog Walking Interactive Map</h1>
-        <p>Click any marker to edit • Click legend items to filter</p>
+        <p>Shapes: ":"=♦️ 1=● 2=■ 3=📍 • 🅿️=Parking 😊=Fields • Colors by first letter!</p>
     </div>
 
     <div class="controls">
@@ -325,6 +385,14 @@
         <div class="left-panel">
             <div class="legend-section">
                 <h3>🎨 Legend (Click to Filter)</h3>
+                <div style="font-size: 11px; color: #666; margin-bottom: 8px; line-height: 1.3;">
+                    <strong>Shape Priority:</strong><br>
+                    1. 🅿️ Parking emoji = "parking" in Dog Name (overrides group)<br>
+                    2. 😊 Smiley emoji = "field" in Dog Name (overrides group)<br>
+                    3. ♦️ Diamond = Group contains ":" (colon)<br>
+                    4. Group shapes: Contains "1"=● Contains "2"=■ Contains "3"=📍<br>
+                    <strong>Smart Colors:</strong> Each driver's color based on first letter of name (A=Red, B=Purple, C=Green, etc.) - guarantees consistency for any new drivers!
+                </div>
                 <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
                 <div id="legendContent">Loading...</div>
                 <div class="clear-selection">
@@ -363,19 +431,179 @@
             DEFAULT_ZOOM: 11
         };
 
-        // Color palette for different categories
-        const COLORS = [
-            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
-            '#DDA0DD', '#98D8C8', '#FFD93D', '#6C5CE7', '#A29BFE',
-            '#FD79A8', '#FDCB6E', '#E17055', '#00B894', '#81ECEC',
-            '#FF7675', '#74B9FF', '#00CEC9', '#E84393', '#55A3FF',
-            '#FF6348', '#26DE81', '#FC427B', '#FF9F43', '#70A1FF',
-            '#5352ED', '#FF3838', '#2ED573', '#1E90FF', '#FF6B35',
-            '#F7931E', '#FFD23F', '#EE5A24', '#009432', '#006BA6',
-            '#0582CA', '#00A8CC', '#F18F01', '#C44569', '#F8B500',
-            '#6A0572', '#AB83A1', '#3B3B98', '#1B9CFC', '#00C9FF',
-            '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F1A'
+        // Smart color mapping based on first letter of driver name (A-Z = 26 consistent colors!)
+        // This ensures ANY driver name gets a consistent color forever
+        const LETTER_COLORS = {
+            'A': '#B71C1C',    // Deep Red
+            'B': '#6A1B9A',    // Deep Purple  
+            'C': '#1B5E20',    // Deep Green
+            'D': '#F57F17',    // Deep Gold
+            'E': '#AD1457',    // Deep Pink
+            'F': '#BF360C',    // Deep Orange
+            'G': '#0D47A1',    // Deep Blue
+            'H': '#4A148C',    // Deep Violet
+            'I': '#E65100',    // Deep Orange
+            'J': '#006064',    // Deep Teal
+            'K': '#FF8F00',    // Deep Amber
+            'L': '#1A237E',    // Deep Indigo
+            'M': '#880E4F',    // Deep Rose
+            'N': '#33691E',    // Deep Lime Green
+            'O': '#D84315',    // Deep Red-Orange
+            'P': '#311B92',    // Deep Purple
+            'Q': '#827717',    // Deep Olive
+            'R': '#C2185B',    // Deep Pink
+            'S': '#2E7D32',    // Deep Forest Green
+            'T': '#FF5722',    // Bright Orange
+            'U': '#E91E63',    // Bright Pink
+            'V': '#9C27B0',    // Bright Purple
+            'W': '#FF9800',    // Bright Amber
+            'X': '#795548',    // Brown
+            'Y': '#607D8B',    // Blue Grey
+            'Z': '#5D4037'     // Dark Brown
+        };
+
+        // Mix of bright and deep fallback colors for unmapped names (no light colors!)
+        const BRIGHT_COLORS = [
+            '#B71C1C', '#6A1B9A', '#F57F17', '#AD1457', '#BF360C', 
+            '#0D47A1', '#4A148C', '#E65100', '#1B5E20', '#006064',
+            '#FF8F00', '#1A237E', '#880E4F', '#33691E', '#D84315',
+            '#311B92', '#827717', '#C2185B', '#2E7D32', '#FF5722',
+            '#E91E63', '#9C27B0', '#FF9800', '#795548', '#607D8B',
+            '#5D4037', '#FF6F00', '#C62828', '#7B1FA2', '#388E3C'
         ];
+
+        // Get color for any driver name based on first letter
+        function getDriverColor(driverName) {
+            if (!driverName || driverName.trim() === '') return '#999999';
+            const firstLetter = driverName.trim().charAt(0).toUpperCase();
+            return LETTER_COLORS[firstLetter] || '#999999';
+        }
+
+        // Create an emoji-based marker with specified emoji and color background
+        function createEmojiIcon(emoji, backgroundColor = '#ffffff', isSelected = false) {
+            const size = 40; // Increased from 32
+            const borderColor = isSelected ? '#000000' : '#333333';
+            const borderWidth = isSelected ? 3 : 2;
+            
+            const emojiHtml = `
+                <div style="
+                    width: ${size}px; 
+                    height: ${size}px; 
+                    background-color: ${backgroundColor}; 
+                    border: ${borderWidth}px solid ${borderColor}; 
+                    border-radius: 50%; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    font-size: 22px;
+                    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+                    box-sizing: border-box;
+                ">${emoji}</div>
+            `;
+            
+            return L.divIcon({
+                html: emojiHtml,
+                className: 'custom-emoji-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        }
+
+        // Create a star-shaped SVG icon with specified color
+        function createStarIcon(color, isSelected = false) {
+            const size = 24;
+            const strokeColor = isSelected ? '#000000' : '#ffffff';
+            const strokeWidth = isSelected ? 3 : 2;
+            
+            const svgIcon = `
+                <svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" 
+                          fill="${color}" 
+                          stroke="${strokeColor}" 
+                          stroke-width="${strokeWidth}"
+                          filter="drop-shadow(2px 2px 4px rgba(0,0,0,0.3))" />
+                </svg>
+            `;
+            
+            return L.divIcon({
+                html: svgIcon,
+                className: 'custom-star-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        }
+
+        // Create a diamond-shaped SVG icon with specified color
+        function createDiamondIcon(color, isSelected = false) {
+            const size = 28; // Increased from 20
+            const strokeColor = isSelected ? '#000000' : '#ffffff';
+            const strokeWidth = isSelected ? 3 : 2;
+            
+            const svgIcon = `
+                <svg width="${size}" height="${size}" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 2 L18 10 L10 18 L2 10 Z" 
+                          fill="${color}" 
+                          stroke="${strokeColor}" 
+                          stroke-width="${strokeWidth}"
+                          filter="drop-shadow(2px 2px 4px rgba(0,0,0,0.3))" />
+                </svg>
+            `;
+            
+            return L.divIcon({
+                html: svgIcon,
+                className: 'custom-diamond-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        }
+
+        // Create a square-shaped SVG icon with specified color
+        function createSquareIcon(color, isSelected = false) {
+            const size = 28; // Increased from 20
+            const strokeColor = isSelected ? '#000000' : '#ffffff';
+            const strokeWidth = isSelected ? 3 : 2;
+            
+            const svgIcon = `
+                <svg width="${size}" height="${size}" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="2" width="16" height="16" 
+                          fill="${color}" 
+                          stroke="${strokeColor}" 
+                          stroke-width="${strokeWidth}"
+                          filter="drop-shadow(2px 2px 4px rgba(0,0,0,0.3))" />
+                </svg>
+            `;
+            
+            return L.divIcon({
+                html: svgIcon,
+                className: 'custom-square-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        }
+
+        // Create a pin/teardrop-shaped SVG icon with specified color
+        function createPinIcon(color, isSelected = false) {
+            const size = 32; // Increased from 24
+            const strokeColor = isSelected ? '#000000' : '#ffffff';
+            const strokeWidth = isSelected ? 3 : 2;
+            
+            const svgIcon = `
+                <svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" 
+                          fill="${color}" 
+                          stroke="${strokeColor}" 
+                          stroke-width="${strokeWidth}"
+                          filter="drop-shadow(2px 2px 4px rgba(0,0,0,0.3))" />
+                </svg>
+            `;
+            
+            return L.divIcon({
+                html: svgIcon,
+                className: 'custom-pin-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size-2] // Anchor at bottom point of pin
+            });
+        }
 
         // Global variables
         let map;
@@ -391,8 +619,8 @@
         function initMap() {
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
             
-            // Use clean, minimal map style without buildings/clutter
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            // Use Google-like map style similar to your screenshot
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap contributors, © CARTO',
                 subdomains: 'abcd',
                 maxZoom: 19
@@ -490,6 +718,26 @@
             }
         }
 
+        // Generate color mapping with smart first-letter system
+        function generateColorMap(attribute) {
+            const uniqueValues = [...new Set(allData.map(row => row[attribute]))];
+            colorMap = {};
+            
+            if (attribute === 'Name') {
+                // Use smart first-letter coloring for driver names
+                uniqueValues.forEach((name) => {
+                    colorMap[name] = getDriverColor(name);
+                });
+            } else {
+                // For other attributes, use bright colors
+                uniqueValues.forEach((value, index) => {
+                    // Use the same letter-based system for consistency
+                    const firstChar = value ? value.toString().charAt(0).toUpperCase() : 'A';
+                    colorMap[value] = LETTER_COLORS[firstChar] || BRIGHT_COLORS[index % BRIGHT_COLORS.length];
+                });
+            }
+        }
+
         // Update map with current filters
         function updateMap() {
             const colorBy = document.getElementById('colorBy').value;
@@ -504,7 +752,7 @@
             });
 
             // Clear existing markers
-            markers.forEach(marker => map.removeLayer(marker));
+            markers.forEach(marker => map.removeLayer(marker.marker));
             markers = [];
 
             // Generate color map
@@ -518,28 +766,108 @@
                 if (isNaN(lat) || isNaN(lng)) return;
 
                 const color = colorMap[row[colorBy]] || '#999999';
+                const isSelected = selectedRow === row;
                 
-                const marker = L.circleMarker([lat, lng], {
-                    radius: 8,
-                    fillColor: color,
-                    color: selectedRow === row ? '#000000' : '#ffffff',
-                    weight: selectedRow === row ? 3 : 2,
-                    opacity: 1,
-                    fillOpacity: 0.9
-                }).addTo(map);
+                // Determine marker shape based on priority:
+                // 1. First check for special types in Dog Name (parking/field)
+                // 2. Then use Group column for shape (1=circle, 2=square, 3=pin)
+                const dogName = row['Dog Name'] || '';
+                const group = row['Group'] || '';
+                
+                const isParking = dogName.toLowerCase().includes('parking');
+                const isField = dogName.toLowerCase().includes('field');
+                
+                let marker;
+                let markerType = 'circle'; // default
+                
+                if (isParking) {
+                    // Parking gets parking emoji with driver's color background
+                    marker = L.marker([lat, lng], {
+                        icon: createEmojiIcon('🅿️', color, isSelected)
+                    }).addTo(map);
+                    markerType = 'parking';
+                } else if (isField) {
+                    // Fields get smiley emoji with driver's color background
+                    marker = L.marker([lat, lng], {
+                        icon: createEmojiIcon('😊', color, isSelected)
+                    }).addTo(map);
+                    markerType = 'field';
+                } else {
+                    // For regular locations, use Group column to determine shape
+                    // Check if group CONTAINS specific characters/numbers (handles complex group names)
+                    if (group.toString().includes(':')) {
+                        // Contains colon = Diamond
+                        marker = L.marker([lat, lng], {
+                            icon: createDiamondIcon(color, isSelected)
+                        }).addTo(map);
+                        markerType = 'diamond';
+                    } else if (group.toString().includes('1')) {
+                        // Contains 1 = Circle
+                        marker = L.circleMarker([lat, lng], {
+                            radius: 16, // Increased from 12
+                            fillColor: color,
+                            color: isSelected ? '#000000' : '#ffffff',
+                            weight: isSelected ? 4 : 3,
+                            opacity: 1,
+                            fillOpacity: 0.95,
+                            className: 'custom-marker'
+                        }).addTo(map);
+                        markerType = 'circle';
+                    } else if (group.toString().includes('2')) {
+                        // Contains 2 = Square
+                        marker = L.marker([lat, lng], {
+                            icon: createSquareIcon(color, isSelected)
+                        }).addTo(map);
+                        markerType = 'square';
+                    } else if (group.toString().includes('3')) {
+                        // Contains 3 = Pin
+                        marker = L.marker([lat, lng], {
+                            icon: createPinIcon(color, isSelected)
+                        }).addTo(map);
+                        markerType = 'pin';
+                    } else {
+                        // Default to circle for any other group
+                        marker = L.circleMarker([lat, lng], {
+                            radius: 16, // Increased from 12
+                            fillColor: color,
+                            color: isSelected ? '#000000' : '#ffffff',
+                            weight: isSelected ? 4 : 3,
+                            opacity: 1,
+                            fillOpacity: 0.95,
+                            className: 'custom-marker'
+                        }).addTo(map);
+                        markerType = 'circle';
+                    }
+                }
 
                 // Add click event to select marker
                 marker.on('click', () => {
                     selectMarker(marker, row, index);
                 });
 
-                // Add hover tooltip with driver and group info
-                marker.bindTooltip(`<strong>${row['Dog Name']} - ${row['Name'] || 'No Driver'}: ${row['Group'] || 'No Group'}</strong><br>${row['Address']}`, {
+                // Add hover tooltip with appropriate emoji and info
+                let tooltipText;
+                if (isParking) {
+                    tooltipText = `<strong>🅿️ ${row['Dog Name']} - ${row['Name'] || 'No Driver'}</strong><br>${row['Address']}`;
+                } else if (isField) {
+                    tooltipText = `<strong>😊 ${row['Dog Name']} - ${row['Name'] || 'No Driver'}</strong><br>${row['Address']}`;
+                } else {
+                    // Determine shape emoji based on what the group contains
+                    let shapeEmoji = '●'; // default
+                    if (group.toString().includes(':')) shapeEmoji = '♦️';
+                    else if (group.toString().includes('1')) shapeEmoji = '●';
+                    else if (group.toString().includes('2')) shapeEmoji = '■';
+                    else if (group.toString().includes('3')) shapeEmoji = '📍';
+                    
+                    tooltipText = `<strong>${shapeEmoji} ${row['Dog Name']} - ${row['Name'] || 'No Driver'}: Group ${row['Group'] || 'No Group'}</strong><br>${row['Address']}`;
+                }
+                
+                marker.bindTooltip(tooltipText, {
                     permanent: false,
                     direction: 'top'
                 });
 
-                markers.push({marker, row, index});
+                markers.push({marker, row, index, markerType});
             });
 
             // Update legend
@@ -567,34 +895,75 @@
             }
         }
 
-        // Generate color mapping
-        function generateColorMap(attribute) {
-            const uniqueValues = [...new Set(allData.map(row => row[attribute]))];
-            colorMap = {};
-            
-            uniqueValues.forEach((value, index) => {
-                colorMap[value] = COLORS[index % COLORS.length];
-            });
-        }
-
         // Select a marker
         function selectMarker(marker, row, index) {
             // Reset previous selection
             if (selectedMarker) {
-                selectedMarker.setStyle({
-                    color: '#ffffff',
-                    weight: 2
-                });
+                const prevMarkerData = markers.find(m => m.marker === selectedMarker);
+                if (prevMarkerData) {
+                    const color = colorMap[prevMarkerData.row[document.getElementById('colorBy').value]] || '#999999';
+                    
+                    switch(prevMarkerData.markerType) {
+                        case 'parking':
+                            selectedMarker.setIcon(createEmojiIcon('🅿️', color, false));
+                            break;
+                        case 'field':
+                            selectedMarker.setIcon(createEmojiIcon('😊', color, false));
+                            break;
+                        case 'diamond':
+                            selectedMarker.setIcon(createDiamondIcon(color, false));
+                            break;
+                        case 'square':
+                            selectedMarker.setIcon(createSquareIcon(color, false));
+                            break;
+                        case 'pin':
+                            selectedMarker.setIcon(createPinIcon(color, false));
+                            break;
+                        case 'circle':
+                        default:
+                            selectedMarker.setStyle({
+                                color: '#ffffff',
+                                weight: 3
+                            });
+                            break;
+                    }
+                }
             }
 
             // Set new selection
             selectedMarker = marker;
             selectedRow = row;
             
-            marker.setStyle({
-                color: '#000000',
-                weight: 3
-            });
+            // Update selected marker appearance
+            const markerData = markers.find(m => m.marker === marker);
+            if (markerData) {
+                const color = colorMap[row[document.getElementById('colorBy').value]] || '#999999';
+                
+                switch(markerData.markerType) {
+                    case 'parking':
+                        marker.setIcon(createEmojiIcon('🅿️', color, true));
+                        break;
+                    case 'field':
+                        marker.setIcon(createEmojiIcon('😊', color, true));
+                        break;
+                    case 'diamond':
+                        marker.setIcon(createDiamondIcon(color, true));
+                        break;
+                    case 'square':
+                        marker.setIcon(createSquareIcon(color, true));
+                        break;
+                    case 'pin':
+                        marker.setIcon(createPinIcon(color, true));
+                        break;
+                    case 'circle':
+                    default:
+                        marker.setStyle({
+                            color: '#000000',
+                            weight: 4
+                        });
+                        break;
+                }
+            }
 
             // Show edit form
             showEditForm(row, index);
@@ -632,10 +1001,35 @@
         // Clear selection
         function clearSelection() {
             if (selectedMarker) {
-                selectedMarker.setStyle({
-                    color: '#ffffff',
-                    weight: 2
-                });
+                const markerData = markers.find(m => m.marker === selectedMarker);
+                if (markerData) {
+                    const color = colorMap[markerData.row[document.getElementById('colorBy').value]] || '#999999';
+                    
+                    switch(markerData.markerType) {
+                        case 'parking':
+                            selectedMarker.setIcon(createEmojiIcon('🅿️', color, false));
+                            break;
+                        case 'field':
+                            selectedMarker.setIcon(createEmojiIcon('😊', color, false));
+                            break;
+                        case 'diamond':
+                            selectedMarker.setIcon(createDiamondIcon(color, false));
+                            break;
+                        case 'square':
+                            selectedMarker.setIcon(createSquareIcon(color, false));
+                            break;
+                        case 'pin':
+                            selectedMarker.setIcon(createPinIcon(color, false));
+                            break;
+                        case 'circle':
+                        default:
+                            selectedMarker.setStyle({
+                                color: '#ffffff',
+                                weight: 3
+                            });
+                            break;
+                    }
+                }
             }
             selectedMarker = null;
             selectedRow = null;
