@@ -446,8 +446,8 @@
         function initMap() {
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
             
-            // Clean, minimal style with clear streets but no color clutter
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            // Clean style with prominent dark streets on light background
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap contributors, © CARTO',
                 subdomains: 'abcd',
                 maxZoom: 19
@@ -582,10 +582,10 @@
                 let marker, markerType = 'pin';
                 
                 if (isParking) {
-                    marker = L.marker([lat, lng], {icon: createEmojiIcon('🅿️', color, isSelected)}).addTo(map);
+                    marker = L.marker([lat, lng], {icon: createParkingIcon(color, isSelected)}).addTo(map);
                     markerType = 'parking';
                 } else if (isField) {
-                    marker = L.marker([lat, lng], {icon: createEmojiIcon('😊', color, isSelected)}).addTo(map);
+                    marker = L.marker([lat, lng], {icon: createFieldIcon(color, isSelected)}).addTo(map);
                     markerType = 'field';
                 } else if (hasColon) {
                     marker = L.marker([lat, lng], {icon: createDiamondIcon(color, isSelected)}).addTo(map);
@@ -618,8 +618,8 @@
                 if (prevData) {
                     const color = colorMap[prevData.row[document.getElementById('colorBy').value]] || '#999999';
                     
-                    if (prevData.markerType === 'parking') selectedMarker.setIcon(createEmojiIcon('🅿️', color, false));
-                    else if (prevData.markerType === 'field') selectedMarker.setIcon(createEmojiIcon('😊', color, false));
+                    if (prevData.markerType === 'parking') selectedMarker.setIcon(createParkingIcon(color, false));
+                    else if (prevData.markerType === 'field') selectedMarker.setIcon(createFieldIcon(color, false));
                     else if (prevData.markerType === 'diamond') selectedMarker.setIcon(createDiamondIcon(color, false));
                     else selectedMarker.setIcon(createPinIcon(color, false));
                 }
@@ -632,8 +632,8 @@
             if (markerData) {
                 const color = colorMap[row[document.getElementById('colorBy').value]] || '#999999';
                 
-                if (markerData.markerType === 'parking') marker.setIcon(createEmojiIcon('🅿️', color, true));
-                else if (markerData.markerType === 'field') marker.setIcon(createEmojiIcon('😊', color, true));
+                if (markerData.markerType === 'parking') marker.setIcon(createParkingIcon(color, true));
+                else if (markerData.markerType === 'field') marker.setIcon(createFieldIcon(color, true));
                 else if (markerData.markerType === 'diamond') marker.setIcon(createDiamondIcon(color, true));
                 else marker.setIcon(createPinIcon(color, true));
             }
@@ -666,8 +666,8 @@
                 if (markerData) {
                     const color = colorMap[markerData.row[document.getElementById('colorBy').value]] || '#999999';
                     
-                    if (markerData.markerType === 'parking') selectedMarker.setIcon(createEmojiIcon('🅿️', color, false));
-                    else if (markerData.markerType === 'field') selectedMarker.setIcon(createEmojiIcon('😊', color, false));
+                    if (markerData.markerType === 'parking') selectedMarker.setIcon(createParkingIcon(color, false));
+                    else if (markerData.markerType === 'field') selectedMarker.setIcon(createFieldIcon(color, false));
                     else if (markerData.markerType === 'diamond') selectedMarker.setIcon(createDiamondIcon(color, false));
                     else selectedMarker.setIcon(createPinIcon(color, false));
                 }
