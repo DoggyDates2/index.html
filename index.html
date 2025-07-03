@@ -358,7 +358,7 @@
 <body>
     <div class="header">
         <h1>🐕 Dog Walking Interactive Map</h1>
-        <p>Shapes: ":"=♦️ 1=● 2=■ 3=📍 • 🅿️=Parking 😊=Fields • Colors by first letter!</p>
+        <p>Shapes: ":"=♦️ 1=● 2=■ 3=📍 • 🅿️=Parking 😊=Fields • Smart colors avoid nearby conflicts!</p>
     </div>
 
     <div class="controls">
@@ -391,7 +391,7 @@
                     2. 😊 Smiley emoji = "field" in Dog Name (overrides group)<br>
                     3. ♦️ Diamond = Group contains ":" (colon)<br>
                     4. Group shapes: Contains "1"=● Contains "2"=■ Contains "3"=📍<br>
-                    <strong>Smart Colors:</strong> Each driver's color based on first letter of name (A=Red, B=Purple, C=Green, etc.) - guarantees consistency for any new drivers!
+                    <strong>Smart Colors:</strong> Each driver's color based on first letter of name, BUT if two drivers with same color are within 3 miles of each other, one gets automatically reassigned a different color for clarity!
                 </div>
                 <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
                 <div id="legendContent">Loading...</div>
@@ -462,6 +462,19 @@
             'Z': '#5D4037'     // Dark Brown
         };
 
+        // Expanded color palette for conflict resolution (50+ additional colors)
+        const CONFLICT_COLORS = [
+            '#E53935', '#D81B60', '#8E24AA', '#5E35B1', '#3949AB', '#1E88E5',
+            '#039BE5', '#00ACC1', '#00897B', '#43A047', '#7CB342', '#C0CA33',
+            '#FDD835', '#FFB300', '#FB8C00', '#F4511E', '#6D4C41', '#757575',
+            '#546E7A', '#F06292', '#BA68C8', '#9575CD', '#7986CB', '#64B5F6',
+            '#4FC3F7', '#4DD0E1', '#4DB6AC', '#81C784', '#AED581', '#DCE775',
+            '#FFF176', '#FFD54F', '#FFCC02', '#FF8A65', '#A1887F', '#90A4AE',
+            '#EC407A', '#AB47BC', '#7E57C2', '#5C6BC0', '#42A5F5', '#29B6F6',
+            '#26C6DA', '#26A69A', '#66BB6A', '#9CCC65', '#D4E157', '#FFEE58',
+            '#FFCA28', '#FFA726', '#FF7043', '#8D6E63', '#78909C', '#FF5252'
+        ];
+
         // Mix of bright and deep fallback colors for unmapped names (no light colors!)
         const BRIGHT_COLORS = [
             '#B71C1C', '#6A1B9A', '#F57F17', '#AD1457', '#BF360C', 
@@ -472,6 +485,18 @@
             '#5D4037', '#FF6F00', '#C62828', '#7B1FA2', '#388E3C'
         ];
 
+        // Calculate distance between two lat/lng points in miles
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 3959; // Earth's radius in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
         // Get color for any driver name based on first letter
         function getDriverColor(driverName) {
             if (!driverName || driverName.trim() === '') return '#999999';
@@ -481,7 +506,7 @@
 
         // Create an emoji-based marker with specified emoji and color background
         function createEmojiIcon(emoji, backgroundColor = '#ffffff', isSelected = false) {
-            const size = 40; // Increased from 32
+            const size = 28; // Reduced from 40
             const borderColor = isSelected ? '#000000' : '#333333';
             const borderWidth = isSelected ? 3 : 2;
             
@@ -495,7 +520,7 @@
                     display: flex; 
                     align-items: center; 
                     justify-content: center; 
-                    font-size: 22px;
+                    font-size: 16px;
                     filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
                     box-sizing: border-box;
                 ">${emoji}</div>
@@ -535,7 +560,7 @@
 
         // Create a diamond-shaped SVG icon with specified color
         function createDiamondIcon(color, isSelected = false) {
-            const size = 28; // Increased from 20
+            const size = 20; // Reduced from 28
             const strokeColor = isSelected ? '#000000' : '#ffffff';
             const strokeWidth = isSelected ? 3 : 2;
             
@@ -559,7 +584,7 @@
 
         // Create a square-shaped SVG icon with specified color
         function createSquareIcon(color, isSelected = false) {
-            const size = 28; // Increased from 20
+            const size = 20; // Reduced from 28
             const strokeColor = isSelected ? '#000000' : '#ffffff';
             const strokeWidth = isSelected ? 3 : 2;
             
@@ -583,7 +608,7 @@
 
         // Create a pin/teardrop-shaped SVG icon with specified color
         function createPinIcon(color, isSelected = false) {
-            const size = 32; // Increased from 24
+            const size = 24; // Reduced from 32
             const strokeColor = isSelected ? '#000000' : '#ffffff';
             const strokeWidth = isSelected ? 3 : 2;
             
@@ -718,20 +743,109 @@
             }
         }
 
-        // Generate color mapping with smart first-letter system
+        // Generate color mapping with smart geographic conflict detection
         function generateColorMap(attribute) {
             const uniqueValues = [...new Set(allData.map(row => row[attribute]))];
             colorMap = {};
             
             if (attribute === 'Name') {
-                // Use smart first-letter coloring for driver names
+                // Step 1: Assign initial colors based on first letter
+                const driverData = [];
                 uniqueValues.forEach((name) => {
-                    colorMap[name] = getDriverColor(name);
+                    const driverColor = getDriverColor(name);
+                    colorMap[name] = driverColor;
+                    
+                    // Collect driver location data for conflict detection
+                    const driverRows = allData.filter(row => row['Name'] === name);
+                    if (driverRows.length > 0) {
+                        // Use first location for this driver (could average if multiple)
+                        const firstRow = driverRows[0];
+                        const lat = parseFloat(firstRow['Latitude']);
+                        const lng = parseFloat(firstRow['Longitude']);
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            driverData.push({
+                                name: name,
+                                lat: lat,
+                                lng: lng,
+                                originalColor: driverColor,
+                                currentColor: driverColor
+                            });
+                        }
+                    }
                 });
+
+                // Step 2: Detect and resolve geographic conflicts
+                const CONFLICT_DISTANCE_MILES = 3; // Drivers within 3 miles need different colors
+                let conflictColorIndex = 0;
+
+                // Sort drivers alphabetically for consistent priority
+                driverData.sort((a, b) => a.name.localeCompare(b.name));
+
+                // Check each driver against all others
+                for (let i = 0; i < driverData.length; i++) {
+                    const driver1 = driverData[i];
+                    
+                    for (let j = i + 1; j < driverData.length; j++) {
+                        const driver2 = driverData[j];
+                        
+                        // Skip if they already have different colors
+                        if (driver1.currentColor !== driver2.currentColor) continue;
+                        
+                        // Calculate distance between drivers
+                        const distance = calculateDistance(
+                            driver1.lat, driver1.lng,
+                            driver2.lat, driver2.lng
+                        );
+                        
+                        // If too close and same color, reassign the later driver
+                        if (distance <= CONFLICT_DISTANCE_MILES) {
+                            // Find a conflict color that doesn't create new conflicts
+                            let newColor = null;
+                            let attempts = 0;
+                            
+                            while (!newColor && attempts < CONFLICT_COLORS.length) {
+                                const candidateColor = CONFLICT_COLORS[conflictColorIndex % CONFLICT_COLORS.length];
+                                conflictColorIndex++;
+                                attempts++;
+                                
+                                // Check if this color conflicts with any nearby drivers
+                                let hasConflict = false;
+                                for (let k = 0; k < driverData.length; k++) {
+                                    if (k === j) continue; // Don't check against self
+                                    
+                                    const otherDriver = driverData[k];
+                                    if (otherDriver.currentColor === candidateColor) {
+                                        const distanceToOther = calculateDistance(
+                                            driver2.lat, driver2.lng,
+                                            otherDriver.lat, otherDriver.lng
+                                        );
+                                        if (distanceToOther <= CONFLICT_DISTANCE_MILES) {
+                                            hasConflict = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if (!hasConflict) {
+                                    newColor = candidateColor;
+                                }
+                            }
+                            
+                            // Assign the new color
+                            if (newColor) {
+                                driver2.currentColor = newColor;
+                                colorMap[driver2.name] = newColor;
+                                console.log(`🎨 Conflict resolved: ${driver2.name} changed from ${driver1.currentColor} to ${newColor} (${distance.toFixed(1)} miles from ${driver1.name})`);
+                            } else {
+                                console.warn(`⚠️ Could not resolve conflict between ${driver1.name} and ${driver2.name}`);
+                            }
+                        }
+                    }
+                }
+                
             } else {
-                // For other attributes, use bright colors
+                // For other attributes, use simple letter-based system
                 uniqueValues.forEach((value, index) => {
-                    // Use the same letter-based system for consistency
                     const firstChar = value ? value.toString().charAt(0).toUpperCase() : 'A';
                     colorMap[value] = LETTER_COLORS[firstChar] || BRIGHT_COLORS[index % BRIGHT_COLORS.length];
                 });
@@ -804,7 +918,7 @@
                     } else if (group.toString().includes('1')) {
                         // Contains 1 = Circle
                         marker = L.circleMarker([lat, lng], {
-                            radius: 16, // Increased from 12
+                            radius: 10, // Reduced from 16
                             fillColor: color,
                             color: isSelected ? '#000000' : '#ffffff',
                             weight: isSelected ? 4 : 3,
@@ -828,7 +942,7 @@
                     } else {
                         // Default to circle for any other group
                         marker = L.circleMarker([lat, lng], {
-                            radius: 16, // Increased from 12
+                            radius: 10, // Reduced from 16
                             fillColor: color,
                             color: isSelected ? '#000000' : '#ffffff',
                             weight: isSelected ? 4 : 3,
