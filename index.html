@@ -255,11 +255,11 @@
             margin-bottom: 15px;
         }
 
-        .custom-pin-marker, .custom-diamond-marker, .custom-emoji-marker {
+        .custom-pin-marker, .custom-diamond-marker, .custom-parking-marker, .custom-field-marker {
             cursor: pointer;
         }
 
-        .custom-pin-marker:hover, .custom-diamond-marker:hover, .custom-emoji-marker:hover {
+        .custom-pin-marker:hover, .custom-diamond-marker:hover, .custom-parking-marker:hover, .custom-field-marker:hover {
             transform: scale(1.1);
             transition: transform 0.2s ease-in-out;
         }
@@ -285,7 +285,7 @@
 <body>
     <div class="header">
         <h1>🐕 Dog Walking Interactive Map</h1>
-        <p>📍 Pins • 🅿️ Parking • 😊 Fields • ♦️ Special Groups • Smart Colors with Conflict Detection!</p>
+        <p>📍 Pins • Ⓟ Parking • Ⓕ Fields • ♦️ Special Groups • Smart Colors with Conflict Detection!</p>
     </div>
 
     <div class="controls">
@@ -598,8 +598,8 @@
                 marker.on('click', () => selectMarker(marker, row, index));
 
                 let tooltipText;
-                if (isParking) tooltipText = `<strong>🅿️ ${row['Dog Name']} - ${row['Name'] || 'No Driver'}</strong><br>${row['Address']}`;
-                else if (isField) tooltipText = `<strong>😊 ${row['Dog Name']} - ${row['Name'] || 'No Driver'}</strong><br>${row['Address']}`;
+                if (isParking) tooltipText = `<strong>P ${row['Dog Name']} - ${row['Name'] || 'No Driver'}</strong><br>${row['Address']}`;
+                else if (isField) tooltipText = `<strong>F ${row['Dog Name']} - ${row['Name'] || 'No Driver'}</strong><br>${row['Address']}`;
                 else if (hasColon) tooltipText = `<strong>♦️ ${row['Dog Name']} - ${row['Name'] || 'No Driver'}: Group ${row['Group']}</strong><br>${row['Address']}`;
                 else tooltipText = `<strong>📍 ${row['Dog Name']} - ${row['Name'] || 'No Driver'}: Group ${row['Group']}</strong><br>${row['Address']}`;
                 
