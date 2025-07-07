@@ -264,6 +264,26 @@
             transition: transform 0.2s ease-in-out;
         }
 
+        .setup-notice {
+            background: #e7f3ff;
+            border: 2px solid #2196F3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px;
+            text-align: center;
+        }
+
+        .setup-notice h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+
+        .setup-notice p {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -308,6 +328,12 @@
         </div>
     </div>
 
+    <!-- Setup Notice -->
+    <div class="setup-notice" id="setupNotice">
+        <h3>⚙️ Google Apps Script Setup Required</h3>
+        <p>To enable saving changes back to your Google Sheet, please deploy the Google Apps Script and add your Web App URL to the CONFIG section below.</p>
+    </div>
+
     <div class="main-content">
         <div class="left-panel">
             <div class="legend-section">
@@ -345,6 +371,8 @@
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
             API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
+            // ADD YOUR GOOGLE APPS SCRIPT WEB APP URL HERE:
+            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzMNC-LnOiD1wCf6bAg5Z7JezzYnyoqqMKLJKRXvKfQnu7I9fLE9mi5SdGI6jMTPhE_fA/exec',
             DEFAULT_LAT: 42.3601,
             DEFAULT_LNG: -71.3589,
             DEFAULT_ZOOM: 11
@@ -371,7 +399,7 @@
 
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
-        let selectedMarker = null, selectedRow = null, currentFilter = null;
+        let selectedMarker = null, selectedRow = null, selectedRowIndex = null, currentFilter = null;
 
         // Helper functions
         function getDriverColor(name) {
@@ -396,7 +424,7 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // Icon creation functions (ONLY 3 FUNCTIONS - NO SQUARES!)
+        // Icon creation functions
         function createEmojiIcon(emoji, backgroundColor, isSelected = false) {
             const size = 28;
             const borderColor = isSelected ? '#000000' : '#333333';
@@ -411,7 +439,7 @@
         }
 
         function createPinIcon(color, isSelected = false) {
-            const size = 21; // Reduced from 30 (about 30% smaller)
+            const size = 21;
             const strokeColor = isSelected ? '#000000' : '#ffffff';
             const strokeWidth = isSelected ? 3 : 2;
             
@@ -430,7 +458,7 @@
         }
 
         function createDiamondIcon(color, isSelected = false) {
-            const size = 26; // Increased from 20 for better visibility
+            const size = 26;
             const strokeColor = isSelected ? '#000000' : '#ffffff';
             const strokeWidth = isSelected ? 3 : 2;
             
@@ -442,11 +470,66 @@
             });
         }
 
+        function createParkingIcon(color, isSelected = false) {
+            return createEmojiIcon('Ⓟ', color, isSelected);
+        }
+
+        function createFieldIcon(color, isSelected = false) {
+            return createEmojiIcon('Ⓕ', color, isSelected);
+        }
+
+        // Check if Apps Script is configured
+        function checkAppsScriptSetup() {
+            if (!CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.trim() === '') {
+                document.getElementById('setupNotice').style.display = 'block';
+                return false;
+            } else {
+                document.getElementById('setupNotice').style.display = 'none';
+                return true;
+            }
+        }
+
+        // Apps Script API functions
+        async function callAppsScript(action, data = {}) {
+            if (!checkAppsScriptSetup()) {
+                throw new Error('Google Apps Script URL not configured');
+            }
+
+            const payload = {
+                action: action,
+                ...data
+            };
+
+            try {
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.message || 'Unknown error from Apps Script');
+                }
+
+                return result;
+            } catch (error) {
+                console.error('Apps Script API Error:', error);
+                throw error;
+            }
+        }
+
         // Initialize map
         function initMap() {
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
             
-            // Clean style with prominent dark streets on light background
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap contributors, © CARTO',
                 subdomains: 'abcd',
@@ -455,6 +538,9 @@
 
             document.getElementById('colorBy').addEventListener('change', updateMap);
             document.getElementById('searchInput').addEventListener('input', updateMap);
+            
+            // Check setup on load
+            checkAppsScriptSetup();
         }
 
         // Generate color mapping
@@ -595,7 +681,13 @@
                     markerType = 'pin';
                 }
 
-                marker.on('click', () => selectMarker(marker, row, index));
+                // Find the original index in allData for this row
+                const originalIndex = allData.findIndex(originalRow => 
+                    originalRow['Dog ID'] === row['Dog ID'] || 
+                    (originalRow['Dog Name'] === row['Dog Name'] && originalRow['Address'] === row['Address'])
+                );
+
+                marker.on('click', () => selectMarker(marker, row, originalIndex));
 
                 let tooltipText;
                 if (isParking) tooltipText = `<strong>P ${row['Dog Name']} - ${row['Name'] || 'No Driver'}</strong><br>${row['Address']}`;
@@ -604,7 +696,7 @@
                 else tooltipText = `<strong>📍 ${row['Dog Name']} - ${row['Name'] || 'No Driver'}: Group ${row['Group']}</strong><br>${row['Address']}`;
                 
                 marker.bindTooltip(tooltipText, {permanent: false, direction: 'top'});
-                markers.push({marker, row, index, markerType});
+                markers.push({marker, row, index: originalIndex, markerType});
             });
 
             updateLegend();
@@ -627,6 +719,7 @@
 
             selectedMarker = marker;
             selectedRow = row;
+            selectedRowIndex = index;
             
             const markerData = markers.find(m => m.marker === marker);
             if (markerData) {
@@ -643,6 +736,10 @@
 
         // Edit form
         function showEditForm(row, index) {
+            const isAppsScriptConfigured = checkAppsScriptSetup();
+            const saveButtonText = isAppsScriptConfigured ? '💾 Save to Sheet' : '💾 Save Locally';
+            const saveButtonClass = isAppsScriptConfigured ? 'btn-primary' : 'btn-secondary';
+            
             document.getElementById('editContent').innerHTML = `
                 <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${row['Dog Name']}</div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 6px;">${row['Address']}</div>
@@ -652,8 +749,11 @@
                     <label>Driver Name:</label>
                     <input type="text" id="driverName_edit" value="${row['Name'] || ''}" />
                 </div>
+                ${!isAppsScriptConfigured ? 
+                    '<div style="font-size: 12px; color: #856404; margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 4px;">⚠️ Changes will only be saved locally until Apps Script is configured</div>' : 
+                    ''}
                 <div class="button-group">
-                    <button class="btn btn-primary" onclick="saveChanges(${index})">💾 Save</button>
+                    <button class="btn ${saveButtonClass}" onclick="saveChanges(${index})">${saveButtonText}</button>
                     <button class="btn btn-secondary" onclick="clearSelection()">Cancel</button>
                 </div>
             `;
@@ -674,6 +774,7 @@
             }
             selectedMarker = null;
             selectedRow = null;
+            selectedRowIndex = null;
             document.getElementById('editContent').innerHTML = '<div class="no-selection">Click a marker on the map to edit dog information</div>';
         }
 
@@ -681,12 +782,40 @@
         async function saveChanges(index) {
             try {
                 updateStatus('Saving changes...', 'loading');
-                selectedRow['Name'] = document.getElementById('driverName_edit').value;
-                updateStatus('Driver name updated locally!', 'success');
+                
+                const newDriverName = document.getElementById('driverName_edit').value;
+                const updatedData = { 'Name': newDriverName };
+
+                // Update local data immediately
+                selectedRow['Name'] = newDriverName;
+                allData[index]['Name'] = newDriverName;
+
+                if (checkAppsScriptSetup()) {
+                    try {
+                        // Try to save to Google Sheet via Apps Script
+                        const result = await callAppsScript('updateRow', {
+                            rowIndex: index,
+                            updatedData: updatedData
+                        });
+                        
+                        updateStatus(`✅ Saved to Google Sheet! (${result.message})`, 'success');
+                        console.log('Apps Script result:', result);
+                        
+                    } catch (error) {
+                        console.error('Error saving to sheet:', error);
+                        updateStatus(`⚠️ Saved locally, but failed to save to sheet: ${error.message}`, 'error');
+                    }
+                } else {
+                    updateStatus('✅ Saved locally! (Configure Apps Script to save to sheet)', 'success');
+                }
+
+                // Refresh the map and edit form
                 updateMap();
                 showEditForm(selectedRow, index);
+                
             } catch (error) {
                 updateStatus('Error saving changes', 'error');
+                console.error('Save error:', error);
             }
         }
 
