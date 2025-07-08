@@ -654,8 +654,8 @@
                 updateStatus(`Error: ${error.message}`, 'error');
                 // Sample data in Wellesley area
                 allData = [
-                    {'Address': '10 Central St, Wellesley, MA', 'Dog Name': 'Sydney (Sample)', 'Name': 'Victor', 'Latitude': 42.2968, 'Longitude': -71.2636, 'Group': '1', 'Dog ID': 1, 'Capacity': 3, 'Combined': 'Sydney - 10 Central St'},
-                    {'Address': '20 Washington St, Wellesley Hills, MA', 'Dog Name': 'Freddie & Norman (Sample)', 'Name': 'Nate', 'Latitude': 42.3060, 'Longitude': -71.2743, 'Group': '2', 'Dog ID': 6, 'Capacity': 1, 'Combined': 'Freddie & Norman - 20 Washington St'}
+                    {'Address': '10 Central St, Wellesley, MA', 'Dog Name': 'Sydney (Sample)', 'Name': 'Victor', 'Latitude': 42.2968, 'Longitude': -71.2636, 'Group': '1', 'Dog ID': 1, 'Capacity': 3, 'Combined': 'Sydney - 10 Central St', 'Column K': ''},
+                    {'Address': '20 Washington St, Wellesley Hills, MA', 'Dog Name': 'Freddie & Norman (Sample)', 'Name': 'Nate', 'Latitude': 42.3060, 'Longitude': -71.2743, 'Group': '2', 'Dog ID': 6, 'Capacity': 1, 'Combined': 'Freddie & Norman - 20 Washington St', 'Column K': 'Special Notes'}
                 ];
                 updateMap();
             }
@@ -717,10 +717,18 @@
                 marker.on('click', () => selectMarker(marker, row, originalIndex));
 
                 let tooltipText;
-                if (isParking) tooltipText = `<strong>P ${row['Name'] || 'No Driver'}</strong><br>${row['Dog Name']}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else if (isField) tooltipText = `<strong>F ${row['Name'] || 'No Driver'}</strong><br>${row['Dog Name']}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else if (hasColon) tooltipText = `<strong>♦️ ${row['Name'] || 'No Driver'}</strong><br>${row['Dog Name']}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else tooltipText = `<strong>📍 ${row['Name'] || 'No Driver'}</strong><br>${row['Dog Name']}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                const combinedTitle = row['Combined'] || row['Dog Name'];
+                const columnK = row['Column K'] || '';
+                
+                if (isParking) tooltipText = `<strong>Ⓟ ${combinedTitle}</strong><br>Driver: ${row['Name'] || 'No Driver'}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                else if (isField) tooltipText = `<strong>Ⓕ ${combinedTitle}</strong><br>Driver: ${row['Name'] || 'No Driver'}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                else if (hasColon) tooltipText = `<strong>♦️ ${combinedTitle}</strong><br>Driver: ${row['Name'] || 'No Driver'}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                else tooltipText = `<strong>📍 ${combinedTitle}</strong><br>Driver: ${row['Name'] || 'No Driver'}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                
+                // Add Column K info if not blank
+                if (columnK && columnK.trim() !== '') {
+                    tooltipText += `<br>${columnK}`;
+                }
                 
                 marker.bindTooltip(tooltipText, {permanent: false, direction: 'bottom', offset: [0, 10]});
                 markers.push({marker, row, index: originalIndex, markerType});
@@ -769,13 +777,40 @@
             
             console.log('Showing edit form for index:', index, 'row:', row);
             
-            document.getElementById('editContent').innerHTML = `
-                <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${row['Combined'] || row['Dog Name']}</div>
+            const dogName = row['Dog Name'] || '';
+            const group = row['Group'] || '';
+            const combinedTitle = row['Combined'] || row['Dog Name'];
+            const columnK = row['Column K'] || '';
+            
+            const isParking = dogName.toLowerCase().includes('parking');
+            const isField = dogName.toLowerCase().includes('field');
+            const hasColon = group.toString().includes(':');
+            
+            let markerIcon;
+            if (isParking) markerIcon = 'Ⓟ';
+            else if (isField) markerIcon = 'Ⓕ';
+            else if (hasColon) markerIcon = '♦️';
+            else markerIcon = '📍';
+            
+            let editHtml = `
+                <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${markerIcon} ${combinedTitle}</div>
+                <div style="font-size: 14px; color: #666; margin-bottom: 6px;">Driver: ${row['Name'] || 'No Driver'}</div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 6px;">${row['Address']}</div>
-                <div style="font-size: 13px; color: #888; margin-bottom: 8px;">Current Driver: ${row['Name'] || 'None'} | Group: ${row['Group']} | Capacity: ${row['Capacity'] || 'Not set'}</div>
-                <div class="form-group">
-                    <label>Callout:</label>
+                <div style="font-size: 13px; color: #888; margin-bottom: 8px;">Capacity: ${row['Capacity'] || 'Not set'}</div>`;
+            
+            // Add Column K info if not blank
+            if (columnK && columnK.trim() !== '') {
+                editHtml += `<div style="font-size: 13px; color: #888; margin-bottom: 8px;">${columnK}</div>`;
+            }
+            
+            editHtml += `
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Callout (Driver):</label>
                     <input type="text" id="driverName_edit" value="${row['Name'] || ''}" placeholder="Enter driver name..." />
+                </div>
+                <div class="form-group">
+                    <label>Combined Name:</label>
+                    <input type="text" id="combinedName_edit" value="${row['Combined'] || ''}" placeholder="Enter combined name..." />
                 </div>
                 ${!isAppsScriptConfigured ? 
                     '<div style="font-size: 12px; color: #856404; margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 4px;">⚠️ Changes will only be saved locally until Apps Script is configured</div>' : 
@@ -785,6 +820,8 @@
                     <button class="btn btn-secondary" id="cancelBtn" type="button">Cancel</button>
                 </div>
             `;
+            
+            document.getElementById('editContent').innerHTML = editHtml;
             
             // Add event listeners manually to ensure they work
             document.getElementById('saveBtn').addEventListener('click', function() {
@@ -824,16 +861,23 @@
                 updateStatus('Saving changes...', 'loading');
                 
                 const newDriverName = document.getElementById('driverName_edit').value;
+                const newCombinedName = document.getElementById('combinedName_edit').value;
                 console.log('New driver name:', newDriverName);
+                console.log('New combined name:', newCombinedName);
                 
-                const updatedData = { 'Name': newDriverName };
+                const updatedData = { 
+                    'Name': newDriverName,
+                    'Combined': newCombinedName
+                };
 
                 // Update local data immediately
                 if (selectedRow) {
                     selectedRow['Name'] = newDriverName;
+                    selectedRow['Combined'] = newCombinedName;
                 }
                 if (typeof index === 'number' && allData[index]) {
                     allData[index]['Name'] = newDriverName;
+                    allData[index]['Combined'] = newCombinedName;
                 }
 
                 if (checkAppsScriptSetup()) {
