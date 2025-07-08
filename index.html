@@ -304,8 +304,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>🐕 Dog Walking Interactive Map</h1>
-        <p>📍 Pins • Ⓟ Parking • Ⓕ Fields • ♦️ Special Groups • Smart Colors with Conflict Detection!</p>
+        <h1>🐕 Dog Walking Interactive Map - Wellesley Area</h1>
+        <p>📍 Pins • Ⓟ Parking • Ⓕ Fields • ♦️ Special Groups • 20-Mile Service Area</p>
     </div>
 
     <div class="controls">
@@ -373,9 +373,17 @@
             API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
             // ADD YOUR GOOGLE APPS SCRIPT WEB APP URL HERE:
             APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw7UA6k9yO2z10sI4tQ22n8eBz2lerJin5PJ2Yz7nSXsEzNbIyuDDMK7QAlRpuC-4vFRw/exec',
-            DEFAULT_LAT: 42.3601,
-            DEFAULT_LNG: -71.3589,
-            DEFAULT_ZOOM: 11
+            // Wellesley, MA coordinates and bounds
+            DEFAULT_LAT: 42.2968,
+            DEFAULT_LNG: -71.2636,
+            DEFAULT_ZOOM: 11,
+            // 20-mile radius bounds around Wellesley, MA
+            MAX_BOUNDS: {
+                NORTH: 42.5869,  // ~20 miles north
+                SOUTH: 42.0067,  // ~20 miles south  
+                EAST: -70.9336,  // ~20 miles east
+                WEST: -71.5936   // ~20 miles west
+            }
         };
 
         // Color mapping
@@ -422,6 +430,11 @@
                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                     Math.sin(dLng/2) * Math.sin(dLng/2);
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function isWithinServiceArea(lat, lng) {
+            const distance = calculateDistance(CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG, lat, lng);
+            return distance <= 20; // 20-mile radius
         }
 
         // Icon creation functions
@@ -530,7 +543,17 @@
 
         // Initialize map
         function initMap() {
+            // Create map centered on Wellesley, MA
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
+            
+            // Set max bounds to 20-mile radius around Wellesley
+            const maxBounds = L.latLngBounds(
+                [CONFIG.MAX_BOUNDS.SOUTH, CONFIG.MAX_BOUNDS.WEST], // Southwest corner
+                [CONFIG.MAX_BOUNDS.NORTH, CONFIG.MAX_BOUNDS.EAST]  // Northeast corner
+            );
+            map.setMaxBounds(maxBounds);
+            map.options.minZoom = 9;  // Prevent zooming out too far
+            map.options.maxZoom = 18; // Allow detailed street level view
             
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap contributors, © CARTO',
@@ -620,7 +643,8 @@
                 }).filter(row => {
                     const lat = parseFloat(row['Latitude']);
                     const lng = parseFloat(row['Longitude']);
-                    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && row['Dog Name'];
+                    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
+                           row['Dog Name'] && isWithinServiceArea(lat, lng);
                 });
 
                 updateStatus(`Loaded ${allData.length} locations!`, 'success');
@@ -628,9 +652,10 @@
                 
             } catch (error) {
                 updateStatus(`Error: ${error.message}`, 'error');
+                // Sample data in Wellesley area
                 allData = [
-                    {'Address': '5 Doeskin Dr, Framingham, MA', 'Dog Name': 'Sydney (Sample)', 'Name': 'Victor', 'Latitude': 42.341412, 'Longitude': -71.459623, 'Group': '1', 'Dog ID': 1, 'Capacity': 3},
-                    {'Address': '384 Dutton Rd, Sudbury, MA', 'Dog Name': 'Freddie & Norman (Sample)', 'Name': 'Nate', 'Latitude': 42.37838771, 'Longitude': -71.45234923, 'Group': '2', 'Dog ID': 6, 'Capacity': 1}
+                    {'Address': '10 Central St, Wellesley, MA', 'Dog Name': 'Sydney (Sample)', 'Name': 'Victor', 'Latitude': 42.2968, 'Longitude': -71.2636, 'Group': '1', 'Dog ID': 1, 'Capacity': 3},
+                    {'Address': '20 Washington St, Wellesley Hills, MA', 'Dog Name': 'Freddie & Norman (Sample)', 'Name': 'Nate', 'Latitude': 42.3060, 'Longitude': -71.2743, 'Group': '2', 'Dog ID': 6, 'Capacity': 1}
                 ];
                 updateMap();
             }
@@ -692,10 +717,10 @@
                 marker.on('click', () => selectMarker(marker, row, originalIndex));
 
                 let tooltipText;
-                if (isParking) tooltipText = `<strong>P ${row['Dog Name']}</strong><br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else if (isField) tooltipText = `<strong>F ${row['Dog Name']}</strong><br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else if (hasColon) tooltipText = `<strong>♦️ ${row['Dog Name']}</strong><br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else tooltipText = `<strong>📍 ${row['Dog Name']}</strong><br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                if (isParking) tooltipText = `<strong>P ${row['Name'] || 'No Driver'}</strong><br>${row['Dog Name']}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                else if (isField) tooltipText = `<strong>F ${row['Name'] || 'No Driver'}</strong><br>${row['Dog Name']}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                else if (hasColon) tooltipText = `<strong>♦️ ${row['Name'] || 'No Driver'}</strong><br>${row['Dog Name']}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                else tooltipText = `<strong>📍 ${row['Name'] || 'No Driver'}</strong><br>${row['Dog Name']}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
                 
                 marker.bindTooltip(tooltipText, {permanent: false, direction: 'bottom', offset: [0, 10]});
                 markers.push({marker, row, index: originalIndex, markerType});
