@@ -346,9 +346,9 @@
             </div>
             
             <div class="edit-section">
-                <h3>✏️ Edit Assignment</h3>
+                <h3>✏️ Edit Driver Assignment</h3>
                 <div id="editContent" class="no-selection">
-                    Click a marker on the map to edit assignment information
+                    Click a marker on the map to edit driver assignment
                 </div>
             </div>
         </div>
@@ -654,8 +654,8 @@
                 updateStatus(`Error: ${error.message}`, 'error');
                 // Sample data in Wellesley area
                 allData = [
-                    {'Address': '10 Central St, Wellesley, MA', 'Dog Name': 'Sydney (Sample)', 'Name': 'Victor', 'Latitude': 42.2968, 'Longitude': -71.2636, 'Group': '1', 'Dog ID': 1, 'Capacity': 3},
-                    {'Address': '20 Washington St, Wellesley Hills, MA', 'Dog Name': 'Freddie & Norman (Sample)', 'Name': 'Nate', 'Latitude': 42.3060, 'Longitude': -71.2743, 'Group': '2', 'Dog ID': 6, 'Capacity': 1}
+                    {'Address': '10 Central St, Wellesley, MA', 'Dog Name': 'Sydney (Sample)', 'Name': 'Victor', 'Latitude': 42.2968, 'Longitude': -71.2636, 'Group': '1', 'Dog ID': 1, 'Capacity': 3, 'Combined': 'Sydney - 10 Central St'},
+                    {'Address': '20 Washington St, Wellesley Hills, MA', 'Dog Name': 'Freddie & Norman (Sample)', 'Name': 'Nate', 'Latitude': 42.3060, 'Longitude': -71.2743, 'Group': '2', 'Dog ID': 6, 'Capacity': 1, 'Combined': 'Freddie & Norman - 20 Washington St'}
                 ];
                 updateMap();
             }
@@ -770,12 +770,12 @@
             console.log('Showing edit form for index:', index, 'row:', row);
             
             document.getElementById('editContent').innerHTML = `
-                <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${row['Dog Name']}</div>
+                <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${row['Combined'] || row['Dog Name']}</div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 6px;">${row['Address']}</div>
-                <div style="font-size: 13px; color: #888; margin-bottom: 8px;">Driver: ${row['Name'] || 'No driver'} | Group: ${row['Group']} | Capacity: ${row['Capacity'] || 'Not set'}</div>
+                <div style="font-size: 13px; color: #888; margin-bottom: 8px;">Current Driver: ${row['Name'] || 'None'} | Group: ${row['Group']} | Capacity: ${row['Capacity'] || 'Not set'}</div>
                 <div class="form-group">
-                    <label>New Assignment:</label>
-                    <input type="text" id="newAssignment_edit" value="${row['New Assignment'] || ''}" placeholder="Enter new assignment..." />
+                    <label>Callout:</label>
+                    <input type="text" id="driverName_edit" value="${row['Name'] || ''}" placeholder="Enter driver name..." />
                 </div>
                 ${!isAppsScriptConfigured ? 
                     '<div style="font-size: 12px; color: #856404; margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 4px;">⚠️ Changes will only be saved locally until Apps Script is configured</div>' : 
@@ -814,7 +814,7 @@
             selectedMarker = null;
             selectedRow = null;
             selectedRowIndex = null;
-            document.getElementById('editContent').innerHTML = '<div class="no-selection">Click a marker on the map to edit assignment information</div>';
+            document.getElementById('editContent').innerHTML = '<div class="no-selection">Click a marker on the map to edit driver assignment</div>';
         }
 
         // Save changes
@@ -823,17 +823,17 @@
                 console.log('Save function called with index:', index);
                 updateStatus('Saving changes...', 'loading');
                 
-                const newAssignment = document.getElementById('newAssignment_edit').value;
-                console.log('New assignment:', newAssignment);
+                const newDriverName = document.getElementById('driverName_edit').value;
+                console.log('New driver name:', newDriverName);
                 
-                const updatedData = { 'New Assignment': newAssignment };
+                const updatedData = { 'Name': newDriverName };
 
                 // Update local data immediately
                 if (selectedRow) {
-                    selectedRow['New Assignment'] = newAssignment;
+                    selectedRow['Name'] = newDriverName;
                 }
                 if (typeof index === 'number' && allData[index]) {
-                    allData[index]['New Assignment'] = newAssignment;
+                    allData[index]['Name'] = newDriverName;
                 }
 
                 if (checkAppsScriptSetup()) {
