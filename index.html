@@ -740,6 +740,8 @@
             const saveButtonText = isAppsScriptConfigured ? '💾 Save to Sheet' : '💾 Save Locally';
             const saveButtonClass = isAppsScriptConfigured ? 'btn-primary' : 'btn-secondary';
             
+            console.log('Showing edit form for index:', index, 'row:', row);
+            
             document.getElementById('editContent').innerHTML = `
                 <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${row['Dog Name']}</div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 6px;">${row['Address']}</div>
@@ -753,10 +755,21 @@
                     '<div style="font-size: 12px; color: #856404; margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 4px;">⚠️ Changes will only be saved locally until Apps Script is configured</div>' : 
                     ''}
                 <div class="button-group">
-                    <button class="btn ${saveButtonClass}" onclick="saveChanges(${index})">${saveButtonText}</button>
-                    <button class="btn btn-secondary" onclick="clearSelection()">Cancel</button>
+                    <button class="btn ${saveButtonClass}" id="saveBtn" type="button">${saveButtonText}</button>
+                    <button class="btn btn-secondary" id="cancelBtn" type="button">Cancel</button>
                 </div>
             `;
+            
+            // Add event listeners manually to ensure they work
+            document.getElementById('saveBtn').addEventListener('click', function() {
+                console.log('Save button clicked!');
+                saveChanges(index);
+            });
+            
+            document.getElementById('cancelBtn').addEventListener('click', function() {
+                console.log('Cancel button clicked!');
+                clearSelection();
+            });
         }
 
         // Clear selection
@@ -781,14 +794,21 @@
         // Save changes
         async function saveChanges(index) {
             try {
+                console.log('Save function called with index:', index);
                 updateStatus('Saving changes...', 'loading');
                 
                 const newDriverName = document.getElementById('driverName_edit').value;
+                console.log('New driver name:', newDriverName);
+                
                 const updatedData = { 'Name': newDriverName };
 
                 // Update local data immediately
-                selectedRow['Name'] = newDriverName;
-                allData[index]['Name'] = newDriverName;
+                if (selectedRow) {
+                    selectedRow['Name'] = newDriverName;
+                }
+                if (typeof index === 'number' && allData[index]) {
+                    allData[index]['Name'] = newDriverName;
+                }
 
                 if (checkAppsScriptSetup()) {
                     try {
@@ -811,10 +831,12 @@
 
                 // Refresh the map and edit form
                 updateMap();
-                showEditForm(selectedRow, index);
+                if (selectedRow && typeof index === 'number') {
+                    showEditForm(selectedRow, index);
+                }
                 
             } catch (error) {
-                updateStatus('Error saving changes', 'error');
+                updateStatus('Error saving changes: ' + error.message, 'error');
                 console.error('Save error:', error);
             }
         }
