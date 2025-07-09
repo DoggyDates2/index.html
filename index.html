@@ -311,7 +311,7 @@
         <div class="control-group">
             <label for="colorBy">Color by:</label>
             <select id="colorBy">
-                <option value="Name">Driver Name</option>
+                <option value="Combined">Driver Name (Combined)</option>
                 <option value="Group">Group</option>
                 <option value="Capacity">Capacity</option>
             </select>
@@ -569,14 +569,31 @@
 
         // Generate color mapping
         function generateColorMap(attribute) {
-            const uniqueValues = [...new Set(allData.map(row => row[attribute]))];
+            const uniqueValues = [...new Set(allData.map(row => {
+                if (attribute === 'Combined') {
+                    // Extract part before colon, or use full value if no colon
+                    const combined = row[attribute] || '';
+                    const colonIndex = combined.indexOf(':');
+                    return colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
+                } else {
+                    return row[attribute];
+                }
+            }))];
+            
             colorMap = {};
             
-            if (attribute === 'Name') {
+            if (attribute === 'Combined') {
                 const driverData = [];
                 uniqueValues.forEach((name) => {
                     colorMap[name] = getDriverColor(name);
-                    const driverRows = allData.filter(row => row['Name'] === name);
+                    // Find rows that start with this driver name
+                    const driverRows = allData.filter(row => {
+                        const combined = row['Combined'] || '';
+                        const colonIndex = combined.indexOf(':');
+                        const driverName = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
+                        return driverName === name;
+                    });
+                    
                     if (driverRows.length > 0) {
                         const firstRow = driverRows[0];
                         const lat = parseFloat(firstRow['Latitude']);
@@ -681,7 +698,18 @@
                 const lng = parseFloat(row['Longitude']);
                 if (isNaN(lat) || isNaN(lng)) return;
 
-                const color = colorMap[row[colorBy]] || '#999999';
+                // Get the color key based on the colorBy attribute
+                let colorKey;
+                if (colorBy === 'Combined') {
+                    // Extract part before colon, or use full value if no colon
+                    const combined = row['Combined'] || '';
+                    const colonIndex = combined.indexOf(':');
+                    colorKey = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
+                } else {
+                    colorKey = row[colorBy];
+                }
+                
+                const color = colorMap[colorKey] || '#999999';
                 const isSelected = selectedRow === row;
                 
                 const dogName = row['Dog Name'] || '';
@@ -742,7 +770,16 @@
             if (selectedMarker) {
                 const prevData = markers.find(m => m.marker === selectedMarker);
                 if (prevData) {
-                    const color = colorMap[prevData.row[document.getElementById('colorBy').value]] || '#999999';
+                    const colorBy = document.getElementById('colorBy').value;
+                    let colorKey;
+                    if (colorBy === 'Combined') {
+                        const combined = prevData.row['Combined'] || '';
+                        const colonIndex = combined.indexOf(':');
+                        colorKey = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
+                    } else {
+                        colorKey = prevData.row[colorBy];
+                    }
+                    const color = colorMap[colorKey] || '#999999';
                     
                     if (prevData.markerType === 'parking') selectedMarker.setIcon(createParkingIcon(color, false));
                     else if (prevData.markerType === 'field') selectedMarker.setIcon(createFieldIcon(color, false));
@@ -757,7 +794,16 @@
             
             const markerData = markers.find(m => m.marker === marker);
             if (markerData) {
-                const color = colorMap[row[document.getElementById('colorBy').value]] || '#999999';
+                const colorBy = document.getElementById('colorBy').value;
+                let colorKey;
+                if (colorBy === 'Combined') {
+                    const combined = row['Combined'] || '';
+                    const colonIndex = combined.indexOf(':');
+                    colorKey = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
+                } else {
+                    colorKey = row[colorBy];
+                }
+                const color = colorMap[colorKey] || '#999999';
                 
                 if (markerData.markerType === 'parking') marker.setIcon(createParkingIcon(color, true));
                 else if (markerData.markerType === 'field') marker.setIcon(createFieldIcon(color, true));
@@ -839,7 +885,16 @@
             if (selectedMarker) {
                 const markerData = markers.find(m => m.marker === selectedMarker);
                 if (markerData) {
-                    const color = colorMap[markerData.row[document.getElementById('colorBy').value]] || '#999999';
+                    const colorBy = document.getElementById('colorBy').value;
+                    let colorKey;
+                    if (colorBy === 'Combined') {
+                        const combined = markerData.row['Combined'] || '';
+                        const colonIndex = combined.indexOf(':');
+                        colorKey = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
+                    } else {
+                        colorKey = markerData.row[colorBy];
+                    }
+                    const color = colorMap[colorKey] || '#999999';
                     
                     if (markerData.markerType === 'parking') selectedMarker.setIcon(createParkingIcon(color, false));
                     else if (markerData.markerType === 'field') selectedMarker.setIcon(createFieldIcon(color, false));
