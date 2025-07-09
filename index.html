@@ -345,9 +345,9 @@
             </div>
             
             <div class="edit-section">
-                <h3>✏️ Edit Driver Assignment</h3>
+                <h3>✏️ Edit Title</h3>
                 <div id="editContent" class="no-selection">
-                    Click a marker on the map to edit driver assignment
+                    Click a marker on the map to edit title
                 </div>
             </div>
         </div>
@@ -761,12 +761,13 @@
 
                 let tooltipText;
                 const combinedTitle = row['Combined'] || row['Dog Name'];
+                const dogName = row['Dog Name'] || '';
                 const columnK = row['Column K'] || '';
                 
-                if (isParking) tooltipText = `<strong>Ⓟ ${combinedTitle}</strong><br>Driver: ${row['Name'] || 'No Driver'}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else if (isField) tooltipText = `<strong>Ⓕ ${combinedTitle}</strong><br>Driver: ${row['Name'] || 'No Driver'}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else if (hasColon) tooltipText = `<strong>♦️ ${combinedTitle}</strong><br>Driver: ${row['Name'] || 'No Driver'}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
-                else tooltipText = `<strong>📍 ${combinedTitle}</strong><br>Driver: ${row['Name'] || 'No Driver'}<br>${row['Address']}<br>Capacity: ${row['Capacity'] || 'Not set'}`;
+                if (isParking) tooltipText = `<strong>Ⓟ ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
+                else if (isField) tooltipText = `<strong>Ⓕ ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
+                else if (hasColon) tooltipText = `<strong>♦️ ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
+                else tooltipText = `<strong>📍 ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
                 
                 // Add Column K info if not blank
                 if (columnK && columnK.trim() !== '') {
@@ -866,10 +867,10 @@
             else markerIcon = '📍';
             
             let editHtml = `
-                <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${markerIcon} ${combinedTitle}</div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 6px;">Driver: ${row['Name'] || 'No Driver'}</div>
+                <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${markerIcon} Currently Editing</div>
+                <div style="font-size: 14px; color: #666; margin-bottom: 6px;">${dogName}</div>
                 <div style="font-size: 14px; color: #666; margin-bottom: 6px;">${row['Address']}</div>
-                <div style="font-size: 13px; color: #888; margin-bottom: 8px;">Capacity: ${row['Capacity'] || 'Not set'}</div>`;
+                <div style="font-size: 13px; color: #888; margin-bottom: 8px;">${row['Capacity'] || 'Not set'}</div>`;
             
             // Add Column K info if not blank
             if (columnK && columnK.trim() !== '') {
@@ -877,13 +878,10 @@
             }
             
             editHtml += `
+                <hr style="border: none; border-top: 1px solid #e1e5e9; margin: 15px 0;">
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <label>Callout (Driver):</label>
-                    <input type="text" id="driverName_edit" value="${row['Name'] || ''}" placeholder="Enter driver name..." />
-                </div>
-                <div class="form-group">
-                    <label>Combined Name:</label>
-                    <input type="text" id="combinedName_edit" value="${row['Combined'] || ''}" placeholder="Enter combined name..." />
+                    <label>Title:</label>
+                    <input type="text" id="combinedName_edit" value="${row['Combined'] || ''}" placeholder="Enter title..." />
                 </div>
                 ${!isAppsScriptConfigured ? 
                     '<div style="font-size: 12px; color: #856404; margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 4px;">⚠️ Changes will only be saved locally until Apps Script is configured</div>' : 
@@ -933,7 +931,7 @@
             selectedMarker = null;
             selectedRow = null;
             selectedRowIndex = null;
-            document.getElementById('editContent').innerHTML = '<div class="no-selection">Click a marker on the map to edit driver assignment</div>';
+            document.getElementById('editContent').innerHTML = '<div class="no-selection">Click a marker on the map to edit title</div>';
         }
 
         // Save changes
@@ -942,23 +940,18 @@
                 console.log('Save function called with index:', index);
                 updateStatus('Saving changes...', 'loading');
                 
-                const newDriverName = document.getElementById('driverName_edit').value;
                 const newCombinedName = document.getElementById('combinedName_edit').value;
-                console.log('New driver name:', newDriverName);
                 console.log('New combined name:', newCombinedName);
                 
                 const updatedData = { 
-                    'Name': newDriverName,
                     'Combined': newCombinedName
                 };
 
                 // Update local data immediately
                 if (selectedRow) {
-                    selectedRow['Name'] = newDriverName;
                     selectedRow['Combined'] = newCombinedName;
                 }
                 if (typeof index === 'number' && allData[index]) {
-                    allData[index]['Name'] = newDriverName;
                     allData[index]['Combined'] = newCombinedName;
                 }
 
