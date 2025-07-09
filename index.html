@@ -695,8 +695,10 @@
                         const colonIndex = combined.indexOf(':');
                         const driverName = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
                         matchesFilter = driverName === currentFilter;
+                        console.log(`Row: ${row['Dog Name']}, Combined: ${combined}, Extracted: ${driverName}, Filter: ${currentFilter}, Match: ${matchesFilter}`);
                     } else {
                         matchesFilter = row[colorBy] === currentFilter;
+                        console.log(`Row: ${row['Dog Name']}, Value: ${row[colorBy]}, Filter: ${currentFilter}, Match: ${matchesFilter}`);
                     }
                 }
                 
@@ -777,6 +779,18 @@
 
             updateLegend();
             updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
+            
+            // Update filter status display
+            const filterStatus = document.getElementById('filterStatus');
+            if (currentFilter) {
+                filterStatus.textContent = `Filtered by: ${currentFilter}`;
+                filterStatus.style.color = '#2196F3';
+                filterStatus.style.fontWeight = 'bold';
+            } else {
+                filterStatus.textContent = 'Showing all markers';
+                filterStatus.style.color = '#666';
+                filterStatus.style.fontWeight = 'normal';
+            }
         }
 
         // Marker selection
@@ -985,24 +999,55 @@
             let html = '';
             Object.entries(colorMap).forEach(([category, color]) => {
                 const isActive = currentFilter === category;
-                const escapedCategory = category.replace(/'/g, "\\'").replace(/"/g, '\\"');
-                html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${escapedCategory}')"><div class="legend-color" style="background-color: ${color}"></div><span>${category}</span></div>`;
+                html += `<div class="legend-item ${isActive ? 'active' : ''}" data-category="${category}"><div class="legend-color" style="background-color: ${color}"></div><span>${category}</span></div>`;
             });
             document.getElementById('legendContent').innerHTML = html;
+            
+            // Add event listeners to legend items
+            document.querySelectorAll('.legend-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const category = this.getAttribute('data-category');
+                    filterByCategory(category);
+                });
+            });
         }
 
         // Filter functions
         function filterByCategory(category) {
+            console.log('Filter clicked for category:', category);
+            console.log('Current filter before:', currentFilter);
+            
             currentFilter = currentFilter === category ? null : category;
+            console.log('Current filter after:', currentFilter);
+            
             clearSelection();
             updateMap();
+            
+            // Update filter status display
+            const filterStatus = document.getElementById('filterStatus');
+            if (currentFilter) {
+                filterStatus.textContent = `Filtered by: ${currentFilter}`;
+                filterStatus.style.color = '#2196F3';
+                filterStatus.style.fontWeight = 'bold';
+            } else {
+                filterStatus.textContent = 'Showing all markers';
+                filterStatus.style.color = '#666';
+                filterStatus.style.fontWeight = 'normal';
+            }
         }
 
         function clearFilter() {
+            console.log('Clear filter clicked');
             currentFilter = null;
             document.getElementById('searchInput').value = '';
             clearSelection();
             updateMap();
+            
+            // Update filter status display
+            const filterStatus = document.getElementById('filterStatus');
+            filterStatus.textContent = 'Showing all markers';
+            filterStatus.style.color = '#666';
+            filterStatus.style.fontWeight = 'normal';
         }
 
         // Status update
