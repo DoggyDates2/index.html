@@ -685,7 +685,21 @@
             filteredData = allData.filter(row => {
                 const searchText = `${row['Dog Name']} ${row['Address']} ${row['Name']} ${row['Group']}`.toLowerCase();
                 const matchesSearch = searchText.includes(searchTerm);
-                const matchesFilter = currentFilter === null || row[colorBy] === currentFilter;
+                
+                // Handle filter matching based on colorBy attribute
+                let matchesFilter = currentFilter === null;
+                if (!matchesFilter && currentFilter !== null) {
+                    if (colorBy === 'Combined') {
+                        // Extract part before colon for comparison
+                        const combined = row['Combined'] || '';
+                        const colonIndex = combined.indexOf(':');
+                        const driverName = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
+                        matchesFilter = driverName === currentFilter;
+                    } else {
+                        matchesFilter = row[colorBy] === currentFilter;
+                    }
+                }
+                
                 return matchesSearch && matchesFilter;
             });
 
