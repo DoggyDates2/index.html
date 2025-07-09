@@ -1,13 +1,11 @@
 <!-- FULL UPDATED SCRIPT STARTS HERE -->
-<!-- (NOTE: Only the relevant JS parts have been updated. HTML and CSS remain unchanged.) -->
+<!-- Updated full script with map init and data loading -->
 
 <script>
-    // Configuration
     const CONFIG = {
         SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
         WORKSHEET_NAME: 'Map',
         API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
-        APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw7UA6k9yO2z10sI4tQ22n8eBz2lerJin5PJ2Yz7nSXsEzNbIyuDDMK7QAlRpuC-4vFRw/exec',
         DEFAULT_LAT: 42.2968,
         DEFAULT_LNG: -71.2636,
         DEFAULT_ZOOM: 11,
@@ -19,8 +17,55 @@
         }
     };
 
-    // Color map now based on driver from 'Combined' column
-    function generateColorMap(attribute) {
+    let map, markers = [], allData = [], filteredData = [], colorMap = {}, currentFilter = null, selectedRow = null;
+
+    function getDriverColor(name) {
+        const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'];
+        const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        return colors[hash % colors.length];
+    }
+
+    function initMap() {
+        map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
+        const bounds = L.latLngBounds(
+            [CONFIG.MAX_BOUNDS.SOUTH, CONFIG.MAX_BOUNDS.WEST],
+            [CONFIG.MAX_BOUNDS.NORTH, CONFIG.MAX_BOUNDS.EAST]
+        );
+        map.setMaxBounds(bounds);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+    }
+
+    async function loadData() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const data = await response.json();
+            const headers = data.values[0];
+            const rows = data.values.slice(1);
+
+            allData = rows.map(row => {
+                const obj = {};
+                headers.forEach((header, i) => obj[header] = row[i] || '');
+                return obj;
+            }).filter(row => {
+                const lat = parseFloat(row['Latitude']);
+                const lng = parseFloat(row['Longitude']);
+                return !isNaN(lat) && !isNaN(lng);
+            });
+
+            updateMap();
+        } catch (err) {
+            console.error('Failed to load data:', err);
+        }
+    }
+
+    function generateColorMap() {
         const drivers = [...new Set(allData.map(row => (row['Combined'] || '').split(':')[0].trim()))];
         colorMap = {};
         drivers.forEach(driver => {
@@ -30,9 +75,7 @@
     }
 
     function updateMap() {
-        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-        const colorBy = 'Combined';
-
+        const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
         filteredData = allData.filter(row => {
             const searchText = `${row['Dog Name']} ${row['Address']} ${(row['Combined'] || '')}`.toLowerCase();
             return searchText.includes(searchTerm);
@@ -40,9 +83,9 @@
 
         markers.forEach(m => map.removeLayer(m.marker));
         markers = [];
-        generateColorMap(colorBy);
+        generateColorMap();
 
-        filteredData.forEach((row, index) => {
+        filteredData.forEach((row) => {
             const lat = parseFloat(row['Latitude']);
             const lng = parseFloat(row['Longitude']);
             if (isNaN(lat) || isNaN(lng)) return;
@@ -50,61 +93,35 @@
             const driverKey = (row['Combined'] || '').split(':')[0].trim();
             const color = colorMap[driverKey] || '#999999';
 
-            const dogName = row['Dog Name'] || '';
-            const group = row['Group'] || '';
-            const isSelected = selectedRow === row;
-            const isParking = dogName.toLowerCase().includes('parking');
-            const isField = dogName.toLowerCase().includes('field');
-            const hasColon = group.toString().includes(':');
+            const marker = L.circleMarker([lat, lng], {
+                radius: 8,
+                fillColor: color,
+                color: '#000',
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
 
-            let marker, markerType = 'pin';
-            if (isParking) {
-                marker = L.marker([lat, lng], {icon: createParkingIcon(color, isSelected)}).addTo(map);
-                markerType = 'parking';
-            } else if (isField) {
-                marker = L.marker([lat, lng], {icon: createFieldIcon(color, isSelected)}).addTo(map);
-                markerType = 'field';
-            } else if (hasColon) {
-                marker = L.marker([lat, lng], {icon: createDiamondIcon(color, isSelected)}).addTo(map);
-                markerType = 'diamond';
-            } else {
-                marker = L.marker([lat, lng], {icon: createPinIcon(color, isSelected)}).addTo(map);
-                markerType = 'pin';
-            }
-
-            const originalIndex = allData.findIndex(originalRow =>
-                originalRow['Dog ID'] === row['Dog ID'] ||
-                (originalRow['Dog Name'] === row['Dog Name'] && originalRow['Address'] === row['Address'])
-            );
-
-            marker.on('click', () => selectMarker(marker, row, originalIndex));
-
-            const combinedTitle = row['Combined'] || row['Dog Name'];
-            const columnK = row['Column K'] || '';
-            const tooltipText = `
-                <strong>${markerType === 'diamond' ? '♦️' : markerType === 'field' ? 'Ⓕ' : markerType === 'parking' ? 'Ⓟ' : '📍'} ${combinedTitle}</strong><br>
-                Driver: ${driverKey || 'No Driver'}<br>
-                ${row['Address']}<br>
-                Capacity: ${row['Capacity'] || 'Not set'}
-                ${columnK && columnK.trim() !== '' ? `<br>${columnK}` : ''}`;
-
-            marker.bindTooltip(tooltipText, {permanent: false, direction: 'bottom', offset: [0, 10]});
-            markers.push({marker, row, index: originalIndex, markerType});
+            marker.bindTooltip(`${row['Combined'] || 'Unknown'}<br>${row['Address'] || ''}`);
+            markers.push({ marker });
         });
 
         updateLegend();
-        updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
     }
 
     function updateLegend() {
         const html = Object.entries(colorMap).map(([category, color]) => {
-            const isActive = currentFilter === category;
-            const escapedCategory = category.replace(/'/g, "\\'").replace(/"/g, '\\"');
-            return `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${escapedCategory}')">
+            return `<div class="legend-item">
                         <div class="legend-color" style="background-color: ${color}"></div><span>${category}</span>
                     </div>`;
         }).join('');
-        document.getElementById('legendContent').innerHTML = html;
+        const legend = document.getElementById('legendContent');
+        if (legend) legend.innerHTML = html;
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initMap();
+        loadData();
+    });
 </script>
 <!-- FULL UPDATED SCRIPT ENDS HERE -->
