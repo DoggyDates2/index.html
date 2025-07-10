@@ -499,9 +499,16 @@
                 return getDriverBorderColor(driverName);
             }
             
-            const fillColor = getColorForValue(value, attribute);
-            // Pastel colors get black border, everything else gets white
-            return isPastelColor(fillColor) ? '#000000' : '#ffffff';
+            // Simple hash to determine white or black border
+            let hash = 0;
+            if (value) {
+                for (let i = 0; i < value.length; i++) {
+                    hash = value.charCodeAt(i) + ((hash << 5) - hash);
+                }
+            }
+            
+            // Return white or black based on hash
+            return (Math.abs(hash) % 2 === 0) ? '#ffffff' : '#000000';
         }
 
         function createMarkerIcon(color, borderColor, isSelected = false, markerType = 'circle') {
