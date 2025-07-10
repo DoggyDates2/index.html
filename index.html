@@ -280,7 +280,7 @@
             DEFAULT_ZOOM: 11
         };
 
-        // Driver colors
+        // Extended driver colors with more options
         const DRIVER_COLORS = {
             'Nate': '#1f77b4', 'Aidan': '#ff7f0e', 'Sarah': '#2ca02c', 'Victor': '#d62728',
             'Emily': '#9467bd', 'Mike': '#8c564b', 'Lisa': '#e377c2', 'David': '#7f7f7f',
@@ -289,13 +289,72 @@
             'Ali': '#FFD700'
         };
 
+        // Generate a large palette of distinct colors
+        function generateColorPalette(count = 50) {
+            const colors = [];
+            
+            // Start with predefined colors
+            Object.values(DRIVER_COLORS).forEach(color => colors.push(color));
+            
+            // Generate additional colors using HSL for even distribution
+            const baseHues = [];
+            for (let i = 0; i < count; i++) {
+                baseHues.push((i * 360 / count) % 360);
+            }
+            
+            // Create colors with good visibility
+            baseHues.forEach(hue => {
+                // Vary saturation and lightness for more options
+                const variations = [
+                    [75, 45], // Darker, saturated
+                    [85, 55], // Medium
+                    [70, 40], // Dark
+                    [90, 50]  // Bright
+                ];
+                
+                variations.forEach(([sat, light]) => {
+                    const color = hslToHex(hue, sat, light);
+                    if (!colors.includes(color)) {
+                        colors.push(color);
+                    }
+                });
+            });
+            
+            return colors;
+        }
+
+        // Convert HSL to HEX
+        function hslToHex(h, s, l) {
+            l /= 100;
+            const a = s * Math.min(l, 1 - l) / 100;
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`;
+        }
+
+        // Generate the color palette
+        const COLOR_PALETTE = generateColorPalette(60);
+
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
 
         function getDriverColor(name) {
-            if (!name) return '#999999';
-            return DRIVER_COLORS[name] || '#' + Math.floor(Math.random()*16777215).toString(16);
+            if (!name) return '#666666';
+            if (DRIVER_COLORS[name]) return DRIVER_COLORS[name];
+            
+            // Use hash to get consistent color assignment
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            
+            // Skip predefined colors and get from generated palette
+            const availableColors = COLOR_PALETTE.slice(Object.keys(DRIVER_COLORS).length);
+            return availableColors[Math.abs(hash) % availableColors.length] || '#666666';
         }
 
         function getColorForValue(value, attribute) {
@@ -304,14 +363,14 @@
                 return getDriverColor(driverName);
             }
             
-            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
+            // Use the same palette system for other attributes
             let hash = 0;
             if (value) {
                 for (let i = 0; i < value.length; i++) {
                     hash = value.charCodeAt(i) + ((hash << 5) - hash);
                 }
             }
-            return colors[Math.abs(hash) % colors.length];
+            return COLOR_PALETTE[Math.abs(hash) % COLOR_PALETTE.length] || '#666666';
         }
 
         function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
@@ -465,9 +524,9 @@
                 let color;
                 if (colorBy === 'Combined') {
                     const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                    color = colorMap[driverName] || '#999999';
+                    color = colorMap[driverName] || '#666666';
                 } else {
-                    color = colorMap[row[colorBy]] || '#999999';
+                    color = colorMap[row[colorBy]] || '#666666';
                 }
                 
                 const isSelected = selectedRow === row;
@@ -545,9 +604,9 @@
                     let color;
                     if (colorBy === 'Combined') {
                         const driverName = prevData.row['Combined'] ? prevData.row['Combined'].split(':')[0] : '';
-                        color = colorMap[driverName] || '#999999';
+                        color = colorMap[driverName] || '#666666';
                     } else {
-                        color = colorMap[prevData.row[colorBy]] || '#999999';
+                        color = colorMap[prevData.row[colorBy]] || '#666666';
                     }
                     selectedMarker.setIcon(createMarkerIcon(color, false, prevData.markerType));
                 }
@@ -560,9 +619,9 @@
             let color;
             if (colorBy === 'Combined') {
                 const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                color = colorMap[driverName] || '#999999';
+                color = colorMap[driverName] || '#666666';
             } else {
-                color = colorMap[row[colorBy]] || '#999999';
+                color = colorMap[row[colorBy]] || '#666666';
             }
             marker.setIcon(createMarkerIcon(color, true, markerType));
 
