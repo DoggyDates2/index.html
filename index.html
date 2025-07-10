@@ -216,14 +216,6 @@
             color: #666;
             margin: 5px 0;
         }
-
-        .stats-box {
-            background: #f8f9fa;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-            border-left: 4px solid #667eea;
-        }
     </style>
 </head>
 <body>
@@ -250,41 +242,22 @@
     <div class="main-content">
         <div class="left-panel">
             <div class="legend-section">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%;">Show All</button>
+                </div>
+                
                 <h3>🎨 Legend (Click to Filter)</h3>
                 <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
                 <div id="combinedHelp" style="font-size: 11px; color: #888; margin-bottom: 8px; font-style: italic; display: none;">
                     ℹ️ Combined view groups by driver name (part before ":"). All dogs for same driver share one color.
                 </div>
                 <div id="legendContent">Loading...</div>
-                <div style="text-align: center; margin-top: 10px;">
-                    <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%;">Show All</button>
-                </div>
             </div>
             
             <div class="edit-section">
                 <h3>📋 Details & Edit</h3>
                 <div id="detailsContent" class="no-selection">
                     Click a marker on the map to see details
-                </div>
-                
-                <div class="stats-box" id="statsBox">
-                    <strong>📊 Quick Stats:</strong>
-                    <div id="quickStats">Loading...</div>
-                </div>
-                
-                <div style="background: #e7f3ff; padding: 10px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #2196F3; font-size: 12px;">
-                    <strong>🎯 Marker Types:</strong><br>
-                    ⭕ Circle = Regular dog<br>
-                    📍 Pin = Has callout notes<br>
-                    🅿️ Square = Parking location<br>
-                    📌 Large Pin = Field location
-                </div>
-                
-                <div style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 11px; color: #666;">
-                    <strong>💾 Google Sheets Sync:</strong><br>
-                    Edits save locally. To sync back to Google Sheets, you need to set up a Google Apps Script. 
-                    <br><br>
-                    <button class="btn btn-secondary" onclick="showAppsScriptHelp()" style="font-size: 11px; padding: 5px 8px;">📖 Show Setup</button>
                 </div>
             </div>
         </div>
@@ -350,40 +323,38 @@
             const strokeWidth = isSelected ? 3 : 2;
             
             if (markerType === 'field') {
-                const size = 32;
+                const size = 29; // 10% smaller
                 return L.divIcon({
-                    html: `<svg width="${size}" height="${size + 8}" viewBox="0 0 32 40" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
-                        <path d="M16 0C7.2 0 0 7.2 0 16c0 9.6 16 24 16 24s16-14.4 16-24C32 7.2 24.8 0 16 0z" 
+                    html: `<svg width="${size}" height="${size + 7}" viewBox="0 0 29 36" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M14.5 0C6.5 0 0 6.5 0 14.5c0 8.7 14.5 21.5 14.5 21.5s14.5-12.8 14.5-21.5C29 6.5 22.5 0 14.5 0z" 
                               fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                        <circle cx="16" cy="16" r="8" fill="rgba(255,255,255,0.3)"/>
-                        <text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">F</text>
+                        <text x="14.5" y="18" text-anchor="middle" fill="white" font-size="10" font-weight="bold">F</text>
                     </svg>`,
                     className: 'custom-field-marker',
-                    iconSize: [size, size + 8],
-                    iconAnchor: [size/2, size + 8]
+                    iconSize: [size, size + 7],
+                    iconAnchor: [size/2, size + 7]
                 });
             } else if (markerType === 'parking') {
-                const size = 28;
+                const size = 25; // 10% smaller
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">P</div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">P</div>`,
                     className: 'custom-parking-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
                 });
             } else if (markerType === 'pin') {
-                const size = 24;
+                const size = 22; // 10% smaller
                 return L.divIcon({
-                    html: `<svg width="${size}" height="${size + 6}" viewBox="0 0 24 30" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
-                        <path d="M12 0C5.4 0 0 5.4 0 12c0 7.2 12 18 12 18s12-10.8 12-18C24 5.4 18.6 0 12 0z" 
+                    html: `<svg width="${size}" height="${size + 5}" viewBox="0 0 22 27" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M11 0C4.9 0 0 4.9 0 11c0 6.6 11 16 11 16s11-9.4 11-16C22 4.9 17.1 0 11 0z" 
                               fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                        <circle cx="12" cy="12" r="6" fill="rgba(255,255,255,0.3)"/>
                     </svg>`,
                     className: 'custom-pin-marker',
-                    iconSize: [size, size + 6],
-                    iconAnchor: [size/2, size + 6]
+                    iconSize: [size, size + 5],
+                    iconAnchor: [size/2, size + 5]
                 });
             } else {
-                const size = 20;
+                const size = 18; // 10% smaller
                 return L.divIcon({
                     html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                     className: 'custom-marker',
@@ -396,8 +367,10 @@
         function initMap() {
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
             
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
+            // CLEANER MAP - Less busy than OpenStreetMap
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap contributors, © CARTO',
+                subdomains: 'abcd',
                 maxZoom: 19
             }).addTo(map);
 
@@ -438,7 +411,6 @@
                 });
 
                 updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
-                updateQuickStats();
                 updateMap();
                 
             } catch (error) {
@@ -671,27 +643,6 @@
             currentFilter = null;
             document.getElementById('searchInput').value = '';
             updateMap();
-        }
-
-        function updateQuickStats() {
-            if (allData.length === 0) return;
-            
-            const drivers = [...new Set(allData.map(row => {
-                const combined = row['Combined'] || '';
-                return combined.split(':')[0];
-            }).filter(driver => driver && driver.trim() !== ''))];
-            
-            const districts = [...new Set(allData.map(row => row['District']).filter(d => d && d.trim() !== ''))];
-            const withCallouts = allData.filter(row => row['Callout'] && row['Callout'].trim() !== '').length;
-            
-            const statsHtml = `
-                <div class="dog-info">🐕 <strong>${allData.length}</strong> total dogs</div>
-                <div class="dog-info">👤 <strong>${drivers.length}</strong> drivers</div>
-                <div class="dog-info">🗺️ <strong>${districts.length}</strong> districts</div>
-                <div class="dog-info">📝 <strong>${withCallouts}</strong> with callouts</div>
-            `;
-            
-            document.getElementById('quickStats').innerHTML = statsHtml;
         }
 
         function showStats() {
