@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Interactive Map - Wellesley Area</title>
+    <title>🐕 Dog Walking Interactive Map v2 - IMPROVED</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -238,12 +238,27 @@
             border-radius: 5px;
             border-left: 4px solid #667eea;
         }
+
+        .version-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff4444;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
+    <div class="version-badge">🆕 UPDATED v2</div>
+    
     <div class="header">
-        <h1>🐕 Dog Walking Interactive Map - Wellesley Area</h1>
-        <p>🐕 Dogs • 🏷️ Combined Names • 📝 Callouts • 🎯 Special Markers</p>
+        <h1>🐕 Dog Walking Interactive Map - IMPROVED VERSION</h1>
+        <p>🗺️ Street Names Visible • 📝 Callouts • 👥 Capacity • 💾 Google Sheets Sync • 🎨 Driver Color Grouping</p>
     </div>
 
     <div class="controls">
@@ -273,6 +288,9 @@
             <div class="legend-section">
                 <h3>🎨 Legend (Click to Filter)</h3>
                 <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
+                <div id="combinedHelp" style="font-size: 11px; color: #888; margin-bottom: 8px; font-style: italic; display: none;">
+                    ℹ️ Combined view groups by driver name (part before ":"). All entries for same driver share one color.
+                </div>
                 <div id="legendContent">Loading...</div>
                 <div style="text-align: center; margin-top: 10px;">
                     <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%;">Show All</button>
@@ -428,6 +446,7 @@
         function initMap() {
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
             
+            // IMPROVED MAP TILES - Shows street names and town names clearly!
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
                 maxZoom: 19
@@ -470,7 +489,7 @@
                     return !isNaN(lat) && !isNaN(lng) && row['Dog Name'] && lat !== 0 && lng !== 0;
                 });
 
-                updateStatus(`Loaded ${allData.length} locations!`, 'success');
+                updateStatus(`✅ Loaded ${allData.length} locations with street names visible!`, 'success');
                 updateQuickStats();
                 updateMap();
                 
@@ -485,14 +504,20 @@
             const colorBy = document.getElementById('colorBy').value;
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
 
-            // Filter data
+            // Filter data - NOW INCLUDES COMBINED AND CALLOUT IN SEARCH
             filteredData = allData.filter(row => {
                 const searchText = `${row['Dog Name']} ${row['Address']} ${row['Name']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
                 const matchesSearch = searchText.includes(searchTerm);
                 
                 let matchesFilter = currentFilter === null;
                 if (!matchesFilter && currentFilter !== null) {
-                    matchesFilter = row[colorBy] === currentFilter;
+                    if (colorBy === 'Combined') {
+                        // For Combined, filter by driver name (part before colon)
+                        const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
+                        matchesFilter = driverName === currentFilter;
+                    } else {
+                        matchesFilter = row[colorBy] === currentFilter;
+                    }
                 }
                 
                 return matchesSearch && matchesFilter;
@@ -504,12 +529,26 @@
             });
             markers = [];
 
-            // Generate color mapping
-            const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
-            colorMap = {};
-            uniqueValues.forEach(value => {
-                colorMap[value] = getColorForValue(value, colorBy);
-            });
+            // Generate color mapping - SPECIAL HANDLING FOR COMBINED
+            if (colorBy === 'Combined') {
+                // Get unique driver names (part before colon)
+                const uniqueDrivers = [...new Set(allData.map(row => {
+                    const combined = row['Combined'] || '';
+                    return combined.split(':')[0];
+                }).filter(driver => driver))];
+                
+                colorMap = {};
+                uniqueDrivers.forEach(driver => {
+                    colorMap[driver] = getDriverColor(driver);
+                });
+            } else {
+                // Normal color mapping for other attributes
+                const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
+                colorMap = {};
+                uniqueValues.forEach(value => {
+                    colorMap[value] = getColorForValue(value, colorBy);
+                });
+            }
 
             // Add new markers
             filteredData.forEach((row, index) => {
@@ -517,7 +556,15 @@
                 const lng = parseFloat(row['Longitude']);
                 if (isNaN(lat) || isNaN(lng)) return;
 
-                const color = colorMap[row[colorBy]] || '#999999';
+                // Get color - SPECIAL HANDLING FOR COMBINED
+                let color;
+                if (colorBy === 'Combined') {
+                    const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
+                    color = colorMap[driverName] || '#999999';
+                } else {
+                    color = colorMap[row[colorBy]] || '#999999';
+                }
+                
                 const isSelected = selectedRow === row;
                 
                 // Determine marker type based on dog name and callout
@@ -537,6 +584,7 @@
                     icon: createMarkerIcon(color, isSelected, markerType)
                 }).addTo(map);
 
+                // IMPROVED POPUP - HIDES BLANK DISTRICT, SHOWS CAPACITY
                 const popupContent = `
                     <strong>🐕 ${row['Dog Name']}</strong><br>
                     <strong>🏷️ Combined:</strong> ${row['Combined']}<br>
@@ -572,14 +620,42 @@
 
         // Update legend
         function updateLegend() {
+            const colorBy = document.getElementById('colorBy').value;
+            const combinedHelp = document.getElementById('combinedHelp');
             let html = '';
-            Object.entries(colorMap).forEach(([category, color]) => {
-                const isActive = currentFilter === category;
-                html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
-                    <div class="legend-color" style="background-color: ${color}"></div>
-                    <span>${category}</span>
-                </div>`;
-            });
+            
+            if (colorBy === 'Combined') {
+                // Show help text for Combined view
+                combinedHelp.style.display = 'block';
+                
+                // For Combined, show driver names (grouped) in legend
+                Object.entries(colorMap).forEach(([driverName, color]) => {
+                    const isActive = currentFilter === driverName;
+                    // Count how many dogs this driver has
+                    const driverCount = allData.filter(row => {
+                        const combined = row['Combined'] || '';
+                        return combined.split(':')[0] === driverName;
+                    }).length;
+                    
+                    html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${driverName}')">
+                        <div class="legend-color" style="background-color: ${color}"></div>
+                        <span>${driverName} (${driverCount} dogs)</span>
+                    </div>`;
+                });
+            } else {
+                // Hide help text for other views
+                combinedHelp.style.display = 'none';
+                
+                // Normal legend for other attributes
+                Object.entries(colorMap).forEach(([category, color]) => {
+                    const isActive = currentFilter === category;
+                    html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
+                        <div class="legend-color" style="background-color: ${color}"></div>
+                        <span>${category}</span>
+                    </div>`;
+                });
+            }
+            
             document.getElementById('legendContent').innerHTML = html;
         }
 
@@ -666,13 +742,15 @@
             
             const drivers = [...new Set(allData.map(row => row['Name']))];
             const groups = [...new Set(allData.map(row => row['Group']))];
-            const districts = [...new Set(allData.map(row => row['District']))];
+            const districts = [...new Set(allData.map(row => row['District']).filter(d => d && d.trim() !== ''))];
+            const withCallouts = allData.filter(row => row['Callout'] && row['Callout'].trim() !== '').length;
             
             const statsHtml = `
                 <div class="dog-info">🐕 <strong>${allData.length}</strong> total dogs</div>
                 <div class="dog-info">👤 <strong>${drivers.length}</strong> drivers</div>
                 <div class="dog-info">🏷️ <strong>${groups.length}</strong> groups</div>
                 <div class="dog-info">🗺️ <strong>${districts.length}</strong> districts</div>
+                <div class="dog-info">📝 <strong>${withCallouts}</strong> with callouts</div>
             `;
             
             document.getElementById('quickStats').innerHTML = statsHtml;
@@ -706,14 +784,7 @@
             alert(statsText);
         }
 
-        // Status update
-        function updateStatus(message, type = '') {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status ${type}`;
-        }
-
-        // Save combined name function
+        // Save combined name function - WITH GOOGLE SHEETS SYNC!
         async function saveCombinedName(index) {
             const newCombined = document.getElementById('editCombined').value;
             if (selectedRow && typeof index === 'number' && allData[index]) {
@@ -749,7 +820,7 @@
                     updateStatus(`✅ Updated locally: ${newCombined} (Configure Apps Script to sync to Google Sheets)`, 'success');
                 }
                 
-                // Refresh the map to show updated colors/legend
+                // Refresh the map to show updated colors/legend (important for Combined field changes)
                 updateMap();
                 
                 // Update the details display
@@ -819,8 +890,16 @@ Then your edits will sync back to Google Sheets!`;
             loadData();
         }
 
+        // Status update
+        function updateStatus(message, type = '') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
         // Initialize everything
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🆕 Loading IMPROVED Dog Map v2 with street names and Google Sheets sync!');
             initMap();
             loadData();
         });
