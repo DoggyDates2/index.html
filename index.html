@@ -332,7 +332,6 @@
         }
 
         function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
-            const strokeColor = '#000000'; // Always black borders
             const strokeWidth = isSelected ? 3 : 2;
             
             if (markerType === 'field') {
@@ -340,7 +339,7 @@
                 return L.divIcon({
                     html: `<svg width="${size}" height="${size + 7}" viewBox="0 0 29 36" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
                         <path d="M14.5 0C6.5 0 0 6.5 0 14.5c0 8.7 14.5 21.5 14.5 21.5s14.5-12.8 14.5-21.5C29 6.5 22.5 0 14.5 0z" 
-                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                              fill="${color}" stroke="#000000" stroke-width="${strokeWidth}"/>
                         <text x="14.5" y="18" text-anchor="middle" fill="white" font-size="10" font-weight="bold">F</text>
                     </svg>`,
                     className: 'custom-field-marker',
@@ -350,7 +349,7 @@
             } else if (markerType === 'parking') {
                 const size = 25;
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">P</div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid #000000; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">P</div>`,
                     className: 'custom-parking-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
@@ -360,7 +359,7 @@
                 return L.divIcon({
                     html: `<svg width="${size}" height="${size + 5}" viewBox="0 0 22 27" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
                         <path d="M11 0C4.9 0 0 4.9 0 11c0 6.6 11 16 11 16s11-9.4 11-16C22 4.9 17.1 0 11 0z" 
-                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                              fill="${color}" stroke="#000000" stroke-width="${strokeWidth}"/>
                     </svg>`,
                     className: 'custom-pin-marker',
                     iconSize: [size, size + 5],
@@ -369,7 +368,7 @@
             } else {
                 const size = 18;
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid #000000; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                     className: 'custom-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
