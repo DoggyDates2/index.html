@@ -327,30 +327,53 @@
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
-        let assignedColors = new Set(); // Track which colors are in use
+        let driverColorAssignments = {}; // Permanent color assignments for all drivers
 
         function getDriverColor(name) {
             if (!name) return '#999999';
             
+            // Return existing assignment if we have one
+            if (driverColorAssignments[name]) {
+                return driverColorAssignments[name];
+            }
+            
             // Check predefined colors first
             if (DRIVER_COLORS[name]) {
-                assignedColors.add(DRIVER_COLORS[name]);
+                driverColorAssignments[name] = DRIVER_COLORS[name];
                 return DRIVER_COLORS[name];
             }
             
+            // Get all colors already assigned
+            const usedColors = new Set(Object.values(driverColorAssignments));
+            
             // For new drivers, find the first unused color
             for (let color of ALL_COLORS) {
-                if (!assignedColors.has(color)) {
-                    assignedColors.add(color);
-                    // Store this assignment for consistency
-                    DRIVER_COLORS[name] = color;
+                if (!usedColors.has(color)) {
+                    driverColorAssignments[name] = color;
                     return color;
                 }
             }
             
             // Fallback if somehow all colors are used (very unlikely)
-            console.warn(`All ${ALL_COLORS.length} colors assigned! Using fallback for: ${name}`);
-            return '#' + Math.floor(Math.random()*16777215).toString(16);
+            console.warn(`All ${ALL_COLORS.length} colors assigned! Using random fallback for: ${name}`);
+            const fallbackColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+            driverColorAssignments[name] = fallbackColor;
+            return fallbackColor;
+        }
+
+        function initializeDriverColors() {
+            // Get all unique drivers from the data
+            const allDrivers = [...new Set(allData.map(row => {
+                const combined = row['Combined'] || '';
+                return combined.split(':')[0];
+            }).filter(driver => driver.trim() !== ''))];
+            
+            // Assign colors to all drivers at once to avoid conflicts
+            allDrivers.forEach(driver => {
+                getDriverColor(driver);
+            });
+            
+            console.log(`Assigned colors to ${allDrivers.length} drivers:`, driverColorAssignments);
         }
 
         function getColorForValue(value, attribute) {
@@ -461,6 +484,10 @@
                 });
 
                 updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
+                
+                // Initialize driver color assignments once when data loads
+                initializeDriverColors();
+                
                 updateMap();
                 
             } catch (error) {
@@ -472,9 +499,6 @@
         function updateMap() {
             const colorBy = document.getElementById('colorBy').value;
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-
-            // Clear assigned colors tracking for fresh assignment
-            assignedColors.clear();
 
             filteredData = allData.filter(row => {
                 const searchText = `${row['Dog Name']} ${row['Address']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
@@ -504,7 +528,8 @@
                 
                 colorMap = {};
                 uniqueDrivers.forEach(driver => {
-                    colorMap[driver] = getDriverColor(driver);
+                    // Use the permanent assignment from driverColorAssignments
+                    colorMap[driver] = driverColorAssignments[driver] || '#999999';
                 });
             } else {
                 const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
