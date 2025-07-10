@@ -289,7 +289,7 @@
             'Ali': '#FFD700'
         };
 
-        // Generate a large palette of distinct colors
+        // Generate a large palette of distinct colors including pastels
         function generateColorPalette(count = 50) {
             const colors = [];
             
@@ -302,14 +302,17 @@
                 baseHues.push((i * 360 / count) % 360);
             }
             
-            // Create colors with good visibility
+            // Create colors with good visibility - including pastels
             baseHues.forEach(hue => {
                 // Vary saturation and lightness for more options
                 const variations = [
                     [75, 45], // Darker, saturated
                     [85, 55], // Medium
                     [70, 40], // Dark
-                    [90, 50]  // Bright
+                    [90, 50], // Bright
+                    [60, 70], // Pastel
+                    [45, 75], // Light pastel
+                    [80, 35]  // Deep
                 ];
                 
                 variations.forEach(([sat, light]) => {
@@ -321,6 +324,36 @@
             });
             
             return colors;
+        }
+
+        // Generate border colors - darker variants for contrast
+        function generateBorderPalette(count = 30) {
+            const borderColors = [];
+            
+            // Dark border colors for contrast
+            const baseHues = [];
+            for (let i = 0; i < count; i++) {
+                baseHues.push((i * 360 / count) % 360);
+            }
+            
+            baseHues.forEach(hue => {
+                // Create darker border colors
+                const variations = [
+                    [90, 25], // Very dark
+                    [70, 30], // Dark
+                    [80, 20], // Deep dark
+                    [60, 35]  // Medium dark
+                ];
+                
+                variations.forEach(([sat, light]) => {
+                    const color = hslToHex(hue, sat, light);
+                    if (!borderColors.includes(color)) {
+                        borderColors.push(color);
+                    }
+                });
+            });
+            
+            return borderColors;
         }
 
         // Convert HSL to HEX
@@ -335,11 +368,12 @@
             return `#${f(0)}${f(8)}${f(4)}`;
         }
 
-        // Generate the color palette
-        const COLOR_PALETTE = generateColorPalette(60);
+        // Generate the color palettes
+        const COLOR_PALETTE = generateColorPalette(80);
+        const BORDER_PALETTE = generateBorderPalette(40);
 
         // Global variables
-        let map, markers = [], allData = [], filteredData = [], colorMap = {};
+        let map, markers = [], allData = [], filteredData = [], colorMap = {}, borderMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
 
         function getDriverColor(name) {
@@ -355,6 +389,19 @@
             // Skip predefined colors and get from generated palette
             const availableColors = COLOR_PALETTE.slice(Object.keys(DRIVER_COLORS).length);
             return availableColors[Math.abs(hash) % availableColors.length] || '#666666';
+        }
+
+        function getDriverBorderColor(name) {
+            if (!name) return '#000000';
+            
+            // Simple hash to determine white or black border
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            
+            // Return white or black based on hash
+            return (Math.abs(hash) % 2 === 0) ? '#ffffff' : '#000000';
         }
 
         function getColorForValue(value, attribute) {
@@ -373,45 +420,62 @@
             return COLOR_PALETTE[Math.abs(hash) % COLOR_PALETTE.length] || '#666666';
         }
 
-        function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
-            const strokeColor = '#000000';
-            const strokeWidth = isSelected ? 3 : 2;
+        function getBorderColorForValue(value, attribute) {
+            if (attribute === 'Combined') {
+                const driverName = value ? value.split(':')[0] : '';
+                return getDriverBorderColor(driverName);
+            }
+            
+            // Simple hash to determine white or black border
+            let hash = 0;
+            if (value) {
+                for (let i = 0; i < value.length; i++) {
+                    hash = value.charCodeAt(i) + ((hash << 5) - hash);
+                }
+            }
+            
+            // Return white or black based on hash
+            return (Math.abs(hash) % 2 === 0) ? '#ffffff' : '#000000';
+        }
+
+        function createMarkerIcon(color, borderColor, isSelected = false, markerType = 'circle') {
+            const strokeWidth = isSelected ? 4 : 3; // Thicker borders for better visibility
             
             if (markerType === 'field') {
-                const size = 29; // 10% smaller
+                const size = 29; 
                 return L.divIcon({
                     html: `<svg width="${size}" height="${size + 7}" viewBox="0 0 29 36" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
                         <path d="M14.5 0C6.5 0 0 6.5 0 14.5c0 8.7 14.5 21.5 14.5 21.5s14.5-12.8 14.5-21.5C29 6.5 22.5 0 14.5 0z" 
-                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                        <text x="14.5" y="18" text-anchor="middle" fill="white" font-size="10" font-weight="bold">F</text>
+                              fill="${color}" stroke="${borderColor}" stroke-width="${strokeWidth}"/>
+                        <text x="14.5" y="18" text-anchor="middle" fill="${borderColor === '#ffffff' ? '#000000' : '#ffffff'}" font-size="10" font-weight="bold">F</text>
                     </svg>`,
                     className: 'custom-field-marker',
                     iconSize: [size, size + 7],
                     iconAnchor: [size/2, size + 7]
                 });
             } else if (markerType === 'parking') {
-                const size = 25; // 10% smaller
+                const size = 25; 
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">P</div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${borderColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: ${borderColor === '#ffffff' ? '#000000' : '#ffffff'}; font-weight: bold; font-size: 12px;">P</div>`,
                     className: 'custom-parking-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
                 });
             } else if (markerType === 'pin') {
-                const size = 22; // 10% smaller
+                const size = 22; 
                 return L.divIcon({
                     html: `<svg width="${size}" height="${size + 5}" viewBox="0 0 22 27" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
                         <path d="M11 0C4.9 0 0 4.9 0 11c0 6.6 11 16 11 16s11-9.4 11-16C22 4.9 17.1 0 11 0z" 
-                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                              fill="${color}" stroke="${borderColor}" stroke-width="${strokeWidth}"/>
                     </svg>`,
                     className: 'custom-pin-marker',
                     iconSize: [size, size + 5],
                     iconAnchor: [size/2, size + 5]
                 });
             } else {
-                const size = 18; // 10% smaller
+                const size = 18; 
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${borderColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                     className: 'custom-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
@@ -505,14 +569,18 @@
                 }).filter(driver => driver))];
                 
                 colorMap = {};
+                borderMap = {};
                 uniqueDrivers.forEach(driver => {
                     colorMap[driver] = getDriverColor(driver);
+                    borderMap[driver] = getDriverBorderColor(driver);
                 });
             } else {
                 const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
                 colorMap = {};
+                borderMap = {};
                 uniqueValues.forEach(value => {
                     colorMap[value] = getColorForValue(value, colorBy);
+                    borderMap[value] = getBorderColorForValue(value, colorBy);
                 });
             }
 
@@ -521,12 +589,14 @@
                 const lng = parseFloat(row['Longitude']);
                 if (isNaN(lat) || isNaN(lng)) return;
 
-                let color;
+                let color, borderColor;
                 if (colorBy === 'Combined') {
                     const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
                     color = colorMap[driverName] || '#666666';
+                    borderColor = borderMap[driverName] || '#333333';
                 } else {
                     color = colorMap[row[colorBy]] || '#666666';
+                    borderColor = borderMap[row[colorBy]] || '#333333';
                 }
                 
                 const isSelected = selectedRow === row;
@@ -543,7 +613,7 @@
                 }
                 
                 const marker = L.marker([lat, lng], {
-                    icon: createMarkerIcon(color, isSelected, markerType)
+                    icon: createMarkerIcon(color, borderColor, isSelected, markerType)
                 }).addTo(map);
 
                 // CLEAN POPUP - NO LABELS
@@ -559,7 +629,7 @@
                 marker.bindPopup(popupContent);
                 marker.on('click', () => selectMarker(marker, row, index, markerType));
 
-                markers.push({marker, row, index, markerType});
+                markers.push({marker, row, index, markerType, color, borderColor});
             });
 
             updateLegend();
@@ -600,30 +670,17 @@
             if (selectedMarker) {
                 const prevData = markers.find(m => m.marker === selectedMarker);
                 if (prevData) {
-                    const colorBy = document.getElementById('colorBy').value;
-                    let color;
-                    if (colorBy === 'Combined') {
-                        const driverName = prevData.row['Combined'] ? prevData.row['Combined'].split(':')[0] : '';
-                        color = colorMap[driverName] || '#666666';
-                    } else {
-                        color = colorMap[prevData.row[colorBy]] || '#666666';
-                    }
-                    selectedMarker.setIcon(createMarkerIcon(color, false, prevData.markerType));
+                    selectedMarker.setIcon(createMarkerIcon(prevData.color, prevData.borderColor, false, prevData.markerType));
                 }
             }
 
             selectedMarker = marker;
             selectedRow = row;
             
-            const colorBy = document.getElementById('colorBy').value;
-            let color;
-            if (colorBy === 'Combined') {
-                const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                color = colorMap[driverName] || '#666666';
-            } else {
-                color = colorMap[row[colorBy]] || '#666666';
+            const markerData = markers.find(m => m.marker === marker);
+            if (markerData) {
+                marker.setIcon(createMarkerIcon(markerData.color, markerData.borderColor, true, markerType));
             }
-            marker.setIcon(createMarkerIcon(color, true, markerType));
 
             // CLEAN DETAILS - NO LABELS, SIMPLE LIKE TOOLTIP
             const hasCallout = row['Callout'] && row['Callout'].trim() !== '';
