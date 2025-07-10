@@ -280,7 +280,7 @@
             DEFAULT_ZOOM: 11
         };
 
-        // Extended driver colors with more options
+        // Driver colors
         const DRIVER_COLORS = {
             'Nate': '#1f77b4', 'Aidan': '#ff7f0e', 'Sarah': '#2ca02c', 'Victor': '#d62728',
             'Emily': '#9467bd', 'Mike': '#8c564b', 'Lisa': '#e377c2', 'David': '#7f7f7f',
@@ -289,180 +289,13 @@
             'Ali': '#FFD700'
         };
 
-        // Generate a large palette of maximally distinct colors
-        function generateMaximallyDistinctColors(count = 100) {
-            const colors = [];
-            
-            // First, add our predefined colors
-            Object.values(DRIVER_COLORS).forEach(color => colors.push(color));
-            
-            // Generate highly distinct colors using systematic HSL distribution
-            const hueSteps = Math.ceil(Math.sqrt(count)); // Distribute hues evenly
-            const satLightSteps = Math.ceil(count / hueSteps); // Distribute sat/light combinations
-            
-            for (let h = 0; h < hueSteps; h++) {
-                for (let sl = 0; sl < satLightSteps; sl++) {
-                    if (colors.length >= count) break;
-                    
-                    const hue = (h * 360 / hueSteps) % 360;
-                    
-                    // Create multiple distinct variations for each hue
-                    const variations = [
-                        [90, 40], // Deep saturated
-                        [75, 55], // Medium bright  
-                        [85, 35], // Dark rich
-                        [70, 65], // Light bright
-                        [95, 45], // Vivid
-                        [60, 70], // Pastel
-                        [80, 30], // Very dark
-                        [50, 75], // Very light
-                        [100, 50], // Pure saturated
-                        [65, 60]  // Balanced
-                    ];
-                    
-                    const [sat, light] = variations[sl % variations.length];
-                    const color = hslToHex(hue, sat, light);
-                    
-                    // Only add if it's sufficiently different from existing colors
-                    const isDifferent = colors.every(existingColor => 
-                        colorDistance(color, existingColor) > 30 // Minimum perceptual difference
-                    );
-                    
-                    if (isDifferent) {
-                        colors.push(color);
-                    }
-                }
-                if (colors.length >= count) break;
-            }
-            
-            return colors;
-        }
-
-        // Calculate perceptual color distance (simplified)
-        function colorDistance(color1, color2) {
-            const rgb1 = hexToRgb(color1);
-            const rgb2 = hexToRgb(color2);
-            
-            // Simple Euclidean distance in RGB space
-            const dr = rgb1.r - rgb2.r;
-            const dg = rgb1.g - rgb2.g;
-            const db = rgb1.b - rgb2.b;
-            
-            return Math.sqrt(dr*dr + dg*dg + db*db);
-        }
-
-        // Convert hex to RGB
-        function hexToRgb(hex) {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            return {r, g, b};
-        }
-
-        // Generate border colors - darker variants for contrast
-        function generateBorderPalette(count = 30) {
-            const borderColors = [];
-            
-            // Dark border colors for contrast
-            const baseHues = [];
-            for (let i = 0; i < count; i++) {
-                baseHues.push((i * 360 / count) % 360);
-            }
-            
-            baseHues.forEach(hue => {
-                // Create darker border colors
-                const variations = [
-                    [90, 25], // Very dark
-                    [70, 30], // Dark
-                    [80, 20], // Deep dark
-                    [60, 35]  // Medium dark
-                ];
-                
-                variations.forEach(([sat, light]) => {
-                    const color = hslToHex(hue, sat, light);
-                    if (!borderColors.includes(color)) {
-                        borderColors.push(color);
-                    }
-                });
-            });
-            
-            return borderColors;
-        }
-
-        // Convert HSL to HEX
-        function hslToHex(h, s, l) {
-            l /= 100;
-            const a = s * Math.min(l, 1 - l) / 100;
-            const f = n => {
-                const k = (n + h / 30) % 12;
-                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                return Math.round(255 * color).toString(16).padStart(2, '0');
-            };
-            return `#${f(0)}${f(8)}${f(4)}`;
-        }
-
-        // Generate the color palettes
-        const COLOR_PALETTE = generateColorPalette(80);
-        const BORDER_PALETTE = generateBorderPalette(40);
-
         // Global variables
-        let map, markers = [], allData = [], filteredData = [], colorMap = {}, borderMap = {};
+        let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
 
         function getDriverColor(name) {
-            if (!name) return '#666666';
-            if (DRIVER_COLORS[name]) return DRIVER_COLORS[name];
-            
-            // Use hash to get consistent color assignment
-            let hash = 0;
-            for (let i = 0; i < name.length; i++) {
-                hash = name.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            
-            // Skip predefined colors and get from generated palette
-            const availableColors = COLOR_PALETTE.slice(Object.keys(DRIVER_COLORS).length);
-            return availableColors[Math.abs(hash) % availableColors.length] || '#666666';
-        }
-
-        // Convert hex to HSL to detect pastel colors
-        function hexToHsl(hex) {
-            const r = parseInt(hex.slice(1, 3), 16) / 255;
-            const g = parseInt(hex.slice(3, 5), 16) / 255;
-            const b = parseInt(hex.slice(5, 7), 16) / 255;
-
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            let h, s, l = (max + min) / 2;
-
-            if (max === min) {
-                h = s = 0; // achromatic
-            } else {
-                const d = max - min;
-                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                switch (max) {
-                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                    case g: h = (b - r) / d + 2; break;
-                    case b: h = (r - g) / d + 4; break;
-                }
-                h /= 6;
-            }
-
-            return { h: h * 360, s: s * 100, l: l * 100 };
-        }
-
-        // Determine if a color is pastel (light/low saturation)
-        function isPastelColor(hexColor) {
-            const hsl = hexToHsl(hexColor);
-            // Pastel: high lightness (>60%) OR low saturation (<65%)
-            return hsl.l > 60 || hsl.s < 65;
-        }
-
-        function getDriverBorderColor(name) {
-            if (!name) return '#ffffff';
-            
-            const fillColor = getDriverColor(name);
-            // Pastel colors get black border, everything else gets white
-            return isPastelColor(fillColor) ? '#000000' : '#ffffff';
+            if (!name) return '#999999';
+            return DRIVER_COLORS[name] || '#' + Math.floor(Math.random()*16777215).toString(16);
         }
 
         function getColorForValue(value, attribute) {
@@ -471,77 +304,55 @@
                 return getDriverColor(driverName);
             }
             
-            // For other attributes, use systematic color assignment too
-            if (!value) return '#666666';
-            
-            // Create a unique assignment system for this attribute
-            const attributeKey = `${attribute}_${value}`;
-            if (driverColorAssignments[attributeKey]) {
-                return driverColorAssignments[attributeKey];
-            }
-            
-            // Find next available color
-            const usedColors = Object.values(driverColorAssignments);
-            for (let i = 0; i < COLOR_PALETTE.length; i++) {
-                const color = COLOR_PALETTE[i];
-                if (!usedColors.includes(color)) {
-                    driverColorAssignments[attributeKey] = color;
-                    return color;
+            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
+            let hash = 0;
+            if (value) {
+                for (let i = 0; i < value.length; i++) {
+                    hash = value.charCodeAt(i) + ((hash << 5) - hash);
                 }
             }
-            
-            return '#666666';
+            return colors[Math.abs(hash) % colors.length];
         }
 
-        function getBorderColorForValue(value, attribute) {
-            if (attribute === 'Combined') {
-                const driverName = value ? value.split(':')[0] : '';
-                return getDriverBorderColor(driverName);
-            }
-            
-            const fillColor = getColorForValue(value, attribute);
-            // Pastel colors get black border, everything else gets white
-            return isPastelColor(fillColor) ? '#000000' : '#ffffff';
-        }
-
-        function createMarkerIcon(color, borderColor, isSelected = false, markerType = 'circle') {
-            const strokeWidth = isSelected ? 4 : 3; // Thicker borders for better visibility
+        function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
+            const strokeColor = isSelected ? '#000000' : '#ffffff';
+            const strokeWidth = isSelected ? 3 : 2;
             
             if (markerType === 'field') {
-                const size = 29; 
+                const size = 29; // 10% smaller
                 return L.divIcon({
                     html: `<svg width="${size}" height="${size + 7}" viewBox="0 0 29 36" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
                         <path d="M14.5 0C6.5 0 0 6.5 0 14.5c0 8.7 14.5 21.5 14.5 21.5s14.5-12.8 14.5-21.5C29 6.5 22.5 0 14.5 0z" 
-                              fill="${color}" stroke="${borderColor}" stroke-width="${strokeWidth}"/>
-                        <text x="14.5" y="18" text-anchor="middle" fill="${borderColor === '#ffffff' ? '#000000' : '#ffffff'}" font-size="10" font-weight="bold">F</text>
+                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                        <text x="14.5" y="18" text-anchor="middle" fill="white" font-size="10" font-weight="bold">F</text>
                     </svg>`,
                     className: 'custom-field-marker',
                     iconSize: [size, size + 7],
                     iconAnchor: [size/2, size + 7]
                 });
             } else if (markerType === 'parking') {
-                const size = 25; 
+                const size = 25; // 10% smaller
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${borderColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: ${borderColor === '#ffffff' ? '#000000' : '#ffffff'}; font-weight: bold; font-size: 12px;">P</div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">P</div>`,
                     className: 'custom-parking-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
                 });
             } else if (markerType === 'pin') {
-                const size = 22; 
+                const size = 22; // 10% smaller
                 return L.divIcon({
                     html: `<svg width="${size}" height="${size + 5}" viewBox="0 0 22 27" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
                         <path d="M11 0C4.9 0 0 4.9 0 11c0 6.6 11 16 11 16s11-9.4 11-16C22 4.9 17.1 0 11 0z" 
-                              fill="${color}" stroke="${borderColor}" stroke-width="${strokeWidth}"/>
+                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                     </svg>`,
                     className: 'custom-pin-marker',
                     iconSize: [size, size + 5],
                     iconAnchor: [size/2, size + 5]
                 });
             } else {
-                const size = 18; 
+                const size = 18; // 10% smaller
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${borderColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                     className: 'custom-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
@@ -635,18 +446,14 @@
                 }).filter(driver => driver))];
                 
                 colorMap = {};
-                borderMap = {};
                 uniqueDrivers.forEach(driver => {
                     colorMap[driver] = getDriverColor(driver);
-                    borderMap[driver] = getDriverBorderColor(driver);
                 });
             } else {
                 const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
                 colorMap = {};
-                borderMap = {};
                 uniqueValues.forEach(value => {
                     colorMap[value] = getColorForValue(value, colorBy);
-                    borderMap[value] = getBorderColorForValue(value, colorBy);
                 });
             }
 
@@ -655,14 +462,12 @@
                 const lng = parseFloat(row['Longitude']);
                 if (isNaN(lat) || isNaN(lng)) return;
 
-                let color, borderColor;
+                let color;
                 if (colorBy === 'Combined') {
                     const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                    color = colorMap[driverName] || '#666666';
-                    borderColor = borderMap[driverName] || '#333333';
+                    color = colorMap[driverName] || '#999999';
                 } else {
-                    color = colorMap[row[colorBy]] || '#666666';
-                    borderColor = borderMap[row[colorBy]] || '#333333';
+                    color = colorMap[row[colorBy]] || '#999999';
                 }
                 
                 const isSelected = selectedRow === row;
@@ -679,7 +484,7 @@
                 }
                 
                 const marker = L.marker([lat, lng], {
-                    icon: createMarkerIcon(color, borderColor, isSelected, markerType)
+                    icon: createMarkerIcon(color, isSelected, markerType)
                 }).addTo(map);
 
                 // CLEAN POPUP - NO LABELS
@@ -695,7 +500,7 @@
                 marker.bindPopup(popupContent);
                 marker.on('click', () => selectMarker(marker, row, index, markerType));
 
-                markers.push({marker, row, index, markerType, color, borderColor});
+                markers.push({marker, row, index, markerType});
             });
 
             updateLegend();
@@ -736,17 +541,30 @@
             if (selectedMarker) {
                 const prevData = markers.find(m => m.marker === selectedMarker);
                 if (prevData) {
-                    selectedMarker.setIcon(createMarkerIcon(prevData.color, prevData.borderColor, false, prevData.markerType));
+                    const colorBy = document.getElementById('colorBy').value;
+                    let color;
+                    if (colorBy === 'Combined') {
+                        const driverName = prevData.row['Combined'] ? prevData.row['Combined'].split(':')[0] : '';
+                        color = colorMap[driverName] || '#999999';
+                    } else {
+                        color = colorMap[prevData.row[colorBy]] || '#999999';
+                    }
+                    selectedMarker.setIcon(createMarkerIcon(color, false, prevData.markerType));
                 }
             }
 
             selectedMarker = marker;
             selectedRow = row;
             
-            const markerData = markers.find(m => m.marker === marker);
-            if (markerData) {
-                marker.setIcon(createMarkerIcon(markerData.color, markerData.borderColor, true, markerType));
+            const colorBy = document.getElementById('colorBy').value;
+            let color;
+            if (colorBy === 'Combined') {
+                const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
+                color = colorMap[driverName] || '#999999';
+            } else {
+                color = colorMap[row[colorBy]] || '#999999';
             }
+            marker.setIcon(createMarkerIcon(color, true, markerType));
 
             // CLEAN DETAILS - NO LABELS, SIMPLE LIKE TOOLTIP
             const hasCallout = row['Callout'] && row['Callout'].trim() !== '';
