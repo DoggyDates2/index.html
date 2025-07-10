@@ -320,43 +320,17 @@
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
-        let driverColorAssignments = {}; // Store permanent color assignments
-
-        // Simple approach: Just assign colors in order based on sorted driver names
-        function assignUniqueColors() {
-            // Get all unique drivers from the data and sort them alphabetically
-            const allDrivers = [...new Set(allData.map(row => {
-                const combined = row['Combined'] || '';
-                return combined.split(':')[0];
-            }).filter(driver => driver && driver.trim() !== ''))].sort();
-            
-            console.log('All drivers (sorted):', allDrivers);
-            
-            // Clear existing assignments
-            driverColorAssignments = {};
-            
-            // Simply assign colors in order - first driver gets first color, etc.
-            allDrivers.forEach((driver, index) => {
-                if (DRIVER_COLORS[driver]) {
-                    // Keep predefined colors
-                    driverColorAssignments[driver] = DRIVER_COLORS[driver];
-                } else {
-                    // Assign next color in sequence
-                    if (index < COLORS.length) {
-                        driverColorAssignments[driver] = COLORS[index];
-                    } else {
-                        driverColorAssignments[driver] = '#999999'; // fallback
-                    }
-                }
-            });
-            
-            console.log('Final assignments:', driverColorAssignments);
-            console.log('Number of unique colors assigned:', Object.keys(driverColorAssignments).length);
-        }
 
         function getDriverColor(name) {
             if (!name) return '#999999';
-            return driverColorAssignments[name] || '#999999';
+            if (DRIVER_COLORS[name]) return DRIVER_COLORS[name];
+            
+            // Simple hash
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return COLORS[Math.abs(hash) % COLORS.length];
         }
 
         function getColorForValue(value, attribute) {
@@ -365,7 +339,6 @@
                 return getDriverColor(driverName);
             }
             
-            // For other attributes, use simple hash (since uniqueness less critical)
             let hash = 0;
             if (value) {
                 for (let i = 0; i < value.length; i++) {
@@ -464,9 +437,6 @@
                     const lng = parseFloat(row['Longitude']);
                     return !isNaN(lat) && !isNaN(lng) && row['Dog Name'] && lat !== 0 && lng !== 0;
                 });
-
-                // Assign unique colors to all drivers ONCE after data loads
-                assignUniqueColors();
 
                 updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
                 updateMap();
@@ -771,8 +741,6 @@
             selectedMarker = null;
             selectedRow = null;
             currentFilter = null;
-            // Clear color assignments for fresh start
-            driverColorAssignments = {};
             document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
             loadData();
         }
