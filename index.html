@@ -1,1250 +1,287 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Interactive Map</title>
+    <title>🐕 Dog Walking Map - Debug Version</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f8f9fa;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
-
+        
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #4CAF50;
             color: white;
-            padding: 15px 20px;
+            padding: 15px;
             text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            flex-shrink: 0;
+            margin-bottom: 20px;
+            border-radius: 5px;
         }
-
-        .header h1 {
-            font-size: 1.8em;
-            margin-bottom: 5px;
-        }
-
+        
         .controls {
             background: white;
-            padding: 10px 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            flex-wrap: wrap;
-            flex-shrink: 0;
-        }
-
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .control-group label {
-            font-weight: 600;
-            color: #333;
-        }
-
-        select, input {
-            padding: 6px 10px;
-            border: 2px solid #e1e5e9;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.2s;
-        }
-
-        select:focus, input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .main-content {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        .left-panel {
-            width: 280px;
-            background: white;
-            border-right: 2px solid #e1e5e9;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .legend-section {
-            border-bottom: 2px solid #e1e5e9;
             padding: 15px;
-            overflow-y: auto;
-            max-height: 300px;
-        }
-
-        .legend h3 {
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 16px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-            font-size: 14px;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 4px;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .legend-item:hover {
-            background-color: #f8f9fa;
-            border-color: #dee2e6;
-            transform: translateX(2px);
-        }
-
-        .legend-item.active {
-            background-color: #e3f2fd;
-            border-color: #2196F3;
-            font-weight: bold;
-        }
-
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            margin-right: 10px;
-            border: 2px solid #333;
-            flex-shrink: 0;
-        }
-
-        .edit-section {
-            flex: 1;
-            padding: 15px;
-            overflow-y: auto;
-        }
-
-        .edit-section h3 {
-            margin-bottom: 15px;
-            color: #333;
-            font-size: 16px;
-        }
-
-        .no-selection {
-            text-align: center;
-            color: #6c757d;
-            font-style: italic;
-            margin-top: 50px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .form-group label {
-            font-weight: 600;
-            color: #333;
-            font-size: 13px;
-        }
-
-        .form-group input {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .btn {
-            padding: 10px 15px;
-            border: none;
+            margin-bottom: 20px;
             border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 3px;
             cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            flex: 1;
             font-size: 14px;
         }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
+        
+        .btn:hover {
+            background: #1976D2;
         }
-
-        .btn-primary:hover {
-            background: #5a6fd8;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #545b62;
-        }
-
-        .btn-clear {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-clear:hover {
-            background: #218838;
-        }
-
-        .map-container {
-            flex: 1;
-            position: relative;
-        }
-
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-
-        .status {
+        
+        .debug-box {
             background: white;
-            padding: 8px 20px;
-            text-align: center;
-            font-weight: 600;
-            border-top: 1px solid #e1e5e9;
-            font-size: 14px;
-            flex-shrink: 0;
-        }
-
-        .status.loading {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .clear-selection {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .custom-pin-marker, .custom-diamond-marker, .custom-parking-marker, .custom-field-marker {
-            cursor: pointer;
-        }
-
-        .custom-pin-marker:hover, .custom-diamond-marker:hover, .custom-parking-marker:hover, .custom-field-marker:hover {
-            transform: scale(1.1);
-            transition: transform 0.2s ease-in-out;
-        }
-
-        .setup-notice {
-            background: #e7f3ff;
             border: 2px solid #2196F3;
-            border-radius: 8px;
             padding: 15px;
-            margin: 15px;
-            text-align: center;
-        }
-
-        .setup-notice h3 {
-            color: #1976D2;
-            margin-bottom: 10px;
-        }
-
-        .setup-notice p {
-            color: #333;
-            font-size: 14px;
-            line-height: 1.4;
-        }
-
-        .debug-panel {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 10px;
-            margin: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
             font-family: monospace;
-            font-size: 12px;
-            max-height: 200px;
+            white-space: pre-wrap;
+            max-height: 300px;
             overflow-y: auto;
         }
-
-        .debug-panel h4 {
-            margin-bottom: 5px;
-            color: #495057;
-            font-family: inherit;
+        
+        #map {
+            height: 500px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-
-        @media (max-width: 768px) {
-            .main-content {
-                flex-direction: column;
-            }
-            .left-panel {
-                width: 100%;
-                height: 300px;
-            }
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .control-group {
-                justify-content: space-between;
-            }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 3px;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🐕 Dog Walking Interactive Map - Wellesley Area</h1>
-        <p>📍 Pins • Ⓟ Parking • Ⓕ Fields • ♦️ Special Groups • 20-Mile Service Area</p>
+        <h1>🐕 Dog Walking Map - Debug Version</h1>
+        <p>Let's figure out what's going wrong with your data loading...</p>
     </div>
 
     <div class="controls">
-        <div class="control-group">
-            <label for="colorBy">Color by:</label>
-            <select id="colorBy">
-                <option value="Combined">Driver Name (Combined)</option>
-                <option value="Group">Group</option>
-                <option value="Capacity">Capacity</option>
-            </select>
-        </div>
-        
-        <div class="control-group">
-            <label for="searchInput">Search:</label>
-            <input type="text" id="searchInput" placeholder="Search dogs, addresses, drivers..." />
-        </div>
-
-        <div class="control-group">
-            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
-            <button class="btn btn-secondary" onclick="testSheetAccess()">🧪 Test Sheet</button>
-            <button class="btn btn-secondary" onclick="toggleDebug()">🐛 Debug</button>
-        </div>
+        <button class="btn" onclick="testConnection()">🧪 Test Google Sheets Connection</button>
+        <button class="btn" onclick="loadRealData()">📊 Load Real Data</button>
+        <button class="btn" onclick="loadSampleData()">🎯 Load Sample Data</button>
+        <button class="btn" onclick="clearDebug()">🗑️ Clear Debug</button>
     </div>
 
-    <!-- Setup Notice -->
-    <div class="setup-notice" id="setupNotice">
-        <h3>⚙️ Google Apps Script Setup Required</h3>
-        <p>To enable saving changes back to your Google Sheet, please deploy the Google Apps Script and add your Web App URL to the CONFIG section below.</p>
+    <div class="debug-box" id="debugOutput">
+Ready to debug! Click "🧪 Test Google Sheets Connection" to start...
     </div>
 
-    <!-- Debug Panel -->
-    <div class="debug-panel" id="debugPanel" style="display: none;">
-        <h4>🐛 Debug Information:</h4>
-        <div id="debugContent"></div>
-    </div>
-
-    <div class="main-content">
-        <div class="left-panel">
-            <div class="legend-section">
-                <h3>🎨 Legend (Click to Filter)</h3>
-                <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
-                <div id="legendContent">Loading...</div>
-                <div class="clear-selection">
-                    <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; margin-top: 10px;">Show All</button>
-                </div>
-            </div>
-            
-            <div class="edit-section">
-                <h3>✏️ Edit Title</h3>
-                <div id="editContent" class="no-selection">
-                    Click a marker on the map to edit title
-                </div>
-            </div>
-        </div>
-
-        <div class="map-container">
-            <div id="map"></div>
-        </div>
-    </div>
-
-    <div class="status" id="status">
-        Loading dog walking data...
-    </div>
+    <div id="map"></div>
+    
+    <div class="status" id="status">Click a button above to get started</div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-        // Configuration
+        // Configuration - YOUR ACTUAL SETTINGS
         const CONFIG = {
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
-            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
-            // ADD YOUR GOOGLE APPS SCRIPT WEB APP URL HERE:
-            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw7UA6k9yO2z10sI4tQ22n8eBz2lerJin5PJ2Yz7nSXsEzNbIyuDDMK7QAlRpuC-4vFRw/exec',
-            // Wellesley, MA coordinates and bounds
-            DEFAULT_LAT: 42.2968,
-            DEFAULT_LNG: -71.2636,
-            DEFAULT_ZOOM: 11,
-            // 20-mile radius bounds around Wellesley, MA
-            MAX_BOUNDS: {
-                NORTH: 42.5869,  // ~20 miles north
-                SOUTH: 42.0067,  // ~20 miles south  
-                EAST: -70.9336,  // ~20 miles east
-                WEST: -71.5936   // ~20 miles west
-            }
+            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI'
         };
 
-        // Color mapping
-        const LETTER_COLORS = {
-            'A': '#B71C1C', 'B': '#6A1B9A', 'C': '#1B5E20', 'D': '#F57F17', 'E': '#AD1457',
-            'F': '#BF360C', 'G': '#0D47A1', 'H': '#4A148C', 'I': '#E65100', 'J': '#006064',
-            'K': '#FF8F00', 'L': '#1A237E', 'M': '#880E4F', 'N': '#33691E', 'O': '#D84315',
-            'P': '#311B92', 'Q': '#827717', 'R': '#C2185B', 'S': '#2E7D32', 'T': '#FF5722',
-            'U': '#E91E63', 'V': '#9C27B0', 'W': '#FF9800', 'X': '#795548', 'Y': '#607D8B', 'Z': '#5D4037'
-        };
+        let map;
+        let allMarkers = [];
 
-        // Color families for conflict detection
-        const COLOR_FAMILIES = {
-            'REDS': ['#B71C1C', '#AD1457', '#BF360C', '#D84315', '#C2185B'],
-            'BLUES': ['#0D47A1', '#1A237E', '#006064'],
-            'GREENS': ['#1B5E20', '#33691E', '#2E7D32'],
-            'PURPLES': ['#6A1B9A', '#4A148C', '#311B92', '#E91E63', '#9C27B0'],
-            'ORANGES': ['#F57F17', '#FF8F00', '#FF5722', '#E65100', '#FF9800'],
-            'BROWNS': ['#795548'], 'GRAYS': ['#607D8B'], 'OLIVES': ['#827717']
-        };
-
-        // Global variables
-        let map, markers = [], allData = [], filteredData = [], colorMap = {};
-        let selectedMarker = null, selectedRow = null, selectedRowIndex = null, currentFilter = null;
-
-        // Debug logging
-        function debugLog(message, data = null) {
+        // Debug logging function
+        function log(message) {
+            const debugOutput = document.getElementById('debugOutput');
             const timestamp = new Date().toLocaleTimeString();
-            const debugContent = document.getElementById('debugContent');
-            const logEntry = `[${timestamp}] ${message}`;
-            console.log(logEntry, data);
-            
-            if (debugContent) {
-                debugContent.innerHTML += `<div>${logEntry}</div>`;
-                if (data) {
-                    debugContent.innerHTML += `<div style="color: #666; margin-left: 10px;">${JSON.stringify(data, null, 2)}</div>`;
-                }
-                debugContent.scrollTop = debugContent.scrollHeight;
-            }
+            debugOutput.textContent += `[${timestamp}] ${message}\n`;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
         }
 
-        // Show/hide debug panel
-        function toggleDebug() {
-            const panel = document.getElementById('debugPanel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        function clearDebug() {
+            document.getElementById('debugOutput').textContent = 'Debug cleared.\n';
+            document.getElementById('status').textContent = 'Debug cleared';
         }
 
-        // Helper functions
-        function getDriverColor(name) {
-            if (!name || name.trim() === '') return '#999999';
-            return LETTER_COLORS[name.trim().charAt(0).toUpperCase()] || '#999999';
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            log(`STATUS: ${message}`);
         }
 
-        function getColorFamily(color) {
-            for (const [family, colors] of Object.entries(COLOR_FAMILIES)) {
-                if (colors.includes(color)) return family;
-            }
-            return 'UNKNOWN';
-        }
-
-        function calculateDistance(lat1, lng1, lat2, lng2) {
-            const R = 3959;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLng = (lng2 - lng1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                    Math.sin(dLng/2) * Math.sin(dLng/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        function isWithinServiceArea(lat, lng) {
-            const distance = calculateDistance(CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG, lat, lng);
-            return distance <= 20; // 20-mile radius
-        }
-
-        // Icon creation functions
-        function createEmojiIcon(emoji, backgroundColor, isSelected = false) {
-            const size = 28;
-            const borderColor = isSelected ? '#000000' : '#333333';
-            const borderWidth = isSelected ? 3 : 2;
-            
-            return L.divIcon({
-                html: `<div style="width: ${size}px; height: ${size}px; background-color: ${backgroundColor}; border: ${borderWidth}px solid ${borderColor}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); box-sizing: border-box;">${emoji}</div>`,
-                className: 'custom-emoji-marker',
-                iconSize: [size, size],
-                iconAnchor: [size/2, size/2]
-            });
-        }
-
-        function createPinIcon(color, isSelected = false) {
-            const size = 21;
-            const strokeColor = isSelected ? '#000000' : '#ffffff';
-            const strokeWidth = isSelected ? 3 : 2;
-            
-            return L.divIcon({
-                html: `<svg width="${size}" height="${size}" viewBox="0 0 21 28" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
-                    <path d="M10.5 0C4.7 0 0 4.7 0 10.5c0 5.8 10.5 17.5 10.5 17.5s10.5-11.7 10.5-17.5C21 4.7 16.3 0 10.5 0z" 
-                          fill="${color}" 
-                          stroke="${strokeColor}" 
-                          stroke-width="${strokeWidth}"/>
-                    <circle cx="10.5" cy="10.5" r="4" fill="rgba(255,255,255,0.3)"/>
-                </svg>`,
-                className: 'custom-pin-marker',
-                iconSize: [size, size + 7],
-                iconAnchor: [size/2, size + 7]
-            });
-        }
-
-        function createDiamondIcon(color, isSelected = false) {
-            const size = 26;
-            const strokeColor = isSelected ? '#000000' : '#ffffff';
-            const strokeWidth = isSelected ? 3 : 2;
-            
-            return L.divIcon({
-                html: `<svg width="${size}" height="${size}" viewBox="0 0 26 26"><path d="M13 2 L24 13 L13 24 L2 13 Z" fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}" filter="drop-shadow(2px 2px 4px rgba(0,0,0,0.3))"/></svg>`,
-                className: 'custom-diamond-marker',
-                iconSize: [size, size],
-                iconAnchor: [size/2, size/2]
-            });
-        }
-
-        function createParkingIcon(color, isSelected = false) {
-            return createEmojiIcon('Ⓟ', color, isSelected);
-        }
-
-        function createFieldIcon(color, isSelected = false) {
-            return createEmojiIcon('Ⓕ', color, isSelected);
-        }
-
-        // Check if Apps Script is configured
-        function checkAppsScriptSetup() {
-            // Hide the setup notice for now since we're focusing on data loading
-            document.getElementById('setupNotice').style.display = 'none';
-            return false; // Return false to show "Save Locally" until data loads properly
-        }
-
-        // Test sheet access
-        async function testSheetAccess() {
-            debugLog('🧪 Testing Google Sheets access...');
-            document.getElementById('debugPanel').style.display = 'block';
-            updateStatus('Testing sheet access...', 'loading');
+        // Test the Google Sheets connection
+        async function testConnection() {
+            log("🧪 Testing Google Sheets connection...");
+            updateStatus("Testing connection...");
             
             try {
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
-                debugLog('Request URL:', url);
+                log(`📡 Making request to: ${url}`);
                 
                 const response = await fetch(url);
-                debugLog('Response status:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    ok: response.ok
-                });
+                log(`📥 Response status: ${response.status} (${response.statusText})`);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    debugLog('Error response:', errorText);
-                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+                    log(`❌ Error response: ${errorText}`);
+                    updateStatus(`❌ Connection failed: ${response.status}`);
+                    return;
                 }
                 
                 const data = await response.json();
-                debugLog('Success! Data received:', {
-                    rowCount: data.values ? data.values.length : 0,
-                    firstRow: data.values ? data.values[0] : 'No data'
-                });
+                log(`✅ Success! Received data with ${data.values ? data.values.length : 0} rows`);
                 
-                updateStatus('✅ Sheet access test successful!', 'success');
-                
-            } catch (error) {
-                debugLog('❌ Sheet access test failed:', error.message);
-                updateStatus(`❌ Sheet access failed: ${error.message}`, 'error');
-            }
-        }
-
-        // Apps Script API functions
-        async function callAppsScript(action, data = {}) {
-            if (!checkAppsScriptSetup()) {
-                throw new Error('Google Apps Script URL not configured');
-            }
-
-            const payload = {
-                action: action,
-                ...data
-            };
-
-            try {
-                debugLog('Calling Apps Script with:', payload);
-                
-                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                debugLog('Apps Script response:', response);
-                
-                return {
-                    success: true,
-                    message: 'Request sent to Google Apps Script'
-                };
-
-            } catch (error) {
-                debugLog('Apps Script API Error:', error);
-                throw error;
-            }
-        }
-
-        // Initialize map
-        function initMap() {
-            debugLog('🗺️ Initializing map...');
-            
-            // Create map centered on Wellesley, MA
-            map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
-            
-            // Set max bounds to 20-mile radius around Wellesley
-            const maxBounds = L.latLngBounds(
-                [CONFIG.MAX_BOUNDS.SOUTH, CONFIG.MAX_BOUNDS.WEST], // Southwest corner
-                [CONFIG.MAX_BOUNDS.NORTH, CONFIG.MAX_BOUNDS.EAST]  // Northeast corner
-            );
-            map.setMaxBounds(maxBounds);
-            map.options.minZoom = 9;  // Prevent zooming out too far
-            map.options.maxZoom = 18; // Allow detailed street level view
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-                attribution: '© OpenStreetMap contributors, © CARTO',
-                subdomains: 'abcd',
-                maxZoom: 19
-            }).addTo(map);
-
-            document.getElementById('colorBy').addEventListener('change', updateMap);
-            document.getElementById('searchInput').addEventListener('input', updateMap);
-            
-            // Check setup on load
-            checkAppsScriptSetup();
-            debugLog('✅ Map initialized successfully');
-        }
-
-        // Generate color mapping
-        function generateColorMap(attribute) {
-            const uniqueValues = [...new Set(allData.map(row => {
-                if (attribute === 'Combined') {
-                    // Extract part before colon, or use full value if no colon
-                    const combined = row[attribute] || '';
-                    const colonIndex = combined.indexOf(':');
-                    return colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
+                if (data.values && data.values.length > 0) {
+                    log(`📋 Column headers found: ${JSON.stringify(data.values[0])}`);
+                    log(`📊 Sample data row: ${JSON.stringify(data.values[1] || 'No data rows')}`);
                 } else {
-                    return row[attribute];
+                    log("⚠️ No data found in the response");
                 }
-            }))];
-            
-            colorMap = {};
-            
-            if (attribute === 'Combined') {
-                const driverData = [];
-                uniqueValues.forEach((name) => {
-                    colorMap[name] = getDriverColor(name);
-                    // Find rows that start with this driver name
-                    const driverRows = allData.filter(row => {
-                        const combined = row['Combined'] || '';
-                        const colonIndex = combined.indexOf(':');
-                        const driverName = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
-                        return driverName === name;
-                    });
-                    
-                    if (driverRows.length > 0) {
-                        const firstRow = driverRows[0];
-                        const lat = parseFloat(firstRow['Latitude']);
-                        const lng = parseFloat(firstRow['Longitude']);
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            driverData.push({name, lat, lng, currentColor: getDriverColor(name)});
-                        }
-                    }
-                });
-
-                // Conflict resolution
-                const CONFLICT_DISTANCE = 3;
-                const conflictColors = ['#1B5E20', '#0D47A1', '#FF8F00', '#6A1B9A', '#FF5722', '#795548'];
-                let colorIndex = 0;
-
-                driverData.sort((a, b) => a.name.localeCompare(b.name));
-
-                for (let i = 0; i < driverData.length; i++) {
-                    for (let j = i + 1; j < driverData.length; j++) {
-                        const d1 = driverData[i], d2 = driverData[j];
-                        const distance = calculateDistance(d1.lat, d1.lng, d2.lat, d2.lng);
-                        
-                        if (distance <= CONFLICT_DISTANCE) {
-                            const f1 = getColorFamily(d1.currentColor);
-                            const f2 = getColorFamily(d2.currentColor);
-                            
-                            if (d1.currentColor === d2.currentColor || f1 === f2) {
-                                d2.currentColor = conflictColors[colorIndex % conflictColors.length];
-                                colorMap[d2.name] = d2.currentColor;
-                                colorIndex++;
-                                debugLog(`🎨 Conflict resolved: ${d2.name} (${distance.toFixed(1)} miles from ${d1.name})`);
-                            }
-                        }
-                    }
-                }
-            } else {
-                uniqueValues.forEach((value) => {
-                    const firstChar = value ? value.toString().charAt(0).toUpperCase() : 'A';
-                    colorMap[value] = LETTER_COLORS[firstChar] || '#999999';
-                });
+                
+                updateStatus("✅ Connection successful! Check debug output above.");
+                
+            } catch (error) {
+                log(`❌ Connection error: ${error.message}`);
+                updateStatus(`❌ Connection error: ${error.message}`);
             }
         }
 
-        // Load data with enhanced error handling
-        async function loadData() {
-            debugLog('📊 Starting data load...');
-            updateStatus('Loading data...', 'loading');
+        // Load real data from your sheet
+        async function loadRealData() {
+            log("📊 Loading real data from your Google Sheet...");
+            updateStatus("Loading real data...");
             
             try {
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
-                debugLog('Making request to:', url);
-                
                 const response = await fetch(url);
-                debugLog('Response received:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    ok: response.ok
-                });
                 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    debugLog('Error response body:', errorText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
                 const data = await response.json();
-                debugLog('Data parsed:', {
-                    hasValues: !!data.values,
-                    rowCount: data.values ? data.values.length : 0
-                });
                 
                 if (!data.values || data.values.length < 2) {
-                    throw new Error('No data found in the sheet or insufficient rows');
+                    throw new Error('No data found in the sheet');
                 }
                 
                 const headers = data.values[0];
                 const rows = data.values.slice(1);
-                debugLog('Headers found:', headers);
                 
-                allData = rows.map((row, index) => {
-                    const obj = {};
-                    headers.forEach((header, headerIndex) => obj[header] = row[headerIndex] || '');
-                    return obj;
-                }).filter((row, index) => {
-                    const lat = parseFloat(row['Latitude']);
-                    const lng = parseFloat(row['Longitude']);
-                    const isValid = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
-                           row['Dog Name'] && isWithinServiceArea(lat, lng);
+                log(`📋 Found ${headers.length} columns: ${headers.join(', ')}`);
+                log(`📊 Found ${rows.length} data rows`);
+                
+                // Clear existing markers
+                allMarkers.forEach(marker => map.removeLayer(marker));
+                allMarkers = [];
+                
+                let validLocations = 0;
+                
+                rows.forEach((row, index) => {
+                    const rowData = {};
+                    headers.forEach((header, headerIndex) => {
+                        rowData[header] = row[headerIndex] || '';
+                    });
                     
-                    if (!isValid) {
-                        debugLog(`Filtered out row ${index}:`, {
-                            dogName: row['Dog Name'],
-                            lat, lng,
-                            reason: !row['Dog Name'] ? 'No dog name' : 
-                                   isNaN(lat) || isNaN(lng) ? 'Invalid coordinates' :
-                                   !isWithinServiceArea(lat, lng) ? 'Outside service area' : 'Unknown'
-                        });
+                    const lat = parseFloat(rowData['Latitude']);
+                    const lng = parseFloat(rowData['Longitude']);
+                    const dogName = rowData['Dog Name'];
+                    
+                    if (!isNaN(lat) && !isNaN(lng) && dogName) {
+                        const marker = L.marker([lat, lng]).addTo(map);
+                        marker.bindPopup(`<strong>${dogName}</strong><br>${rowData['Address'] || 'No address'}`);
+                        allMarkers.push(marker);
+                        validLocations++;
+                        
+                        log(`📍 Added marker for: ${dogName} at ${lat}, ${lng}`);
+                    } else {
+                        log(`⚠️ Skipped row ${index + 1}: ${dogName || 'No name'} - lat: ${lat}, lng: ${lng}`);
                     }
-                    
-                    return isValid;
                 });
-
-                debugLog(`✅ Successfully loaded ${allData.length} valid locations from ${rows.length} total rows`);
-                updateStatus(`Loaded ${allData.length} locations!`, 'success');
-                updateMap();
                 
-            } catch (error) {
-                debugLog('❌ Data load failed:', error.message);
-                updateStatus(`Error: ${error.message}`, 'error');
+                log(`✅ Successfully loaded ${validLocations} locations out of ${rows.length} rows`);
+                updateStatus(`✅ Loaded ${validLocations} locations on the map!`);
                 
-                // Load sample data for testing
-                debugLog('Loading sample data for testing...');
-                allData = [
-                    {
-                        'Address': '10 Central St, Wellesley, MA', 
-                        'Dog Name': 'Sydney (Sample)', 
-                        'Name': 'Victor', 
-                        'Latitude': '42.2968', 
-                        'Longitude': '-71.2636', 
-                        'Group': '1', 
-                        'Dog ID': '1', 
-                        'Capacity': '3', 
-                        'Combined': 'Victor: Sydney - 10 Central St', 
-                        'Callout': ''
-                    },
-                    {
-                        'Address': '20 Washington St, Wellesley Hills, MA', 
-                        'Dog Name': 'Freddie & Norman (Sample)', 
-                        'Name': 'Nate', 
-                        'Latitude': '42.3060', 
-                        'Longitude': '-71.2743', 
-                        'Group': '2', 
-                        'Dog ID': '6', 
-                        'Capacity': '1', 
-                        'Combined': 'Nate: Freddie & Norman - 20 Washington St', 
-                        'Callout': 'Special Notes'
-                    },
-                    {
-                        'Address': '15 Oak St, Wellesley, MA', 
-                        'Dog Name': 'Bella (Sample)', 
-                        'Name': 'Sarah', 
-                        'Latitude': '42.2945', 
-                        'Longitude': '-71.2612', 
-                        'Group': 'A:Special', 
-                        'Dog ID': '7', 
-                        'Capacity': '2', 
-                        'Combined': 'Sarah: Bella - 15 Oak St', 
-                        'Callout': ''
-                    },
-                    {
-                        'Address': 'Wellesley High School Parking', 
-                        'Dog Name': 'Parking Lot A', 
-                        'Name': 'System', 
-                        'Latitude': '42.2980', 
-                        'Longitude': '-71.2620', 
-                        'Group': 'P', 
-                        'Dog ID': '8', 
-                        'Capacity': '20', 
-                        'Combined': 'System: Parking Lot A', 
-                        'Callout': 'Public parking'
-                    },
-                    {
-                        'Address': 'Hunnewell Field', 
-                        'Dog Name': 'Field Area B', 
-                        'Name': 'System', 
-                        'Latitude': '42.2955', 
-                        'Longitude': '-71.2590', 
-                        'Group': 'F', 
-                        'Dog ID': '9', 
-                        'Capacity': '15', 
-                        'Combined': 'System: Field Area B', 
-                        'Callout': 'Open field space'
-                    }
-                ];
-                
-                debugLog('✅ Sample data loaded for testing');
-                updateStatus('⚠️ Using sample data - Check debug panel for connection issues', 'error');
-                updateMap();
-            }
-        }
-
-        // Update map
-        function updateMap() {
-            const colorBy = document.getElementById('colorBy').value;
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-
-            filteredData = allData.filter(row => {
-                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Name']} ${row['Group']}`.toLowerCase();
-                const matchesSearch = searchText.includes(searchTerm);
-                
-                // Handle filter matching based on colorBy attribute
-                let matchesFilter = currentFilter === null;
-                if (!matchesFilter && currentFilter !== null) {
-                    if (colorBy === 'Combined') {
-                        // Extract part before colon for comparison
-                        const combined = row['Combined'] || '';
-                        const colonIndex = combined.indexOf(':');
-                        const driverName = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
-                        matchesFilter = driverName === currentFilter;
-                    } else {
-                        matchesFilter = row[colorBy] === currentFilter;
-                    }
-                }
-                
-                return matchesSearch && matchesFilter;
-            });
-
-            markers.forEach(m => map.removeLayer(m.marker));
-            markers = [];
-            generateColorMap(colorBy);
-
-            filteredData.forEach((row, index) => {
-                const lat = parseFloat(row['Latitude']);
-                const lng = parseFloat(row['Longitude']);
-                if (isNaN(lat) || isNaN(lng)) return;
-
-                // Get the color key based on the colorBy attribute
-                let colorKey;
-                if (colorBy === 'Combined') {
-                    // Extract part before colon, or use full value if no colon
-                    const combined = row['Combined'] || '';
-                    const colonIndex = combined.indexOf(':');
-                    colorKey = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
-                } else {
-                    colorKey = row[colorBy];
-                }
-                
-                const color = colorMap[colorKey] || '#999999';
-                const isSelected = selectedRow === row;
-                
-                const dogName = row['Dog Name'] || '';
-                const group = row['Group'] || '';
-                
-                const isParking = dogName.toLowerCase().includes('parking');
-                const isField = dogName.toLowerCase().includes('field');
-                const hasColon = group.toString().includes(':');
-                
-                let marker, markerType = 'pin';
-                
-                if (isParking) {
-                    marker = L.marker([lat, lng], {icon: createParkingIcon(color, isSelected)}).addTo(map);
-                    markerType = 'parking';
-                } else if (isField) {
-                    marker = L.marker([lat, lng], {icon: createFieldIcon(color, isSelected)}).addTo(map);
-                    markerType = 'field';
-                } else if (hasColon) {
-                    marker = L.marker([lat, lng], {icon: createDiamondIcon(color, isSelected)}).addTo(map);
-                    markerType = 'diamond';
-                } else {
-                    marker = L.marker([lat, lng], {icon: createPinIcon(color, isSelected)}).addTo(map);
-                    markerType = 'pin';
-                }
-
-                // Find the original index in allData for this row
-                const originalIndex = allData.findIndex(originalRow => 
-                    originalRow['Dog ID'] === row['Dog ID'] || 
-                    (originalRow['Dog Name'] === row['Dog Name'] && originalRow['Address'] === row['Address'])
-                );
-
-                marker.on('click', () => selectMarker(marker, row, originalIndex));
-
-                let tooltipText;
-                const combinedTitle = row['Combined'] || row['Dog Name'];
-                const dogName = row['Dog Name'] || '';
-                const columnK = row['Callout'] || '';
-                
-                if (isParking) tooltipText = `<strong>Ⓟ ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
-                else if (isField) tooltipText = `<strong>Ⓕ ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
-                else if (hasColon) tooltipText = `<strong>♦️ ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
-                else tooltipText = `<strong>📍 ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
-                
-                // Add Column K info if not blank
-                if (columnK && columnK.trim() !== '') {
-                    tooltipText += `<br>${columnK}`;
-                }
-                
-                marker.bindTooltip(tooltipText, {permanent: false, direction: 'bottom', offset: [0, 10]});
-                markers.push({marker, row, index: originalIndex, markerType});
-            });
-
-            updateLegend();
-            updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
-            
-            // Update filter status display
-            const filterStatus = document.getElementById('filterStatus');
-            if (currentFilter) {
-                filterStatus.textContent = `Filtered by: ${currentFilter}`;
-                filterStatus.style.color = '#2196F3';
-                filterStatus.style.fontWeight = 'bold';
-            } else {
-                filterStatus.textContent = 'Showing all markers';
-                filterStatus.style.color = '#666';
-                filterStatus.style.fontWeight = 'normal';
-            }
-        }
-
-        // Marker selection
-        function selectMarker(marker, row, index) {
-            if (selectedMarker) {
-                const prevData = markers.find(m => m.marker === selectedMarker);
-                if (prevData) {
-                    const colorBy = document.getElementById('colorBy').value;
-                    let colorKey;
-                    if (colorBy === 'Combined') {
-                        const combined = prevData.row['Combined'] || '';
-                        const colonIndex = combined.indexOf(':');
-                        colorKey = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
-                    } else {
-                        colorKey = prevData.row[colorBy];
-                    }
-                    const color = colorMap[colorKey] || '#999999';
-                    
-                    if (prevData.markerType === 'parking') selectedMarker.setIcon(createParkingIcon(color, false));
-                    else if (prevData.markerType === 'field') selectedMarker.setIcon(createFieldIcon(color, false));
-                    else if (prevData.markerType === 'diamond') selectedMarker.setIcon(createDiamondIcon(color, false));
-                    else selectedMarker.setIcon(createPinIcon(color, false));
-                }
-            }
-
-            selectedMarker = marker;
-            selectedRow = row;
-            selectedRowIndex = index;
-            
-            const markerData = markers.find(m => m.marker === marker);
-            if (markerData) {
-                const colorBy = document.getElementById('colorBy').value;
-                let colorKey;
-                if (colorBy === 'Combined') {
-                    const combined = row['Combined'] || '';
-                    const colonIndex = combined.indexOf(':');
-                    colorKey = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
-                } else {
-                    colorKey = row[colorBy];
-                }
-                const color = colorMap[colorKey] || '#999999';
-                
-                if (markerData.markerType === 'parking') marker.setIcon(createParkingIcon(color, true));
-                else if (markerData.markerType === 'field') marker.setIcon(createFieldIcon(color, true));
-                else if (markerData.markerType === 'diamond') marker.setIcon(createDiamondIcon(color, true));
-                else marker.setIcon(createPinIcon(color, true));
-            }
-
-            showEditForm(row, index);
-        }
-
-        // Edit form
-        function showEditForm(row, index) {
-            const isAppsScriptConfigured = checkAppsScriptSetup();
-            const saveButtonText = isAppsScriptConfigured ? '💾 Save to Sheet' : '💾 Save Locally';
-            const saveButtonClass = isAppsScriptConfigured ? 'btn-primary' : 'btn-secondary';
-            
-            debugLog('Showing edit form for index:', {index, dogName: row['Dog Name']});
-            
-            const dogName = row['Dog Name'] || '';
-            const group = row['Group'] || '';
-            const combinedTitle = row['Combined'] || row['Dog Name'];
-            const columnK = row['Callout'] || '';
-            
-            const isParking = dogName.toLowerCase().includes('parking');
-            const isField = dogName.toLowerCase().includes('field');
-            const hasColon = group.toString().includes(':');
-            
-            let markerIcon;
-            if (isParking) markerIcon = 'Ⓟ';
-            else if (isField) markerIcon = 'Ⓕ';
-            else if (hasColon) markerIcon = '♦️';
-            else markerIcon = '📍';
-            
-            let editHtml = `
-                <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px;">${markerIcon} Currently Editing</div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 6px;">${dogName}</div>
-                <div style="font-size: 14px; color: #666; margin-bottom: 6px;">${row['Address']}</div>
-                <div style="font-size: 13px; color: #888; margin-bottom: 8px;">${row['Capacity'] || 'Not set'}</div>`;
-            
-            // Add Column K info if not blank
-            if (columnK && columnK.trim() !== '') {
-                editHtml += `<div style="font-size: 13px; color: #888; margin-bottom: 8px;">${columnK}</div>`;
-            }
-            
-            editHtml += `
-                <hr style="border: none; border-top: 1px solid #e1e5e9; margin: 15px 0;">
-                <div class="form-group" style="margin-bottom: 15px;">
-                    <label>Title:</label>
-                    <input type="text" id="combinedName_edit" value="${row['Combined'] || ''}" placeholder="Enter title..." />
-                </div>
-                ${!isAppsScriptConfigured ? 
-                    '<div style="font-size: 12px; color: #856404; margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 4px;">⚠️ Changes will only be saved locally until Apps Script is configured</div>' : 
-                    ''}
-                <div class="button-group">
-                    <button class="btn ${saveButtonClass}" id="saveBtn" type="button">${saveButtonText}</button>
-                    <button class="btn btn-secondary" id="cancelBtn" type="button">Cancel</button>
-                </div>
-            `;
-            
-            document.getElementById('editContent').innerHTML = editHtml;
-            
-            // Add event listeners manually to ensure they work
-            document.getElementById('saveBtn').addEventListener('click', function() {
-                debugLog('Save button clicked!');
-                saveChanges(index);
-            });
-            
-            document.getElementById('cancelBtn').addEventListener('click', function() {
-                debugLog('Cancel button clicked!');
-                clearSelection();
-            });
-        }
-
-        // Clear selection
-        function clearSelection() {
-            if (selectedMarker) {
-                const markerData = markers.find(m => m.marker === selectedMarker);
-                if (markerData) {
-                    const colorBy = document.getElementById('colorBy').value;
-                    let colorKey;
-                    if (colorBy === 'Combined') {
-                        const combined = markerData.row['Combined'] || '';
-                        const colonIndex = combined.indexOf(':');
-                        colorKey = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
-                    } else {
-                        colorKey = markerData.row[colorBy];
-                    }
-                    const color = colorMap[colorKey] || '#999999';
-                    
-                    if (markerData.markerType === 'parking') selectedMarker.setIcon(createParkingIcon(color, false));
-                    else if (markerData.markerType === 'field') selectedMarker.setIcon(createFieldIcon(color, false));
-                    else if (markerData.markerType === 'diamond') selectedMarker.setIcon(createDiamondIcon(color, false));
-                    else selectedMarker.setIcon(createPinIcon(color, false));
-                }
-            }
-            selectedMarker = null;
-            selectedRow = null;
-            selectedRowIndex = null;
-            document.getElementById('editContent').innerHTML = '<div class="no-selection">Click a marker on the map to edit title</div>';
-        }
-
-        // Save changes
-        async function saveChanges(index) {
-            try {
-                debugLog('Save function called with index:', index);
-                updateStatus('Saving changes...', 'loading');
-                
-                const newCombinedName = document.getElementById('combinedName_edit').value;
-                debugLog('New combined name:', newCombinedName);
-                
-                const updatedData = { 
-                    'Combined': newCombinedName
-                };
-
-                // Update local data immediately
-                if (selectedRow) {
-                    selectedRow['Combined'] = newCombinedName;
-                }
-                if (typeof index === 'number' && allData[index]) {
-                    allData[index]['Combined'] = newCombinedName;
-                }
-
-                if (checkAppsScriptSetup()) {
-                    try {
-                        // Try to save to Google Sheet via Apps Script
-                        const result = await callAppsScript('updateRow', {
-                            rowIndex: index,
-                            updatedData: updatedData
-                        });
-                        
-                        updateStatus(`✅ Saved to Google Sheet! (${result.message})`, 'success');
-                        debugLog('Apps Script result:', result);
-                        
-                    } catch (error) {
-                        debugLog('Error saving to sheet:', error);
-                        updateStatus(`⚠️ Saved locally, but failed to save to sheet: ${error.message}`, 'error');
-                    }
-                } else {
-                    updateStatus('✅ Saved locally! (Configure Apps Script to save to sheet)', 'success');
-                }
-
-                // Refresh the map and edit form
-                updateMap();
-                if (selectedRow && typeof index === 'number') {
-                    showEditForm(selectedRow, index);
+                // Fit map to show all markers
+                if (allMarkers.length > 0) {
+                    const group = new L.featureGroup(allMarkers);
+                    map.fitBounds(group.getBounds().pad(0.1));
                 }
                 
             } catch (error) {
-                updateStatus('Error saving changes: ' + error.message, 'error');
-                debugLog('Save error:', error);
+                log(`❌ Error loading real data: ${error.message}`);
+                updateStatus(`❌ Error: ${error.message}`);
             }
         }
 
-        // Legend
-        function updateLegend() {
-            const colorBy = document.getElementById('colorBy').value;
-            let html = '';
-            Object.entries(colorMap).forEach(([category, color]) => {
-                const isActive = currentFilter === category;
-                html += `<div class="legend-item ${isActive ? 'active' : ''}" data-category="${category}"><div class="legend-color" style="background-color: ${color}"></div><span>${category}</span></div>`;
+        // Load sample data for testing
+        function loadSampleData() {
+            log("🎯 Loading sample data for testing...");
+            updateStatus("Loading sample data...");
+            
+            // Clear existing markers
+            allMarkers.forEach(marker => map.removeLayer(marker));
+            allMarkers = [];
+            
+            const sampleData = [
+                { name: 'Buddy (Sample)', lat: 42.2968, lng: -71.2636, address: '10 Central St, Wellesley, MA' },
+                { name: 'Luna (Sample)', lat: 42.3060, lng: -71.2743, address: '20 Washington St, Wellesley Hills, MA' },
+                { name: 'Charlie (Sample)', lat: 42.2945, lng: -71.2612, address: '15 Oak St, Wellesley, MA' }
+            ];
+            
+            sampleData.forEach(location => {
+                const marker = L.marker([location.lat, location.lng]).addTo(map);
+                marker.bindPopup(`<strong>${location.name}</strong><br>${location.address}`);
+                allMarkers.push(marker);
+                log(`📍 Added sample marker: ${location.name}`);
             });
-            document.getElementById('legendContent').innerHTML = html;
             
-            // Add event listeners to legend items
-            document.querySelectorAll('.legend-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    const category = this.getAttribute('data-category');
-                    filterByCategory(category);
-                });
-            });
+            // Fit map to show all markers
+            const group = new L.featureGroup(allMarkers);
+            map.fitBounds(group.getBounds().pad(0.1));
+            
+            log(`✅ Loaded ${sampleData.length} sample locations`);
+            updateStatus(`✅ Sample data loaded successfully!`);
         }
 
-        // Filter functions
-        function filterByCategory(category) {
-            debugLog('Filter clicked for category:', category);
+        // Initialize the map
+        function initMap() {
+            log("🗺️ Initializing map...");
             
-            currentFilter = currentFilter === category ? null : category;
-            debugLog('Current filter after:', currentFilter);
+            map = L.map('map').setView([42.2968, -71.2636], 12);
             
-            clearSelection();
-            updateMap();
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
             
-            // Update filter status display
-            const filterStatus = document.getElementById('filterStatus');
-            if (currentFilter) {
-                filterStatus.textContent = `Filtered by: ${currentFilter}`;
-                filterStatus.style.color = '#2196F3';
-                filterStatus.style.fontWeight = 'bold';
-            } else {
-                filterStatus.textContent = 'Showing all markers';
-                filterStatus.style.color = '#666';
-                filterStatus.style.fontWeight = 'normal';
-            }
+            log("✅ Map initialized successfully");
         }
 
-        function clearFilter() {
-            debugLog('Clear filter clicked');
-            currentFilter = null;
-            document.getElementById('searchInput').value = '';
-            clearSelection();
-            updateMap();
-            
-            // Update filter status display
-            const filterStatus = document.getElementById('filterStatus');
-            filterStatus.textContent = 'Showing all markers';
-            filterStatus.style.color = '#666';
-            filterStatus.style.fontWeight = 'normal';
-        }
-
-        // Status update
-        function updateStatus(message, type = '') {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status ${type}`;
-        }
-
-        // Refresh
-        function refreshData() {
-            clearSelection();
-            loadData();
-        }
-
-        // Add keyboard shortcut for debug panel
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-                e.preventDefault();
-                toggleDebug();
-            }
-        });
-
-        // Initialize
+        // Start everything when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            debugLog('🚀 Application starting...');
+            log("🚀 Page loaded, initializing application...");
             initMap();
-            loadData();
+            log("✅ Ready! Click the buttons above to test.");
         });
     </script>
 </body>
