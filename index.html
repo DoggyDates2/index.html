@@ -282,7 +282,6 @@
 
         // Master color palette - 120+ unique colors
         const ALL_COLORS = [
-            // Predefined driver colors (50 unique)
             '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
             '#bcbd22', '#17becf', '#ff9896', '#98df8a', '#c5b0d5', '#c49c94', '#f7b6d3', '#c7c7c7',
             '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF',
@@ -290,90 +289,52 @@
             '#A3CB38', '#E74C3C', '#3742FA', '#2F3542', '#FF3838', '#2ECC71', '#9B59B6', '#E67E22',
             '#1ABC9C', '#34495E', '#F39C12', '#E91E63', '#00BCD4', '#607D8B', '#795548', '#009688',
             '#FF5722', '#673AB7', '#3F51B5', '#2196F3', '#03DAC6', '#6200EA', '#FF4081', '#FFAB00',
-            '#00E676', '#DD2C00', '#651FFF', '#FF6D00',
-            
-            // Additional fallback colors (70 more)
-            '#FF1744', '#00E5FF', '#BF360C', '#1B5E20', '#0D47A1', '#F57F17', '#4A148C', '#006064',
-            '#D50000', '#00C853', '#304FFE', '#FFD600', '#AA00FF', '#00B8D4', '#FF6F00', '#388E3C',
-            '#1976D2', '#FBC02D', '#7B1FA2', '#0097A7', '#FF3D00', '#689F38', '#1565C0', '#F9A825',
-            '#8E24AA', '#00ACC1', '#7CB342', '#0277BD', '#26C6DA', '#E65100', '#8BC34A', '#0288D1',
-            '#FF8F00', '#4DD0E1', '#FF8A65', '#AED581', '#039BE5', '#FFA726', '#5E35B1', '#4FC3F7',
-            '#FFAB91', '#C5E1A5', '#29B6F6', '#FFB74D', '#512DA8', '#81C784', '#FFCDD2', '#F8BBD9',
-            '#E1BEE7', '#D1C4E9', '#C5CAE9', '#BBDEFB', '#B3E5FC', '#B2EBF2', '#B2DFDB', '#C8E6C9',
-            '#DCEDC8', '#F0F4C3', '#FFF9C4', '#FFECB3', '#FFE0B2', '#FFCCBC', '#D7CCC8', '#F5F5F5',
-            '#CFD8DC', '#FF8A80', '#FF80AB', '#EA80FC', '#B388FF', '#8C9EFF', '#82B1FF', '#80D8FF',
-            '#84FFFF', '#A7FFEB', '#B9F6CA', '#CCFF90', '#F4FF81', '#FFFF8D', '#FFE57F', '#FFD180'
+            '#00E676', '#DD2C00', '#651FFF', '#FF6D00', '#FF1744', '#00E5FF', '#BF360C', '#1B5E20',
+            '#0D47A1', '#F57F17', '#4A148C', '#006064', '#D50000', '#00C853', '#304FFE', '#FFD600',
+            '#AA00FF', '#00B8D4', '#FF6F00', '#388E3C', '#1976D2', '#FBC02D', '#7B1FA2', '#0097A7',
+            '#FF3D00', '#689F38', '#1565C0', '#F9A825', '#8E24AA', '#00ACC1', '#7CB342', '#0277BD',
+            '#26C6DA', '#E65100', '#8BC34A', '#0288D1', '#FF8F00', '#4DD0E1', '#FF8A65', '#AED581',
+            '#039BE5', '#FFA726', '#5E35B1', '#4FC3F7', '#FFAB91', '#C5E1A5', '#29B6F6', '#FFB74D',
+            '#512DA8', '#81C784', '#FFCDD2', '#F8BBD9', '#E1BEE7', '#D1C4E9', '#C5CAE9', '#BBDEFB',
+            '#B3E5FC', '#B2EBF2', '#B2DFDB', '#C8E6C9', '#DCEDC8', '#F0F4C3', '#FFF9C4', '#FFECB3',
+            '#FFE0B2', '#FFCCBC', '#D7CCC8', '#F5F5F5', '#CFD8DC', '#FF8A80', '#FF80AB', '#EA80FC'
         ];
-
-        // Predefined driver assignments
-        const DRIVER_COLORS = {
-            'Nate': '#1f77b4', 'Aidan': '#ff7f0e', 'Sarah': '#2ca02c', 'Victor': '#d62728',
-            'Emily': '#9467bd', 'Mike': '#8c564b', 'Lisa': '#e377c2', 'David': '#7f7f7f',
-            'Anna': '#bcbd22', 'Chris': '#17becf', 'Jess': '#ff9896', 'Tom': '#98df8a',
-            'Sam': '#c5b0d5', 'Alex': '#c49c94', 'Jordan': '#f7b6d3', 'Taylor': '#c7c7c7',
-            'Ali': '#FFD700', 'Ben': '#FF6B6B', 'Kate': '#4ECDC4', 'Joe': '#45B7D1',
-            'Mia': '#96CEB4', 'Max': '#FECA57', 'Zoe': '#FF9FF3', 'Ian': '#54A0FF',
-            'Eva': '#5F27CD', 'Leo': '#00D2D3', 'Amy': '#FF9F43', 'Roy': '#10AC84',
-            'Ivy': '#EE5A24', 'Jay': '#0097E6', 'Sue': '#8C7AE6', 'Cal': '#F79F1F',
-            'Ava': '#A3CB38', 'Dan': '#E74C3C', 'Lea': '#3742FA', 'Ray': '#2F3542',
-            'Kai': '#FF3838', 'Nia': '#2ECC71', 'Eli': '#9B59B6', 'Rio': '#1ABC9C', 
-            'Sky': '#34495E', 'Fox': '#F39C12', 'Ace': '#E91E63', 'Blu': '#00BCD4', 
-            'Rex': '#607D8B', 'Jet': '#795548', 'Gem': '#009688', 'Neo': '#FF5722', 
-            'Orb': '#673AB7', 'Zen': '#3F51B5', 'Ash': '#2196F3', 'Bay': '#03DAC6', 
-            'Dex': '#6200EA', 'Nyx': '#FF4081', 'Pip': '#FFAB00', 'Rue': '#00E676', 
-            'Vex': '#DD2C00', 'Win': '#651FFF', 'Yay': '#FF6D00'
-        };
 
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
-        let driverColorAssignments = {}; // Permanent color assignments for all drivers
+        let driverColorMap = {}; // Simple driver name -> color mapping
 
-        function getDriverColor(name) {
-            if (!name) return '#999999';
-            
-            // Return existing assignment if we have one
-            if (driverColorAssignments[name]) {
-                return driverColorAssignments[name];
-            }
-            
-            // Check predefined colors first
-            if (DRIVER_COLORS[name]) {
-                driverColorAssignments[name] = DRIVER_COLORS[name];
-                return DRIVER_COLORS[name];
-            }
-            
-            // Get all colors already assigned
-            const usedColors = new Set(Object.values(driverColorAssignments));
-            
-            // For new drivers, find the first unused color
-            for (let color of ALL_COLORS) {
-                if (!usedColors.has(color)) {
-                    driverColorAssignments[name] = color;
-                    return color;
-                }
-            }
-            
-            // Fallback if somehow all colors are used (very unlikely)
-            console.warn(`All ${ALL_COLORS.length} colors assigned! Using random fallback for: ${name}`);
-            const fallbackColor = '#' + Math.floor(Math.random()*16777215).toString(16);
-            driverColorAssignments[name] = fallbackColor;
-            return fallbackColor;
-        }
-
-        function initializeDriverColors() {
-            // Get all unique drivers from the data
+        function assignDriverColors() {
+            // Get all unique drivers from the data, sorted alphabetically for consistency
             const allDrivers = [...new Set(allData.map(row => {
                 const combined = row['Combined'] || '';
-                return combined.split(':')[0];
-            }).filter(driver => driver.trim() !== ''))];
+                const driverName = combined.split(':')[0].trim();
+                return driverName;
+            }).filter(driver => driver !== ''))].sort();
             
-            // Assign colors to all drivers at once to avoid conflicts
-            allDrivers.forEach(driver => {
-                getDriverColor(driver);
+            console.log('Found drivers:', allDrivers);
+            
+            // Clear existing assignments
+            driverColorMap = {};
+            
+            // Assign colors sequentially - no duplicates possible!
+            allDrivers.forEach((driver, index) => {
+                if (index < ALL_COLORS.length) {
+                    driverColorMap[driver] = ALL_COLORS[index];
+                } else {
+                    // Fallback for more than 120 drivers (very unlikely)
+                    driverColorMap[driver] = '#' + Math.floor(Math.random()*16777215).toString(16);
+                }
             });
             
-            console.log(`Assigned colors to ${allDrivers.length} drivers:`, driverColorAssignments);
+            console.log('Driver color assignments:', driverColorMap);
+            console.log(`Assigned ${Object.keys(driverColorMap).length} unique colors to drivers`);
+        }
+
+        function getDriverColor(name) {
+            if (!name || name.trim() === '') return '#999999';
+            return driverColorMap[name.trim()] || '#999999';
         }
 
         function getColorForValue(value, attribute) {
@@ -485,8 +446,8 @@
 
                 updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
                 
-                // Initialize driver color assignments once when data loads
-                initializeDriverColors();
+                // Assign colors to all drivers using simple sequential method
+                assignDriverColors();
                 
                 updateMap();
                 
@@ -528,8 +489,8 @@
                 
                 colorMap = {};
                 uniqueDrivers.forEach(driver => {
-                    // Use the permanent assignment from driverColorAssignments
-                    colorMap[driver] = driverColorAssignments[driver] || '#999999';
+                    // Use the simple sequential assignment
+                    colorMap[driver] = getDriverColor(driver);
                 });
             } else {
                 const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
@@ -791,6 +752,7 @@
             selectedMarker = null;
             selectedRow = null;
             currentFilter = null;
+            // Keep existing driver color assignments for consistency
             document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
             loadData();
         }
