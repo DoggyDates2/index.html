@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Interactive Map v2 - IMPROVED</title>
+    <title>🐕 Dog Walking Map</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -240,33 +240,16 @@
         }
 
         .version-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #ff4444;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 12px;
-            font-weight: bold;
-            z-index: 1000;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="version-badge">🆕 UPDATED v2</div>
-    
-    <div class="header">
-        <h1>🐕 Dog Walking Interactive Map - IMPROVED VERSION</h1>
-        <p>🗺️ Street Names Visible • 📝 Callouts • 👥 Capacity • 💾 Google Sheets Sync • 🎨 Driver Color Grouping</p>
-    </div>
-
     <div class="controls">
         <div class="control-group">
             <label for="colorBy">Color by:</label>
             <select id="colorBy">
                 <option value="Combined">Combined (Driver:Group)</option>
-                <option value="Group">Group</option>
                 <option value="District">District</option>
             </select>
         </div>
@@ -288,7 +271,7 @@
                 <h3>🎨 Legend (Click to Filter)</h3>
                 <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
                 <div id="combinedHelp" style="font-size: 11px; color: #888; margin-bottom: 8px; font-style: italic; display: none;">
-                    ℹ️ Combined view groups by driver name (part before ":"). All entries for same driver share one color.
+                    ℹ️ Combined view groups by driver name (part before ":"). All dogs for same driver share one color.
                 </div>
                 <div id="legendContent">Loading...</div>
                 <div style="text-align: center; margin-top: 10px;">
@@ -367,16 +350,13 @@
         }
 
         function getColorForValue(value, attribute) {
-            if (attribute === 'Name' || attribute === 'Combined') {
-                // For both Name and Combined, extract driver name for consistent coloring
-                let driverName = value;
-                if (attribute === 'Combined') {
-                    driverName = value ? value.split(':')[0] : '';
-                }
+            if (attribute === 'Combined') {
+                // Extract driver name for consistent coloring
+                const driverName = value ? value.split(':')[0] : '';
                 return getDriverColor(driverName);
             }
             
-            // Generate consistent colors for other attributes
+            // Generate consistent colors for District
             const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
             let hash = 0;
             if (value) {
@@ -505,7 +485,7 @@
             const colorBy = document.getElementById('colorBy').value;
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
 
-            // Filter data - NOW INCLUDES COMBINED AND CALLOUT IN SEARCH
+            // Filter data - REMOVED GROUP FROM SEARCH
             filteredData = allData.filter(row => {
                 const searchText = `${row['Dog Name']} ${row['Address']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
                 const matchesSearch = searchText.includes(searchTerm);
@@ -543,7 +523,7 @@
                     colorMap[driver] = getDriverColor(driver);
                 });
             } else {
-                // Normal color mapping for other attributes
+                // Normal color mapping for District
                 const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
                 colorMap = {};
                 uniqueValues.forEach(value => {
@@ -585,14 +565,13 @@
                     icon: createMarkerIcon(color, isSelected, markerType)
                 }).addTo(map);
 
-                // IMPROVED POPUP - HIDES BLANK DISTRICT, SHOWS CAPACITY
+                // CLEAN POPUP - NO LABELS, NO GROUP
                 const popupContent = `
                     <strong>🐕 ${row['Dog Name']}</strong><br>
                     <strong>🏷️ ${row['Combined']}</strong><br>
-                    <strong>📍 Address:</strong> ${row['Address']}<br>
-                    <strong>🎯 Group:</strong> ${row['Group']}<br>
-                    ${row['District'] && row['District'].trim() !== '' ? `<strong>🗺️ District:</strong> ${row['District']}<br>` : ''}
-                    ${row['Capacity'] && row['Capacity'].trim() !== '' ? `<strong>👥 Capacity:</strong> ${row['Capacity']}<br>` : ''}
+                    ${row['Address']}<br>
+                    ${row['District'] && row['District'].trim() !== '' ? `${row['District']}<br>` : ''}
+                    ${row['Capacity'] && row['Capacity'].trim() !== '' ? `${row['Capacity']}<br>` : ''}
                     ${hasCallout ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${row['Callout']}</span><br>` : ''}
                 `;
 
@@ -679,27 +658,36 @@
             const color = colorMap[row[colorBy]] || '#999999';
             marker.setIcon(createMarkerIcon(color, true, markerType));
 
-            // Show details with editing capability
+            // Show details with editing capability - SIMPLIFIED LIKE TOOLTIP
             const hasCallout = row['Callout'] && row['Callout'].trim() !== '';
             const detailsHtml = `
                 <div style="font-weight: bold; color: #333; margin-bottom: 10px;">
                     🐕 ${row['Dog Name']}
                 </div>
                 
+                <div style="font-weight: bold; color: #333; margin-bottom: 10px;">
+                    🏷️ ${row['Combined']}
+                </div>
+                
+                <div style="margin-bottom: 8px; color: #666;">
+                    ${row['Address']}
+                </div>
+                
+                ${row['District'] && row['District'].trim() !== '' ? `
+                <div style="margin-bottom: 8px; color: #666;">
+                    ${row['District']}
+                </div>` : ''}
+                
+                ${row['Capacity'] && row['Capacity'].trim() !== '' ? `
+                <div style="margin-bottom: 8px; color: #666;">
+                    ${row['Capacity']}
+                </div>` : ''}
+                
                 ${hasCallout ? `
                 <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; border-radius: 4px; margin-bottom: 10px;">
                     <strong>📢 CALLOUT:</strong><br>
                     <span style="color: #856404; font-weight: bold;">${row['Callout']}</span>
                 </div>` : ''}
-                
-                <div class="dog-info"><strong>🏷️</strong> ${row['Combined']}</div>
-                <div class="dog-info"><strong>📍 Address:</strong> ${row['Address']}</div>
-                <div class="dog-info"><strong>🎯 Group:</strong> ${row['Group']}</div>
-                ${row['District'] && row['District'].trim() !== '' ? `<div class="dog-info"><strong>🗺️ District:</strong> ${row['District']}</div>` : ''}
-                <div class="dog-info"><strong>🔢 Dog ID:</strong> ${row['Dog ID']}</div>
-                ${row['Capacity'] && row['Capacity'].trim() !== '' ? `<div class="dog-info"><strong>👥 Capacity:</strong> ${row['Capacity']}</div>` : ''}
-                ${row['Number of dogs'] ? `<div class="dog-info"><strong>🐕 Count:</strong> ${row['Number of dogs']}</div>` : ''}
-                <div class="dog-info"><strong>🌐 Coordinates:</strong> ${row['Latitude']}, ${row['Longitude']}</div>
                 
                 <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
                 
@@ -735,7 +723,7 @@
             updateMap();
         }
 
-        // Update quick stats
+        // Update quick stats - REMOVED GROUP
         function updateQuickStats() {
             if (allData.length === 0) return;
             
@@ -745,14 +733,12 @@
                 return combined.split(':')[0];
             }).filter(driver => driver && driver.trim() !== ''))];
             
-            const groups = [...new Set(allData.map(row => row['Group']))];
             const districts = [...new Set(allData.map(row => row['District']).filter(d => d && d.trim() !== ''))];
             const withCallouts = allData.filter(row => row['Callout'] && row['Callout'].trim() !== '').length;
             
             const statsHtml = `
                 <div class="dog-info">🐕 <strong>${allData.length}</strong> total dogs</div>
                 <div class="dog-info">👤 <strong>${drivers.length}</strong> drivers</div>
-                <div class="dog-info">🏷️ <strong>${groups.length}</strong> groups</div>
                 <div class="dog-info">🗺️ <strong>${districts.length}</strong> districts</div>
                 <div class="dog-info">📝 <strong>${withCallouts}</strong> with callouts</div>
             `;
@@ -760,7 +746,7 @@
             document.getElementById('quickStats').innerHTML = statsHtml;
         }
 
-        // Show detailed stats
+        // Show detailed stats - REMOVED GROUP
         function showStats() {
             if (allData.length === 0) return;
             
@@ -774,8 +760,10 @@
                 return acc;
             }, {});
             
-            const groups = allData.reduce((acc, row) => {
-                acc[row['Group']] = (acc[row['Group']] || 0) + 1;
+            const districts = allData.reduce((acc, row) => {
+                if (row['District'] && row['District'].trim() !== '') {
+                    acc[row['District']] = (acc[row['District']] || 0) + 1;
+                }
                 return acc;
             }, {});
             
@@ -785,9 +773,9 @@
                 statsText += `  ${name}: ${count} dogs\n`;
             });
             
-            statsText += "\n🏷️ GROUPS:\n";
-            Object.entries(groups).sort((a, b) => b[1] - a[1]).forEach(([group, count]) => {
-                statsText += `  ${group}: ${count} dogs\n`;
+            statsText += "\n🗺️ DISTRICTS:\n";
+            Object.entries(districts).sort((a, b) => b[1] - a[1]).forEach(([district, count]) => {
+                statsText += `  ${district}: ${count} dogs\n`;
             });
             
             alert(statsText);
@@ -908,7 +896,7 @@ Then your edits will sync back to Google Sheets!`;
 
         // Initialize everything
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🆕 Loading IMPROVED Dog Map v2 with street names and Google Sheets sync!');
+            console.log('🐕 Loading Dog Walking Map...');
             initMap();
             loadData();
         });
