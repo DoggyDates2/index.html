@@ -283,6 +283,24 @@
             line-height: 1.4;
         }
 
+        .debug-panel {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .debug-panel h4 {
+            margin-bottom: 5px;
+            color: #495057;
+            font-family: inherit;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -324,6 +342,7 @@
 
         <div class="control-group">
             <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
+            <button class="btn btn-secondary" onclick="testSheetAccess()">🧪 Test Sheet</button>
         </div>
     </div>
 
@@ -331,6 +350,12 @@
     <div class="setup-notice" id="setupNotice">
         <h3>⚙️ Google Apps Script Setup Required</h3>
         <p>To enable saving changes back to your Google Sheet, please deploy the Google Apps Script and add your Web App URL to the CONFIG section below.</p>
+    </div>
+
+    <!-- Debug Panel -->
+    <div class="debug-panel" id="debugPanel" style="display: none;">
+        <h4>🐛 Debug Information:</h4>
+        <div id="debugContent"></div>
     </div>
 
     <div class="main-content">
@@ -407,6 +432,28 @@
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, selectedRowIndex = null, currentFilter = null;
+
+        // Debug logging
+        function debugLog(message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const debugContent = document.getElementById('debugContent');
+            const logEntry = `[${timestamp}] ${message}`;
+            console.log(logEntry, data);
+            
+            if (debugContent) {
+                debugContent.innerHTML += `<div>${logEntry}</div>`;
+                if (data) {
+                    debugContent.innerHTML += `<div style="color: #666; margin-left: 10px;">${JSON.stringify(data, null, 2)}</div>`;
+                }
+                debugContent.scrollTop = debugContent.scrollHeight;
+            }
+        }
+
+        // Show/hide debug panel
+        function toggleDebug() {
+            const panel = document.getElementById('debugPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
 
         // Helper functions
         function getDriverColor(name) {
@@ -501,6 +548,43 @@
             }
         }
 
+        // Test sheet access
+        async function testSheetAccess() {
+            debugLog('🧪 Testing Google Sheets access...');
+            document.getElementById('debugPanel').style.display = 'block';
+            updateStatus('Testing sheet access...', 'loading');
+            
+            try {
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+                debugLog('Request URL:', url);
+                
+                const response = await fetch(url);
+                debugLog('Response status:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    debugLog('Error response:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+                }
+                
+                const data = await response.json();
+                debugLog('Success! Data received:', {
+                    rowCount: data.values ? data.values.length : 0,
+                    firstRow: data.values ? data.values[0] : 'No data'
+                });
+                
+                updateStatus('✅ Sheet access test successful!', 'success');
+                
+            } catch (error) {
+                debugLog('❌ Sheet access test failed:', error.message);
+                updateStatus(`❌ Sheet access failed: ${error.message}`, 'error');
+            }
+        }
+
         // Apps Script API functions
         async function callAppsScript(action, data = {}) {
             if (!checkAppsScriptSetup()) {
@@ -513,35 +597,34 @@
             };
 
             try {
-                console.log('Calling Apps Script with:', payload);
+                debugLog('Calling Apps Script with:', payload);
                 
-                // Try fetch first
                 const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // This bypasses CORS but limits response access
+                    mode: 'no-cors',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(payload)
                 });
 
-                console.log('Fetch response:', response);
+                debugLog('Apps Script response:', response);
                 
-                // Since we're using no-cors mode, we can't read the response
-                // We'll assume success if no error was thrown
                 return {
                     success: true,
                     message: 'Request sent to Google Apps Script'
                 };
 
             } catch (error) {
-                console.error('Apps Script API Error:', error);
+                debugLog('Apps Script API Error:', error);
                 throw error;
             }
         }
 
         // Initialize map
         function initMap() {
+            debugLog('🗺️ Initializing map...');
+            
             // Create map centered on Wellesley, MA
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
             
@@ -565,6 +648,7 @@
             
             // Check setup on load
             checkAppsScriptSetup();
+            debugLog('✅ Map initialized successfully');
         }
 
         // Generate color mapping
@@ -624,7 +708,7 @@
                                 d2.currentColor = conflictColors[colorIndex % conflictColors.length];
                                 colorMap[d2.name] = d2.currentColor;
                                 colorIndex++;
-                                console.log(`🎨 Conflict resolved: ${d2.name} (${distance.toFixed(1)} miles from ${d1.name})`);
+                                debugLog(`🎨 Conflict resolved: ${d2.name} (${distance.toFixed(1)} miles from ${d1.name})`);
                             }
                         }
                     }
@@ -637,42 +721,140 @@
             }
         }
 
-        // Load data
+        // Load data with enhanced error handling
         async function loadData() {
+            debugLog('📊 Starting data load...');
             updateStatus('Loading data...', 'loading');
             
             try {
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+                debugLog('Making request to:', url);
+                
                 const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                debugLog('Response received:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    debugLog('Error response body:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 
                 const data = await response.json();
-                if (!data.values || data.values.length < 2) throw new Error('No data found');
+                debugLog('Data parsed:', {
+                    hasValues: !!data.values,
+                    rowCount: data.values ? data.values.length : 0
+                });
+                
+                if (!data.values || data.values.length < 2) {
+                    throw new Error('No data found in the sheet or insufficient rows');
+                }
                 
                 const headers = data.values[0];
                 const rows = data.values.slice(1);
+                debugLog('Headers found:', headers);
                 
-                allData = rows.map(row => {
+                allData = rows.map((row, index) => {
                     const obj = {};
-                    headers.forEach((header, index) => obj[header] = row[index] || '');
+                    headers.forEach((header, headerIndex) => obj[header] = row[headerIndex] || '');
                     return obj;
-                }).filter(row => {
+                }).filter((row, index) => {
                     const lat = parseFloat(row['Latitude']);
                     const lng = parseFloat(row['Longitude']);
-                    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
+                    const isValid = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
                            row['Dog Name'] && isWithinServiceArea(lat, lng);
+                    
+                    if (!isValid) {
+                        debugLog(`Filtered out row ${index}:`, {
+                            dogName: row['Dog Name'],
+                            lat, lng,
+                            reason: !row['Dog Name'] ? 'No dog name' : 
+                                   isNaN(lat) || isNaN(lng) ? 'Invalid coordinates' :
+                                   !isWithinServiceArea(lat, lng) ? 'Outside service area' : 'Unknown'
+                        });
+                    }
+                    
+                    return isValid;
                 });
 
+                debugLog(`✅ Successfully loaded ${allData.length} valid locations from ${rows.length} total rows`);
                 updateStatus(`Loaded ${allData.length} locations!`, 'success');
                 updateMap();
                 
             } catch (error) {
+                debugLog('❌ Data load failed:', error.message);
                 updateStatus(`Error: ${error.message}`, 'error');
-                // Sample data in Wellesley area
+                
+                // Load sample data for testing
+                debugLog('Loading sample data for testing...');
                 allData = [
-                    {'Address': '10 Central St, Wellesley, MA', 'Dog Name': 'Sydney (Sample)', 'Name': 'Victor', 'Latitude': 42.2968, 'Longitude': -71.2636, 'Group': '1', 'Dog ID': 1, 'Capacity': 3, 'Combined': 'Sydney - 10 Central St', 'Column K': ''},
-                    {'Address': '20 Washington St, Wellesley Hills, MA', 'Dog Name': 'Freddie & Norman (Sample)', 'Name': 'Nate', 'Latitude': 42.3060, 'Longitude': -71.2743, 'Group': '2', 'Dog ID': 6, 'Capacity': 1, 'Combined': 'Freddie & Norman - 20 Washington St', 'Column K': 'Special Notes'}
+                    {
+                        'Address': '10 Central St, Wellesley, MA', 
+                        'Dog Name': 'Sydney (Sample)', 
+                        'Name': 'Victor', 
+                        'Latitude': '42.2968', 
+                        'Longitude': '-71.2636', 
+                        'Group': '1', 
+                        'Dog ID': '1', 
+                        'Capacity': '3', 
+                        'Combined': 'Victor: Sydney - 10 Central St', 
+                        'Column K': ''
+                    },
+                    {
+                        'Address': '20 Washington St, Wellesley Hills, MA', 
+                        'Dog Name': 'Freddie & Norman (Sample)', 
+                        'Name': 'Nate', 
+                        'Latitude': '42.3060', 
+                        'Longitude': '-71.2743', 
+                        'Group': '2', 
+                        'Dog ID': '6', 
+                        'Capacity': '1', 
+                        'Combined': 'Nate: Freddie & Norman - 20 Washington St', 
+                        'Column K': 'Special Notes'
+                    },
+                    {
+                        'Address': '15 Oak St, Wellesley, MA', 
+                        'Dog Name': 'Bella (Sample)', 
+                        'Name': 'Sarah', 
+                        'Latitude': '42.2945', 
+                        'Longitude': '-71.2612', 
+                        'Group': 'A:Special', 
+                        'Dog ID': '7', 
+                        'Capacity': '2', 
+                        'Combined': 'Sarah: Bella - 15 Oak St', 
+                        'Column K': ''
+                    },
+                    {
+                        'Address': 'Wellesley High School Parking', 
+                        'Dog Name': 'Parking Lot A', 
+                        'Name': 'System', 
+                        'Latitude': '42.2980', 
+                        'Longitude': '-71.2620', 
+                        'Group': 'P', 
+                        'Dog ID': '8', 
+                        'Capacity': '20', 
+                        'Combined': 'System: Parking Lot A', 
+                        'Column K': 'Public parking'
+                    },
+                    {
+                        'Address': 'Hunnewell Field', 
+                        'Dog Name': 'Field Area B', 
+                        'Name': 'System', 
+                        'Latitude': '42.2955', 
+                        'Longitude': '-71.2590', 
+                        'Group': 'F', 
+                        'Dog ID': '9', 
+                        'Capacity': '15', 
+                        'Combined': 'System: Field Area B', 
+                        'Column K': 'Open field space'
+                    }
                 ];
+                
+                debugLog('✅ Sample data loaded for testing');
+                updateStatus('⚠️ Using sample data - Check debug panel for connection issues', 'error');
                 updateMap();
             }
         }
@@ -695,10 +877,8 @@
                         const colonIndex = combined.indexOf(':');
                         const driverName = colonIndex !== -1 ? combined.substring(0, colonIndex) : combined;
                         matchesFilter = driverName === currentFilter;
-                        console.log(`Row: ${row['Dog Name']}, Combined: ${combined}, Extracted: ${driverName}, Filter: ${currentFilter}, Match: ${matchesFilter}`);
                     } else {
                         matchesFilter = row[colorBy] === currentFilter;
-                        console.log(`Row: ${row['Dog Name']}, Value: ${row[colorBy]}, Filter: ${currentFilter}, Match: ${matchesFilter}`);
                     }
                 }
                 
@@ -849,7 +1029,7 @@
             const saveButtonText = isAppsScriptConfigured ? '💾 Save to Sheet' : '💾 Save Locally';
             const saveButtonClass = isAppsScriptConfigured ? 'btn-primary' : 'btn-secondary';
             
-            console.log('Showing edit form for index:', index, 'row:', row);
+            debugLog('Showing edit form for index:', {index, dogName: row['Dog Name']});
             
             const dogName = row['Dog Name'] || '';
             const group = row['Group'] || '';
@@ -896,12 +1076,12 @@
             
             // Add event listeners manually to ensure they work
             document.getElementById('saveBtn').addEventListener('click', function() {
-                console.log('Save button clicked!');
+                debugLog('Save button clicked!');
                 saveChanges(index);
             });
             
             document.getElementById('cancelBtn').addEventListener('click', function() {
-                console.log('Cancel button clicked!');
+                debugLog('Cancel button clicked!');
                 clearSelection();
             });
         }
@@ -937,11 +1117,11 @@
         // Save changes
         async function saveChanges(index) {
             try {
-                console.log('Save function called with index:', index);
+                debugLog('Save function called with index:', index);
                 updateStatus('Saving changes...', 'loading');
                 
                 const newCombinedName = document.getElementById('combinedName_edit').value;
-                console.log('New combined name:', newCombinedName);
+                debugLog('New combined name:', newCombinedName);
                 
                 const updatedData = { 
                     'Combined': newCombinedName
@@ -964,10 +1144,10 @@
                         });
                         
                         updateStatus(`✅ Saved to Google Sheet! (${result.message})`, 'success');
-                        console.log('Apps Script result:', result);
+                        debugLog('Apps Script result:', result);
                         
                     } catch (error) {
-                        console.error('Error saving to sheet:', error);
+                        debugLog('Error saving to sheet:', error);
                         updateStatus(`⚠️ Saved locally, but failed to save to sheet: ${error.message}`, 'error');
                     }
                 } else {
@@ -982,7 +1162,7 @@
                 
             } catch (error) {
                 updateStatus('Error saving changes: ' + error.message, 'error');
-                console.error('Save error:', error);
+                debugLog('Save error:', error);
             }
         }
 
@@ -1007,11 +1187,10 @@
 
         // Filter functions
         function filterByCategory(category) {
-            console.log('Filter clicked for category:', category);
-            console.log('Current filter before:', currentFilter);
+            debugLog('Filter clicked for category:', category);
             
             currentFilter = currentFilter === category ? null : category;
-            console.log('Current filter after:', currentFilter);
+            debugLog('Current filter after:', currentFilter);
             
             clearSelection();
             updateMap();
@@ -1030,7 +1209,7 @@
         }
 
         function clearFilter() {
-            console.log('Clear filter clicked');
+            debugLog('Clear filter clicked');
             currentFilter = null;
             document.getElementById('searchInput').value = '';
             clearSelection();
@@ -1056,8 +1235,17 @@
             loadData();
         }
 
+        // Add keyboard shortcut for debug panel
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                toggleDebug();
+            }
+        });
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            debugLog('🚀 Application starting...');
             initMap();
             loadData();
         });
