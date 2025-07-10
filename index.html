@@ -274,7 +274,7 @@
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
             API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
-            APPS_SCRIPT_URL: '', // Configure for Google Sheets sync
+            APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_URL_HERE', // Replace with your deployed Apps Script URL
             DEFAULT_LAT: 42.2968,
             DEFAULT_LNG: -71.2636,
             DEFAULT_ZOOM: 11
@@ -609,6 +609,7 @@
             marker.setIcon(createMarkerIcon(color, true, markerType));
 
             const hasCallout = row['Callout'] && row['Callout'].trim() !== '';
+            const actualIndex = allData.findIndex(r => r === row);
             const detailsHtml = `
                 <div style="font-weight: bold; color: #333; margin-bottom: 10px; font-size: 16px;">
                     🐕 ${row['Dog Name']}
@@ -647,7 +648,7 @@
                 </div>
                 
                 <div style="display: flex; gap: 5px;">
-                    <button class="btn btn-primary" onclick="saveCombinedName(${index})" style="flex: 1;">💾 Save</button>
+                    <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" style="flex: 1;">💾 Save</button>
                     <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1;">❌ Cancel</button>
                 </div>
             `;
@@ -700,40 +701,96 @@
         }
 
         async function saveCombinedName(index) {
-            const newCombined = document.getElementById('editCombined').value;
-            if (selectedRow && typeof index === 'number' && allData[index]) {
-                selectedRow['Combined'] = newCombined;
-                allData[index]['Combined'] = newCombined;
-                
-                if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '') {
+            const newCombined = document.getElementById('editCombined').value.trim();
+            
+            if (!selectedRow || typeof index !== 'number' || !allData[index]) {
+                updateStatus('❌ Error: Invalid selection', 'error');
+                return;
+            }
+
+            // Find the actual index in allData to ensure we're updating the right row
+            const actualIndex = allData.findIndex(row => row === selectedRow);
+            if (actualIndex === -1) {
+                updateStatus('❌ Error: Could not find row in data', 'error');
+                return;
+            }
+
+            // Update local data immediately
+            selectedRow['Combined'] = newCombined;
+            allData[actualIndex]['Combined'] = newCombined;
+            
+            // Try to save to Google Sheets if configured
+            if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('https://script.google.com/macros/s/AKfycbwhtJNojYGhpG6gwiRjo3-g_qluGWx_0q5cQplyOnEsoBF8lqxMY2RAjmq4bhfj3P4AbQ/exec')) {
+                try {
+                    updateStatus('💾 Saving to Google Sheets...', 'loading');
+                    
+                    const payload = {
+                        action: 'updateCombined',
+                        rowIndex: actualIndex + 2, // +2 because: +1 for header row, +1 for 1-based indexing
+                        dogId: selectedRow['Dog ID'] || '',
+                        newCombined: newCombined
+                    };
+                    
+                    console.log('Sending to Apps Script:', payload);
+                    
+                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                        mode: 'cors' // Try CORS first
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            updateStatus(`✅ Saved to Google Sheets: ${newCombined}`, 'success');
+                        } else {
+                            throw new Error(result.error || 'Unknown error from Apps Script');
+                        }
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                } catch (error) {
+                    console.error('Google Sheets save error:', error);
+                    
+                    // Try with no-cors as fallback (won't get response but might work)
                     try {
-                        updateStatus('💾 Saving to Google Sheets...', 'loading');
                         await fetch(CONFIG.APPS_SCRIPT_URL, {
                             method: 'POST',
                             mode: 'no-cors',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 action: 'updateCombined',
-                                rowIndex: index + 2,
-                                dogId: selectedRow['Dog ID'],
+                                rowIndex: actualIndex + 2,
+                                dogId: selectedRow['Dog ID'] || '',
                                 newCombined: newCombined
                             })
                         });
-                        updateStatus(`✅ Saved to Google Sheets: ${newCombined}`, 'success');
-                    } catch (error) {
-                        updateStatus(`⚠️ Saved locally only. Google Sheets error: ${error.message}`, 'error');
+                        updateStatus(`✅ Saved to Google Sheets (no-cors): ${newCombined}`, 'success');
+                    } catch (noCorsError) {
+                        updateStatus(`⚠️ Saved locally only. Sheets error: ${error.message}`, 'error');
                     }
-                } else {
-                    updateStatus(`✅ Updated locally: ${newCombined}`, 'status');
                 }
-                
-                updateMap();
-                
-                if (selectedMarker) {
-                    const markerData = markers.find(m => m.marker === selectedMarker);
-                    if (markerData) {
-                        selectMarker(selectedMarker, selectedRow, index, markerData.markerType);
-                    }
+            } else {
+                if (CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
+                    updateStatus(`⚠️ Updated locally only. Please configure APPS_SCRIPT_URL`, 'error');
+                } else {
+                    updateStatus(`✅ Updated locally: ${newCombined}`, 'success');
+                }
+            }
+            
+            // Re-assign colors in case driver changed
+            assignDriverColors();
+            updateMap();
+            
+            // Refresh the details panel
+            if (selectedMarker) {
+                const markerData = markers.find(m => m.marker === selectedMarker);
+                if (markerData) {
+                    selectMarker(selectedMarker, selectedRow, actualIndex, markerData.markerType);
                 }
             }
         }
