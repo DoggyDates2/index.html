@@ -343,6 +343,7 @@
         <div class="control-group">
             <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
             <button class="btn btn-secondary" onclick="testSheetAccess()">🧪 Test Sheet</button>
+            <button class="btn btn-secondary" onclick="toggleDebug()">🐛 Debug</button>
         </div>
     </div>
 
@@ -539,13 +540,9 @@
 
         // Check if Apps Script is configured
         function checkAppsScriptSetup() {
-            if (!CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.trim() === '') {
-                document.getElementById('setupNotice').style.display = 'block';
-                return false;
-            } else {
-                document.getElementById('setupNotice').style.display = 'none';
-                return true;
-            }
+            // Hide the setup notice for now since we're focusing on data loading
+            document.getElementById('setupNotice').style.display = 'none';
+            return false; // Return false to show "Save Locally" until data loads properly
         }
 
         // Test sheet access
