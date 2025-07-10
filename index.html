@@ -266,7 +266,6 @@
             <label for="colorBy">Color by:</label>
             <select id="colorBy">
                 <option value="Combined">Combined (Driver:Group)</option>
-                <option value="Name">Driver Name</option>
                 <option value="Group">Group</option>
                 <option value="District">District</option>
             </select>
@@ -368,10 +367,12 @@
         }
 
         function getColorForValue(value, attribute) {
-            if (attribute === 'Name') return getDriverColor(value);
-            if (attribute === 'Combined') {
-                // Extract driver name from combined (e.g., "Nate:2" -> "Nate")
-                const driverName = value ? value.split(':')[0] : '';
+            if (attribute === 'Name' || attribute === 'Combined') {
+                // For both Name and Combined, extract driver name for consistent coloring
+                let driverName = value;
+                if (attribute === 'Combined') {
+                    driverName = value ? value.split(':')[0] : '';
+                }
                 return getDriverColor(driverName);
             }
             
@@ -506,7 +507,7 @@
 
             // Filter data - NOW INCLUDES COMBINED AND CALLOUT IN SEARCH
             filteredData = allData.filter(row => {
-                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Name']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
+                const searchText = `${row['Dog Name']} ${row['Address']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
                 const matchesSearch = searchText.includes(searchTerm);
                 
                 let matchesFilter = currentFilter === null;
@@ -587,8 +588,7 @@
                 // IMPROVED POPUP - HIDES BLANK DISTRICT, SHOWS CAPACITY
                 const popupContent = `
                     <strong>🐕 ${row['Dog Name']}</strong><br>
-                    <strong>🏷️ Combined:</strong> ${row['Combined']}<br>
-                    <strong>👤 Driver:</strong> ${row['Name']}<br>
+                    <strong>🏷️ ${row['Combined']}</strong><br>
                     <strong>📍 Address:</strong> ${row['Address']}<br>
                     <strong>🎯 Group:</strong> ${row['Group']}<br>
                     ${row['District'] && row['District'].trim() !== '' ? `<strong>🗺️ District:</strong> ${row['District']}<br>` : ''}
@@ -692,8 +692,7 @@
                     <span style="color: #856404; font-weight: bold;">${row['Callout']}</span>
                 </div>` : ''}
                 
-                <div class="dog-info"><strong>🏷️ Combined:</strong> ${row['Combined']}</div>
-                <div class="dog-info"><strong>👤 Driver:</strong> ${row['Name']}</div>
+                <div class="dog-info"><strong>🏷️</strong> ${row['Combined']}</div>
                 <div class="dog-info"><strong>📍 Address:</strong> ${row['Address']}</div>
                 <div class="dog-info"><strong>🎯 Group:</strong> ${row['Group']}</div>
                 ${row['District'] && row['District'].trim() !== '' ? `<div class="dog-info"><strong>🗺️ District:</strong> ${row['District']}</div>` : ''}
@@ -705,7 +704,7 @@
                 <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
                 
                 <div style="margin-bottom: 10px;">
-                    <label style="font-weight: bold; color: #333; display: block; margin-bottom: 5px;">✏️ Edit Combined Name:</label>
+                    <label style="font-weight: bold; color: #333; display: block; margin-bottom: 5px;">✏️ Edit:</label>
                     <input type="text" id="editCombined" value="${row['Combined'] || ''}" 
                            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
                 </div>
@@ -740,7 +739,12 @@
         function updateQuickStats() {
             if (allData.length === 0) return;
             
-            const drivers = [...new Set(allData.map(row => row['Name']))];
+            // Get unique drivers from Combined field (part before colon)
+            const drivers = [...new Set(allData.map(row => {
+                const combined = row['Combined'] || '';
+                return combined.split(':')[0];
+            }).filter(driver => driver && driver.trim() !== ''))];
+            
             const groups = [...new Set(allData.map(row => row['Group']))];
             const districts = [...new Set(allData.map(row => row['District']).filter(d => d && d.trim() !== ''))];
             const withCallouts = allData.filter(row => row['Callout'] && row['Callout'].trim() !== '').length;
@@ -760,8 +764,13 @@
         function showStats() {
             if (allData.length === 0) return;
             
+            // Get drivers from Combined field (part before colon)
             const drivers = allData.reduce((acc, row) => {
-                acc[row['Name']] = (acc[row['Name']] || 0) + 1;
+                const combined = row['Combined'] || '';
+                const driverName = combined.split(':')[0];
+                if (driverName && driverName.trim() !== '') {
+                    acc[driverName] = (acc[driverName] || 0) + 1;
+                }
                 return acc;
             }, {});
             
