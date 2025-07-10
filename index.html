@@ -317,42 +317,46 @@
             '#99ff66', '#6699ff', '#ff6699', '#66ff99', '#9966ff', '#ff9966', '#66ff66', '#6666cc'
         ];
 
-        // Track assigned colors to ensure uniqueness
-        let assignedColors = new Map();
-        let colorIndex = 0;
-
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
+        let driverColorAssignments = {}; // Store permanent color assignments
+
+        // Simple approach: Just assign colors in order based on sorted driver names
+        function assignUniqueColors() {
+            // Get all unique drivers from the data and sort them alphabetically
+            const allDrivers = [...new Set(allData.map(row => {
+                const combined = row['Combined'] || '';
+                return combined.split(':')[0];
+            }).filter(driver => driver && driver.trim() !== ''))].sort();
+            
+            console.log('All drivers (sorted):', allDrivers);
+            
+            // Clear existing assignments
+            driverColorAssignments = {};
+            
+            // Simply assign colors in order - first driver gets first color, etc.
+            allDrivers.forEach((driver, index) => {
+                if (DRIVER_COLORS[driver]) {
+                    // Keep predefined colors
+                    driverColorAssignments[driver] = DRIVER_COLORS[driver];
+                } else {
+                    // Assign next color in sequence
+                    if (index < COLORS.length) {
+                        driverColorAssignments[driver] = COLORS[index];
+                    } else {
+                        driverColorAssignments[driver] = '#999999'; // fallback
+                    }
+                }
+            });
+            
+            console.log('Final assignments:', driverColorAssignments);
+            console.log('Number of unique colors assigned:', Object.keys(driverColorAssignments).length);
+        }
 
         function getDriverColor(name) {
             if (!name) return '#999999';
-            
-            // Check predefined colors first
-            if (DRIVER_COLORS[name]) return DRIVER_COLORS[name];
-            
-            // If already assigned, return that color
-            if (assignedColors.has(name)) {
-                return assignedColors.get(name);
-            }
-            
-            // Assign next available color
-            while (colorIndex < COLORS.length) {
-                const color = COLORS[colorIndex];
-                colorIndex++;
-                
-                // Make sure this color isn't already assigned to someone else
-                const isAlreadyUsed = Array.from(assignedColors.values()).includes(color) || 
-                                     Object.values(DRIVER_COLORS).includes(color);
-                
-                if (!isAlreadyUsed) {
-                    assignedColors.set(name, color);
-                    return color;
-                }
-            }
-            
-            // Fallback if we somehow run out
-            return '#999999';
+            return driverColorAssignments[name] || '#999999';
         }
 
         function getColorForValue(value, attribute) {
@@ -361,29 +365,14 @@
                 return getDriverColor(driverName);
             }
             
-            // For other attributes, use the same unique assignment system
-            if (!value) return '#999999';
-            
-            const key = `${attribute}_${value}`;
-            if (assignedColors.has(key)) {
-                return assignedColors.get(key);
-            }
-            
-            // Assign next available color
-            while (colorIndex < COLORS.length) {
-                const color = COLORS[colorIndex];
-                colorIndex++;
-                
-                const isAlreadyUsed = Array.from(assignedColors.values()).includes(color) || 
-                                     Object.values(DRIVER_COLORS).includes(color);
-                
-                if (!isAlreadyUsed) {
-                    assignedColors.set(key, color);
-                    return color;
+            // For other attributes, use simple hash (since uniqueness less critical)
+            let hash = 0;
+            if (value) {
+                for (let i = 0; i < value.length; i++) {
+                    hash = value.charCodeAt(i) + ((hash << 5) - hash);
                 }
             }
-            
-            return '#999999';
+            return COLORS[Math.abs(hash) % COLORS.length];
         }
 
         function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
@@ -475,6 +464,9 @@
                     const lng = parseFloat(row['Longitude']);
                     return !isNaN(lat) && !isNaN(lng) && row['Dog Name'] && lat !== 0 && lng !== 0;
                 });
+
+                // Assign unique colors to all drivers ONCE after data loads
+                assignUniqueColors();
 
                 updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
                 updateMap();
@@ -779,9 +771,8 @@
             selectedMarker = null;
             selectedRow = null;
             currentFilter = null;
-            // Reset color assignments for fresh start
-            assignedColors.clear();
-            colorIndex = 0;
+            // Clear color assignments for fresh start
+            driverColorAssignments = {};
             document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
             loadData();
         }
