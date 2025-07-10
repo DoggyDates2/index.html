@@ -246,16 +246,10 @@
                     <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%;">Show All</button>
                 </div>
                 
-                <h3>🎨 Legend (Click to Filter)</h3>
-                <div id="filterStatus" style="font-size: 12px; color: #666; margin-bottom: 10px; font-style: italic;"></div>
-                <div id="combinedHelp" style="font-size: 11px; color: #888; margin-bottom: 8px; font-style: italic; display: none;">
-                    ℹ️ Combined view groups by driver name (part before ":"). All dogs for same driver share one color.
-                </div>
                 <div id="legendContent">Loading...</div>
             </div>
             
             <div class="edit-section">
-                <h3>📋 Details & Edit</h3>
                 <div id="detailsContent" class="no-selection">
                     Click a marker on the map to see details
                 </div>
@@ -509,27 +503,13 @@
 
             updateLegend();
             updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
-            
-            const filterStatus = document.getElementById('filterStatus');
-            if (currentFilter) {
-                filterStatus.textContent = `Filtered by: ${currentFilter}`;
-                filterStatus.style.color = '#2196F3';
-                filterStatus.style.fontWeight = 'bold';
-            } else {
-                filterStatus.textContent = 'Showing all markers';
-                filterStatus.style.color = '#666';
-                filterStatus.style.fontWeight = 'normal';
-            }
         }
 
         function updateLegend() {
             const colorBy = document.getElementById('colorBy').value;
-            const combinedHelp = document.getElementById('combinedHelp');
             let html = '';
             
             if (colorBy === 'Combined') {
-                combinedHelp.style.display = 'block';
-                
                 Object.entries(colorMap).forEach(([driverName, color]) => {
                     const isActive = currentFilter === driverName;
                     const driverCount = allData.filter(row => {
@@ -543,8 +523,6 @@
                     </div>`;
                 });
             } else {
-                combinedHelp.style.display = 'none';
-                
                 Object.entries(colorMap).forEach(([category, color]) => {
                     const isActive = currentFilter === category;
                     html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
