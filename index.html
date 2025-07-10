@@ -280,17 +280,6 @@
             DEFAULT_ZOOM: 11
         };
 
-        // Simple color palette - proven to work
-        const COLORS = [
-            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
-            '#bcbd22', '#17becf', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff',
-            '#800000', '#008000', '#000080', '#808000', '#800080', '#008080', '#c0c0c0', '#808080',
-            '#9999ff', '#993366', '#ffffcc', '#ccffff', '#660066', '#ff8080', '#0066cc', '#ccccff',
-            '#ff6666', '#66ff66', '#6666ff', '#ffff66', '#ff66ff', '#66ffff', '#990000', '#009900',
-            '#000099', '#999900', '#990099', '#009999', '#cc0000', '#00cc00', '#0000cc', '#cccc00',
-            '#cc00cc', '#00cccc', '#ff9999', '#99ff99', '#9999ff', '#ffff99', '#ff99ff', '#99ffff'
-        ];
-
         // Driver colors
         const DRIVER_COLORS = {
             'Nate': '#1f77b4', 'Aidan': '#ff7f0e', 'Sarah': '#2ca02c', 'Victor': '#d62728',
@@ -300,37 +289,24 @@
             'Ali': '#FFD700'
         };
 
-        // Much larger color palette to ensure uniqueness
-        const COLORS = [
-            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
-            '#bcbd22', '#17becf', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff',
-            '#800000', '#008000', '#000080', '#808000', '#800080', '#008080', '#c0c0c0', '#808080',
-            '#9999ff', '#993366', '#ffffcc', '#ccffff', '#660066', '#ff8080', '#0066cc', '#ccccff',
-            '#ff6666', '#66ff66', '#6666ff', '#ffff66', '#ff66ff', '#66ffff', '#990000', '#009900',
-            '#000099', '#999900', '#990099', '#009999', '#cc0000', '#00cc00', '#0000cc', '#cccc00',
-            '#cc00cc', '#00cccc', '#ff9999', '#99ff99', '#9999ff', '#ffff99', '#ff99ff', '#99ffff',
-            '#663366', '#336633', '#333366', '#666633', '#663333', '#336666', '#996699', '#669966',
-            '#666699', '#999966', '#996666', '#669999', '#ff3366', '#33ff66', '#3366ff', '#66ff33',
-            '#ff3333', '#33ff33', '#3333ff', '#ffff33', '#ff33ff', '#33ffff', '#cc3366', '#33cc66',
-            '#3366cc', '#66cc33', '#cc3333', '#33cc33', '#3333cc', '#cccc33', '#cc33cc', '#33cccc',
-            '#ff6633', '#33ff99', '#3399ff', '#99ff33', '#ff3399', '#39ff33', '#3339ff', '#ff9933',
-            '#99ff66', '#6699ff', '#ff6699', '#66ff99', '#9966ff', '#ff9966', '#66ff66', '#6666cc'
-        ];
-
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
 
         function getDriverColor(name) {
             if (!name) return '#999999';
+            
+            // Check predefined colors first
             if (DRIVER_COLORS[name]) return DRIVER_COLORS[name];
             
-            // Simple hash
+            // Use simple hash for consistent colors
             let hash = 0;
             for (let i = 0; i < name.length; i++) {
                 hash = name.charCodeAt(i) + ((hash << 5) - hash);
             }
-            return COLORS[Math.abs(hash) % COLORS.length];
+            
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#800000', '#008000', '#000080', '#808000', '#800080', '#008080'];
+            return colors[Math.abs(hash) % colors.length];
         }
 
         function getColorForValue(value, attribute) {
@@ -339,16 +315,18 @@
                 return getDriverColor(driverName);
             }
             
+            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
             let hash = 0;
             if (value) {
                 for (let i = 0; i < value.length; i++) {
                     hash = value.charCodeAt(i) + ((hash << 5) - hash);
                 }
             }
-            return COLORS[Math.abs(hash) % COLORS.length];
+            return colors[Math.abs(hash) % colors.length];
         }
 
         function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
+            const strokeColor = '#000000';
             const strokeWidth = isSelected ? 3 : 2;
             
             if (markerType === 'field') {
@@ -356,7 +334,7 @@
                 return L.divIcon({
                     html: `<svg width="${size}" height="${size + 7}" viewBox="0 0 29 36" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
                         <path d="M14.5 0C6.5 0 0 6.5 0 14.5c0 8.7 14.5 21.5 14.5 21.5s14.5-12.8 14.5-21.5C29 6.5 22.5 0 14.5 0z" 
-                              fill="${color}" stroke="#000000" stroke-width="${strokeWidth}"/>
+                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                         <text x="14.5" y="18" text-anchor="middle" fill="white" font-size="10" font-weight="bold">F</text>
                     </svg>`,
                     className: 'custom-field-marker',
@@ -366,7 +344,7 @@
             } else if (markerType === 'parking') {
                 const size = 25;
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid #000000; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">P</div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">P</div>`,
                     className: 'custom-parking-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
@@ -376,7 +354,7 @@
                 return L.divIcon({
                     html: `<svg width="${size}" height="${size + 5}" viewBox="0 0 22 27" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
                         <path d="M11 0C4.9 0 0 4.9 0 11c0 6.6 11 16 11 16s11-9.4 11-16C22 4.9 17.1 0 11 0z" 
-                              fill="${color}" stroke="#000000" stroke-width="${strokeWidth}"/>
+                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                     </svg>`,
                     className: 'custom-pin-marker',
                     iconSize: [size, size + 5],
@@ -385,7 +363,7 @@
             } else {
                 const size = 18;
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid #000000; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                     className: 'custom-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
