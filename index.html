@@ -300,20 +300,59 @@
             'Ali': '#FFD700'
         };
 
+        // Much larger color palette to ensure uniqueness
+        const COLORS = [
+            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+            '#bcbd22', '#17becf', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff',
+            '#800000', '#008000', '#000080', '#808000', '#800080', '#008080', '#c0c0c0', '#808080',
+            '#9999ff', '#993366', '#ffffcc', '#ccffff', '#660066', '#ff8080', '#0066cc', '#ccccff',
+            '#ff6666', '#66ff66', '#6666ff', '#ffff66', '#ff66ff', '#66ffff', '#990000', '#009900',
+            '#000099', '#999900', '#990099', '#009999', '#cc0000', '#00cc00', '#0000cc', '#cccc00',
+            '#cc00cc', '#00cccc', '#ff9999', '#99ff99', '#9999ff', '#ffff99', '#ff99ff', '#99ffff',
+            '#663366', '#336633', '#333366', '#666633', '#663333', '#336666', '#996699', '#669966',
+            '#666699', '#999966', '#996666', '#669999', '#ff3366', '#33ff66', '#3366ff', '#66ff33',
+            '#ff3333', '#33ff33', '#3333ff', '#ffff33', '#ff33ff', '#33ffff', '#cc3366', '#33cc66',
+            '#3366cc', '#66cc33', '#cc3333', '#33cc33', '#3333cc', '#cccc33', '#cc33cc', '#33cccc',
+            '#ff6633', '#33ff99', '#3399ff', '#99ff33', '#ff3399', '#39ff33', '#3339ff', '#ff9933',
+            '#99ff66', '#6699ff', '#ff6699', '#66ff99', '#9966ff', '#ff9966', '#66ff66', '#6666cc'
+        ];
+
+        // Track assigned colors to ensure uniqueness
+        let assignedColors = new Map();
+        let colorIndex = 0;
+
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
 
         function getDriverColor(name) {
             if (!name) return '#999999';
+            
+            // Check predefined colors first
             if (DRIVER_COLORS[name]) return DRIVER_COLORS[name];
             
-            // Simple hash
-            let hash = 0;
-            for (let i = 0; i < name.length; i++) {
-                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            // If already assigned, return that color
+            if (assignedColors.has(name)) {
+                return assignedColors.get(name);
             }
-            return COLORS[Math.abs(hash) % COLORS.length];
+            
+            // Assign next available color
+            while (colorIndex < COLORS.length) {
+                const color = COLORS[colorIndex];
+                colorIndex++;
+                
+                // Make sure this color isn't already assigned to someone else
+                const isAlreadyUsed = Array.from(assignedColors.values()).includes(color) || 
+                                     Object.values(DRIVER_COLORS).includes(color);
+                
+                if (!isAlreadyUsed) {
+                    assignedColors.set(name, color);
+                    return color;
+                }
+            }
+            
+            // Fallback if we somehow run out
+            return '#999999';
         }
 
         function getColorForValue(value, attribute) {
@@ -322,13 +361,29 @@
                 return getDriverColor(driverName);
             }
             
-            let hash = 0;
-            if (value) {
-                for (let i = 0; i < value.length; i++) {
-                    hash = value.charCodeAt(i) + ((hash << 5) - hash);
+            // For other attributes, use the same unique assignment system
+            if (!value) return '#999999';
+            
+            const key = `${attribute}_${value}`;
+            if (assignedColors.has(key)) {
+                return assignedColors.get(key);
+            }
+            
+            // Assign next available color
+            while (colorIndex < COLORS.length) {
+                const color = COLORS[colorIndex];
+                colorIndex++;
+                
+                const isAlreadyUsed = Array.from(assignedColors.values()).includes(color) || 
+                                     Object.values(DRIVER_COLORS).includes(color);
+                
+                if (!isAlreadyUsed) {
+                    assignedColors.set(key, color);
+                    return color;
                 }
             }
-            return COLORS[Math.abs(hash) % COLORS.length];
+            
+            return '#999999';
         }
 
         function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
@@ -724,6 +779,9 @@
             selectedMarker = null;
             selectedRow = null;
             currentFilter = null;
+            // Reset color assignments for fresh start
+            assignedColors.clear();
+            colorIndex = 0;
             document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
             loadData();
         }
