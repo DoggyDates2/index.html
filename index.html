@@ -243,13 +243,14 @@
 <body>
     <div class="header">
         <h1>🐕 Dog Walking Interactive Map - Wellesley Area</h1>
-        <p>📍 Dogs • 🚗 Drivers • 🎯 Groups • Service Area Coverage</p>
+        <p>🐕 Dogs • 🏷️ Combined Names • 📝 Callouts • 🎯 Special Markers</p>
     </div>
 
     <div class="controls">
         <div class="control-group">
             <label for="colorBy">Color by:</label>
             <select id="colorBy">
+                <option value="Combined">Combined (Driver:Group)</option>
                 <option value="Name">Driver Name</option>
                 <option value="Group">Group</option>
                 <option value="District">District</option>
@@ -258,7 +259,7 @@
         
         <div class="control-group">
             <label for="searchInput">Search:</label>
-            <input type="text" id="searchInput" placeholder="Search dogs, addresses, drivers..." />
+            <input type="text" id="searchInput" placeholder="Search dogs, combined names, addresses..." />
         </div>
 
         <div class="control-group">
@@ -279,7 +280,7 @@
             </div>
             
             <div class="edit-section">
-                <h3>📋 Details</h3>
+                <h3>📋 Details & Edit</h3>
                 <div id="detailsContent" class="no-selection">
                     Click a marker on the map to see details
                 </div>
@@ -287,6 +288,21 @@
                 <div class="stats-box" id="statsBox">
                     <strong>📊 Quick Stats:</strong>
                     <div id="quickStats">Loading...</div>
+                </div>
+                
+                <div style="background: #e7f3ff; padding: 10px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #2196F3; font-size: 12px;">
+                    <strong>🎯 Marker Types:</strong><br>
+                    ⭕ Circle = Regular dog<br>
+                    📍 Pin = Has callout notes<br>
+                    🅿️ Square = Parking location<br>
+                    📌 Large Pin = Field location
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 11px; color: #666;">
+                    <strong>💾 Google Sheets Sync:</strong><br>
+                    Edits save locally. To sync back to Google Sheets, you need to set up a Google Apps Script. 
+                    <br><br>
+                    <button class="btn btn-secondary" onclick="showAppsScriptHelp()" style="font-size: 11px; padding: 5px 8px;">📖 Show Setup</button>
                 </div>
             </div>
         </div>
@@ -307,6 +323,8 @@
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
             API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
+            // ADD YOUR GOOGLE APPS SCRIPT WEB APP URL HERE FOR EDITING:
+            APPS_SCRIPT_URL: '', // Leave empty if you don't have one yet
             // Wellesley, MA coordinates
             DEFAULT_LAT: 42.2968,
             DEFAULT_LNG: -71.2636,
@@ -333,36 +351,85 @@
 
         function getColorForValue(value, attribute) {
             if (attribute === 'Name') return getDriverColor(value);
+            if (attribute === 'Combined') {
+                // Extract driver name from combined (e.g., "Nate:2" -> "Nate")
+                const driverName = value ? value.split(':')[0] : '';
+                return getDriverColor(driverName);
+            }
             
             // Generate consistent colors for other attributes
             const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
             let hash = 0;
-            for (let i = 0; i < value.length; i++) {
-                hash = value.charCodeAt(i) + ((hash << 5) - hash);
+            if (value) {
+                for (let i = 0; i < value.length; i++) {
+                    hash = value.charCodeAt(i) + ((hash << 5) - hash);
+                }
             }
             return colors[Math.abs(hash) % colors.length];
         }
 
-        function createMarkerIcon(color, isSelected = false) {
-            const size = 20;
+        function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
             const strokeColor = isSelected ? '#000000' : '#ffffff';
             const strokeWidth = isSelected ? 3 : 2;
             
-            return L.divIcon({
-                html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                className: 'custom-marker',
-                iconSize: [size, size],
-                iconAnchor: [size/2, size/2]
-            });
+            if (markerType === 'field') {
+                // Large pin for fields
+                const size = 32;
+                return L.divIcon({
+                    html: `<svg width="${size}" height="${size + 8}" viewBox="0 0 32 40" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M16 0C7.2 0 0 7.2 0 16c0 9.6 16 24 16 24s16-14.4 16-24C32 7.2 24.8 0 16 0z" 
+                              fill="${color}" 
+                              stroke="${strokeColor}" 
+                              stroke-width="${strokeWidth}"/>
+                        <circle cx="16" cy="16" r="8" fill="rgba(255,255,255,0.3)"/>
+                        <text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">F</text>
+                    </svg>`,
+                    className: 'custom-field-marker',
+                    iconSize: [size, size + 8],
+                    iconAnchor: [size/2, size + 8]
+                });
+            } else if (markerType === 'parking') {
+                // Large square for parking
+                const size = 28;
+                return L.divIcon({
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">P</div>`,
+                    className: 'custom-parking-marker',
+                    iconSize: [size, size],
+                    iconAnchor: [size/2, size/2]
+                });
+            } else if (markerType === 'pin') {
+                // Pin shape for callout items
+                const size = 24;
+                return L.divIcon({
+                    html: `<svg width="${size}" height="${size + 6}" viewBox="0 0 24 30" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M12 0C5.4 0 0 5.4 0 12c0 7.2 12 18 12 18s12-10.8 12-18C24 5.4 18.6 0 12 0z" 
+                              fill="${color}" 
+                              stroke="${strokeColor}" 
+                              stroke-width="${strokeWidth}"/>
+                        <circle cx="12" cy="12" r="6" fill="rgba(255,255,255,0.3)"/>
+                    </svg>`,
+                    className: 'custom-pin-marker',
+                    iconSize: [size, size + 6],
+                    iconAnchor: [size/2, size + 6]
+                });
+            } else {
+                // Default circle
+                const size = 20;
+                return L.divIcon({
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    className: 'custom-marker',
+                    iconSize: [size, size],
+                    iconAnchor: [size/2, size/2]
+                });
+            }
         }
 
         // Initialize map
         function initMap() {
             map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
             
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-                attribution: '© OpenStreetMap contributors, © CARTO',
-                subdomains: 'abcd',
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
                 maxZoom: 19
             }).addTo(map);
 
@@ -420,7 +487,7 @@
 
             // Filter data
             filteredData = allData.filter(row => {
-                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Name']} ${row['District']}`.toLowerCase();
+                const searchText = `${row['Dog Name']} ${row['Address']} ${row['Name']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
                 const matchesSearch = searchText.includes(searchTerm);
                 
                 let matchesFilter = currentFilter === null;
@@ -432,7 +499,9 @@
             });
 
             // Clear existing markers
-            markers.forEach(m => map.removeLayer(m.marker));
+            markers.forEach(m => {
+                map.removeLayer(m.marker);
+            });
             markers = [];
 
             // Generate color mapping
@@ -451,23 +520,38 @@
                 const color = colorMap[row[colorBy]] || '#999999';
                 const isSelected = selectedRow === row;
                 
+                // Determine marker type based on dog name and callout
+                const dogName = (row['Dog Name'] || '').toLowerCase();
+                const hasCallout = row['Callout'] && row['Callout'].trim() !== '';
+                
+                let markerType = 'circle'; // default
+                if (dogName.includes('field')) {
+                    markerType = 'field';
+                } else if (dogName.includes('parking')) {
+                    markerType = 'parking';
+                } else if (hasCallout) {
+                    markerType = 'pin';
+                }
+                
                 const marker = L.marker([lat, lng], {
-                    icon: createMarkerIcon(color, isSelected)
+                    icon: createMarkerIcon(color, isSelected, markerType)
                 }).addTo(map);
 
                 const popupContent = `
                     <strong>🐕 ${row['Dog Name']}</strong><br>
+                    <strong>🏷️ Combined:</strong> ${row['Combined']}<br>
                     <strong>👤 Driver:</strong> ${row['Name']}<br>
                     <strong>📍 Address:</strong> ${row['Address']}<br>
-                    <strong>🏷️ Group:</strong> ${row['Group']}<br>
-                    <strong>🗺️ District:</strong> ${row['District']}<br>
-                    ${row['Callout'] ? `<strong>📝 Notes:</strong> ${row['Callout']}<br>` : ''}
+                    <strong>🎯 Group:</strong> ${row['Group']}<br>
+                    ${row['District'] && row['District'].trim() !== '' ? `<strong>🗺️ District:</strong> ${row['District']}<br>` : ''}
+                    ${row['Capacity'] && row['Capacity'].trim() !== '' ? `<strong>👥 Capacity:</strong> ${row['Capacity']}<br>` : ''}
+                    ${hasCallout ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${row['Callout']}</span><br>` : ''}
                 `;
 
                 marker.bindPopup(popupContent);
-                marker.on('click', () => selectMarker(marker, row, index));
+                marker.on('click', () => selectMarker(marker, row, index, markerType));
 
-                markers.push({marker, row, index});
+                markers.push({marker, row, index, markerType});
             });
 
             updateLegend();
@@ -500,14 +584,14 @@
         }
 
         // Select marker and show details
-        function selectMarker(marker, row, index) {
+        function selectMarker(marker, row, index, markerType) {
             // Deselect previous marker
             if (selectedMarker) {
                 const prevData = markers.find(m => m.marker === selectedMarker);
                 if (prevData) {
                     const colorBy = document.getElementById('colorBy').value;
                     const color = colorMap[prevData.row[colorBy]] || '#999999';
-                    selectedMarker.setIcon(createMarkerIcon(color, false));
+                    selectedMarker.setIcon(createMarkerIcon(color, false, prevData.markerType));
                 }
             }
 
@@ -517,21 +601,48 @@
             
             const colorBy = document.getElementById('colorBy').value;
             const color = colorMap[row[colorBy]] || '#999999';
-            marker.setIcon(createMarkerIcon(color, true));
+            marker.setIcon(createMarkerIcon(color, true, markerType));
 
-            // Show details
+            // Show details with editing capability
+            const hasCallout = row['Callout'] && row['Callout'].trim() !== '';
             const detailsHtml = `
                 <div style="font-weight: bold; color: #333; margin-bottom: 10px;">
                     🐕 ${row['Dog Name']}
                 </div>
+                
+                ${hasCallout ? `
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                    <strong>📢 CALLOUT:</strong><br>
+                    <span style="color: #856404; font-weight: bold;">${row['Callout']}</span>
+                </div>` : ''}
+                
+                <div class="dog-info"><strong>🏷️ Combined:</strong> ${row['Combined']}</div>
                 <div class="dog-info"><strong>👤 Driver:</strong> ${row['Name']}</div>
                 <div class="dog-info"><strong>📍 Address:</strong> ${row['Address']}</div>
-                <div class="dog-info"><strong>🏷️ Group:</strong> ${row['Group']}</div>
-                <div class="dog-info"><strong>🗺️ District:</strong> ${row['District']}</div>
+                <div class="dog-info"><strong>🎯 Group:</strong> ${row['Group']}</div>
+                ${row['District'] && row['District'].trim() !== '' ? `<div class="dog-info"><strong>🗺️ District:</strong> ${row['District']}</div>` : ''}
                 <div class="dog-info"><strong>🔢 Dog ID:</strong> ${row['Dog ID']}</div>
-                ${row['Callout'] ? `<div class="dog-info"><strong>📝 Notes:</strong> ${row['Callout']}</div>` : ''}
+                ${row['Capacity'] && row['Capacity'].trim() !== '' ? `<div class="dog-info"><strong>👥 Capacity:</strong> ${row['Capacity']}</div>` : ''}
                 ${row['Number of dogs'] ? `<div class="dog-info"><strong>🐕 Count:</strong> ${row['Number of dogs']}</div>` : ''}
                 <div class="dog-info"><strong>🌐 Coordinates:</strong> ${row['Latitude']}, ${row['Longitude']}</div>
+                
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+                
+                <div style="margin-bottom: 10px;">
+                    <label style="font-weight: bold; color: #333; display: block; margin-bottom: 5px;">✏️ Edit Combined Name:</label>
+                    <input type="text" id="editCombined" value="${row['Combined'] || ''}" 
+                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                </div>
+                
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn btn-primary" onclick="saveCombinedName(${index})" style="flex: 1;">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1;">❌ Cancel</button>
+                </div>
+                
+                ${!CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.trim() === '' ? `
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; border-radius: 4px; margin-top: 10px; font-size: 12px;">
+                    ⚠️ <strong>Google Sheets Sync:</strong> Configure Apps Script URL in the code to save changes back to your sheet
+                </div>` : ''}
             `;
             
             document.getElementById('detailsContent').innerHTML = detailsHtml;
@@ -600,6 +711,103 @@
             const status = document.getElementById('status');
             status.textContent = message;
             status.className = `status ${type}`;
+        }
+
+        // Save combined name function
+        async function saveCombinedName(index) {
+            const newCombined = document.getElementById('editCombined').value;
+            if (selectedRow && typeof index === 'number' && allData[index]) {
+                // Update the local data first
+                selectedRow['Combined'] = newCombined;
+                allData[index]['Combined'] = newCombined;
+                
+                // Try to save to Google Sheets if Apps Script URL is configured
+                if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '') {
+                    try {
+                        updateStatus('💾 Saving to Google Sheets...', 'loading');
+                        
+                        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                action: 'updateCombined',
+                                rowIndex: index + 2, // +2 because row 1 is headers and index is 0-based
+                                dogId: selectedRow['Dog ID'],
+                                newCombined: newCombined
+                            })
+                        });
+                        
+                        updateStatus(`✅ Saved to Google Sheets: ${newCombined}`, 'success');
+                    } catch (error) {
+                        console.error('Error saving to Google Sheets:', error);
+                        updateStatus(`⚠️ Saved locally only. Google Sheets error: ${error.message}`, 'error');
+                    }
+                } else {
+                    updateStatus(`✅ Updated locally: ${newCombined} (Configure Apps Script to sync to Google Sheets)`, 'success');
+                }
+                
+                // Refresh the map to show updated colors/legend
+                updateMap();
+                
+                // Update the details display
+                if (selectedMarker) {
+                    const markerData = markers.find(m => m.marker === selectedMarker);
+                    if (markerData) {
+                        selectMarker(selectedMarker, selectedRow, index, markerData.markerType);
+                    }
+                }
+            }
+        }
+
+        // Show Apps Script setup help
+        function showAppsScriptHelp() {
+            const helpText = `📖 GOOGLE APPS SCRIPT SETUP
+
+To enable saving edits back to your Google Sheet:
+
+1️⃣ Go to script.google.com
+2️⃣ Create a new project
+3️⃣ Replace the default code with this:
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheet = SpreadsheetApp.openById('${CONFIG.SHEET_ID}').getSheetByName('${CONFIG.WORKSHEET_NAME}');
+    
+    if (data.action === 'updateCombined') {
+      // Update the Combined column (column H)
+      sheet.getRange(data.rowIndex, 8).setValue(data.newCombined);
+      return ContentService.createTextOutput(JSON.stringify({success: true}));
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({error: 'Unknown action'}));
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({error: error.toString()}));
+  }
+}
+
+4️⃣ Deploy as Web App
+5️⃣ Set permissions to "Anyone"
+6️⃣ Copy the Web App URL
+7️⃣ Paste it in CONFIG.APPS_SCRIPT_URL in this code
+
+Then your edits will sync back to Google Sheets!`;
+
+            alert(helpText);
+        }
+
+        // Cancel edit function
+        function cancelEdit() {
+            if (selectedMarker && selectedRow) {
+                const markerData = markers.find(m => m.marker === selectedMarker);
+                if (markerData) {
+                    const index = allData.findIndex(row => row === selectedRow);
+                    selectMarker(selectedMarker, selectedRow, index, markerData.markerType);
+                }
+            }
         }
 
         // Refresh data
