@@ -274,7 +274,7 @@
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
             API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
-            APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_URL_HERE', // Replace with your deployed Apps Script URL
+            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwhtJNojYGhpG6gwiRjo3-g_qluGWx_0q5cQplyOnEsoBF8lqxMY2RAjmq4bhfj3P4AbQ/exec',
             DEFAULT_LAT: 42.2968,
             DEFAULT_LNG: -71.2636,
             DEFAULT_ZOOM: 11
@@ -720,7 +720,7 @@
             allData[actualIndex]['Combined'] = newCombined;
             
             // Try to save to Google Sheets if configured
-            if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('https://script.google.com/macros/s/AKfycbwhtJNojYGhpG6gwiRjo3-g_qluGWx_0q5cQplyOnEsoBF8lqxMY2RAjmq4bhfj3P4AbQ/exec')) {
+            if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
                 try {
                     updateStatus('💾 Saving to Google Sheets...', 'loading');
                     
@@ -731,7 +731,8 @@
                         newCombined: newCombined
                     };
                     
-                    console.log('Sending to Apps Script:', payload);
+                    console.log('🔧 DEBUG: Sending to Apps Script:', payload);
+                    console.log('🔧 DEBUG: URL:', CONFIG.APPS_SCRIPT_URL);
                     
                     const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
                         method: 'POST',
@@ -742,22 +743,29 @@
                         mode: 'cors' // Try CORS first
                     });
 
+                    console.log('🔧 DEBUG: Response status:', response.status);
+                    console.log('🔧 DEBUG: Response ok:', response.ok);
+
                     if (response.ok) {
                         const result = await response.json();
+                        console.log('🔧 DEBUG: Response data:', result);
                         if (result.success) {
                             updateStatus(`✅ Saved to Google Sheets: ${newCombined}`, 'success');
                         } else {
                             throw new Error(result.error || 'Unknown error from Apps Script');
                         }
                     } else {
+                        const errorText = await response.text();
+                        console.log('🔧 DEBUG: Error response text:', errorText);
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
                     
                 } catch (error) {
-                    console.error('Google Sheets save error:', error);
+                    console.error('🔧 DEBUG: Google Sheets save error:', error);
                     
                     // Try with no-cors as fallback (won't get response but might work)
                     try {
+                        console.log('🔧 DEBUG: Trying no-cors fallback...');
                         await fetch(CONFIG.APPS_SCRIPT_URL, {
                             method: 'POST',
                             mode: 'no-cors',
@@ -771,6 +779,7 @@
                         });
                         updateStatus(`✅ Saved to Google Sheets (no-cors): ${newCombined}`, 'success');
                     } catch (noCorsError) {
+                        console.error('🔧 DEBUG: No-cors also failed:', noCorsError);
                         updateStatus(`⚠️ Saved locally only. Sheets error: ${error.message}`, 'error');
                     }
                 }
