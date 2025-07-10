@@ -801,7 +801,7 @@
                         'Dog ID': '1', 
                         'Capacity': '3', 
                         'Combined': 'Victor: Sydney - 10 Central St', 
-                        'Column K': ''
+                        'Callout': ''
                     },
                     {
                         'Address': '20 Washington St, Wellesley Hills, MA', 
@@ -813,7 +813,7 @@
                         'Dog ID': '6', 
                         'Capacity': '1', 
                         'Combined': 'Nate: Freddie & Norman - 20 Washington St', 
-                        'Column K': 'Special Notes'
+                        'Callout': 'Special Notes'
                     },
                     {
                         'Address': '15 Oak St, Wellesley, MA', 
@@ -825,7 +825,7 @@
                         'Dog ID': '7', 
                         'Capacity': '2', 
                         'Combined': 'Sarah: Bella - 15 Oak St', 
-                        'Column K': ''
+                        'Callout': ''
                     },
                     {
                         'Address': 'Wellesley High School Parking', 
@@ -837,7 +837,7 @@
                         'Dog ID': '8', 
                         'Capacity': '20', 
                         'Combined': 'System: Parking Lot A', 
-                        'Column K': 'Public parking'
+                        'Callout': 'Public parking'
                     },
                     {
                         'Address': 'Hunnewell Field', 
@@ -849,7 +849,7 @@
                         'Dog ID': '9', 
                         'Capacity': '15', 
                         'Combined': 'System: Field Area B', 
-                        'Column K': 'Open field space'
+                        'Callout': 'Open field space'
                     }
                 ];
                 
@@ -942,7 +942,7 @@
                 let tooltipText;
                 const combinedTitle = row['Combined'] || row['Dog Name'];
                 const dogName = row['Dog Name'] || '';
-                const columnK = row['Column K'] || '';
+                const columnK = row['Callout'] || '';
                 
                 if (isParking) tooltipText = `<strong>Ⓟ ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
                 else if (isField) tooltipText = `<strong>Ⓕ ${combinedTitle}</strong><br>${dogName}<br>${row['Address']}<br>${row['Capacity'] || 'Not set'}`;
@@ -1034,7 +1034,7 @@
             const dogName = row['Dog Name'] || '';
             const group = row['Group'] || '';
             const combinedTitle = row['Combined'] || row['Dog Name'];
-            const columnK = row['Column K'] || '';
+            const columnK = row['Callout'] || '';
             
             const isParking = dogName.toLowerCase().includes('parking');
             const isField = dogName.toLowerCase().includes('field');
