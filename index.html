@@ -89,10 +89,10 @@
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             font-size: 13px;
             cursor: pointer;
-            padding: 6px;
+            padding: 4px 6px;
             border-radius: 4px;
             transition: all 0.2s;
             border: 1px solid transparent;
@@ -413,10 +413,10 @@
             } else if (markerType === 'diamond') {
                 const size = 18; // 10% smaller (was 20)
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; transform: rotate(45deg); box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; transform: rotate(45deg); box-shadow: 0 2px 4px rgba(0,0,0,0.3); margin: 3px;"></div>`,
                     className: 'custom-diamond-marker',
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
+                    iconSize: [size + 6, size + 6],
+                    iconAnchor: [(size + 6)/2, (size + 6)/2]
                 });
             } else {
                 const size = 16; // 10% smaller (was 18)
@@ -554,6 +554,7 @@
                     markerType = 'parking';
                 } else if (hasCallout) {
                     markerType = 'diamond';
+                    console.log('Creating diamond marker for:', row['Dog Name'], 'callout:', row['Callout']);
                 }
                 
                 const marker = L.marker([lat, lng], {
