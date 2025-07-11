@@ -119,12 +119,16 @@
             flex-shrink: 0;
         }
 
+        .legend-text {
+            flex: 1;
+        }
+
         .color-picker {
             width: 20px;
             height: 20px;
             border-radius: 50%;
             border: 1px solid #333;
-            margin-left: auto;
+            margin-left: 8px;
             cursor: pointer;
             flex-shrink: 0;
             padding: 0;
@@ -327,7 +331,7 @@
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
         let driverColorMap = {}; // Simple driver name -> color mapping
-        let customColors = {}; // Store custom color overrides
+        let customColors = {}; // Store custom color overrides - THIS IS THE KEY!
 
         function assignDriverColors() {
             // Get all unique drivers from the data, sorted alphabetically for consistency
@@ -358,7 +362,7 @@
 
         function getDriverColor(name) {
             if (!name || name.trim() === '') return '#999999';
-            // Check for custom color first
+            // Check for custom color first - THIS IS IMPORTANT!
             if (customColors[name.trim()]) return customColors[name.trim()];
             return driverColorMap[name.trim()] || '#999999';
         }
@@ -369,7 +373,7 @@
                 return getDriverColor(driverName);
             }
             
-            // Check for custom color first for districts
+            // Check for custom color first for districts - THIS TOO!
             if (customColors[value]) return customColors[value];
             
             const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
@@ -518,7 +522,7 @@
                 
                 colorMap = {};
                 uniqueDrivers.forEach(driver => {
-                    // Use the simple sequential assignment
+                    // Use the color function that checks for custom colors
                     colorMap[driver] = getDriverColor(driver);
                 });
             } else {
@@ -592,7 +596,7 @@
                     
                     html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${driverName}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
-                        <span style="flex: 1;">${driverName} (${driverCount} dogs)</span>
+                        <span class="legend-text">${driverName} (${driverCount} dogs)</span>
                         <input type="color" class="color-picker" value="${color}" 
                                onclick="event.stopPropagation()" 
                                onchange="changeCustomColor('${driverName}', this.value)">
@@ -603,7 +607,7 @@
                     const isActive = currentFilter === category;
                     html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
-                        <span style="flex: 1;">${category}</span>
+                        <span class="legend-text">${category}</span>
                         <input type="color" class="color-picker" value="${color}" 
                                onclick="event.stopPropagation()" 
                                onchange="changeCustomColor('${category}', this.value)">
@@ -614,14 +618,17 @@
             document.getElementById('legendContent').innerHTML = html;
         }
 
+        // THE MAGIC FUNCTIONS - these handle the color picking!
         function changeCustomColor(categoryName, newColor) {
+            console.log('Changing color for:', categoryName, 'to:', newColor);
             customColors[categoryName] = newColor;
-            updateMap();
+            updateMap(); // This will refresh the map with new colors
         }
 
         function resetColors() {
+            console.log('Resetting all custom colors');
             customColors = {};
-            updateMap();
+            updateMap(); // This will refresh back to default colors
         }
 
         function selectMarker(marker, row, index, markerType) {
