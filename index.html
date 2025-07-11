@@ -120,13 +120,15 @@
         }
 
         .color-picker {
-            width: 14px;
-            height: 14px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            border: none;
-            margin-left: 8px;
+            border: 1px solid #333;
+            margin-left: auto;
             cursor: pointer;
             flex-shrink: 0;
+            padding: 0;
+            background: none;
         }
 
         .color-picker::-webkit-color-swatch-wrapper {
@@ -135,7 +137,7 @@
         }
 
         .color-picker::-webkit-color-swatch {
-            border: 1px solid #333;
+            border: none;
             border-radius: 50%;
         }
 
@@ -576,16 +578,6 @@
             updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
         }
 
-        function changeCustomColor(categoryName, newColor) {
-            customColors[categoryName] = newColor;
-            updateMap();
-        }
-
-        function resetColors() {
-            customColors = {};
-            updateMap();
-        }
-
         function updateLegend() {
             const colorBy = document.getElementById('colorBy').value;
             let html = '';
@@ -620,6 +612,16 @@
             }
             
             document.getElementById('legendContent').innerHTML = html;
+        }
+
+        function changeCustomColor(categoryName, newColor) {
+            customColors[categoryName] = newColor;
+            updateMap();
+        }
+
+        function resetColors() {
+            customColors = {};
+            updateMap();
         }
 
         function selectMarker(marker, row, index, markerType) {
