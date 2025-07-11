@@ -119,6 +119,26 @@
             flex-shrink: 0;
         }
 
+        .color-picker {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: none;
+            margin-left: 8px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .color-picker::-webkit-color-swatch-wrapper {
+            padding: 0;
+            border-radius: 50%;
+        }
+
+        .color-picker::-webkit-color-swatch {
+            border: 1px solid #333;
+            border-radius: 50%;
+        }
+
         .edit-section {
             flex: 1;
             padding: 10px;
@@ -238,6 +258,7 @@
         <div class="control-group">
             <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
             <button class="btn btn-secondary" onclick="showStats()">📊 Stats</button>
+            <button class="btn btn-secondary" onclick="resetColors()">🎨 Reset Colors</button>
         </div>
     </div>
 
@@ -304,6 +325,7 @@
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
         let driverColorMap = {}; // Simple driver name -> color mapping
+        let customColors = {}; // Store custom color overrides
 
         function assignDriverColors() {
             // Get all unique drivers from the data, sorted alphabetically for consistency
@@ -334,6 +356,8 @@
 
         function getDriverColor(name) {
             if (!name || name.trim() === '') return '#999999';
+            // Check for custom color first
+            if (customColors[name.trim()]) return customColors[name.trim()];
             return driverColorMap[name.trim()] || '#999999';
         }
 
@@ -342,6 +366,9 @@
                 const driverName = value ? value.split(':')[0] : '';
                 return getDriverColor(driverName);
             }
+            
+            // Check for custom color first for districts
+            if (customColors[value]) return customColors[value];
             
             const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
             let hash = 0;
@@ -549,6 +576,16 @@
             updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
         }
 
+        function changeCustomColor(categoryName, newColor) {
+            customColors[categoryName] = newColor;
+            updateMap();
+        }
+
+        function resetColors() {
+            customColors = {};
+            updateMap();
+        }
+
         function updateLegend() {
             const colorBy = document.getElementById('colorBy').value;
             let html = '';
@@ -563,7 +600,10 @@
                     
                     html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${driverName}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
-                        <span>${driverName} (${driverCount} dogs)</span>
+                        <span style="flex: 1;">${driverName} (${driverCount} dogs)</span>
+                        <input type="color" class="color-picker" value="${color}" 
+                               onclick="event.stopPropagation()" 
+                               onchange="changeCustomColor('${driverName}', this.value)">
                     </div>`;
                 });
             } else {
@@ -571,7 +611,10 @@
                     const isActive = currentFilter === category;
                     html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
-                        <span>${category}</span>
+                        <span style="flex: 1;">${category}</span>
+                        <input type="color" class="color-picker" value="${color}" 
+                               onclick="event.stopPropagation()" 
+                               onchange="changeCustomColor('${category}', this.value)">
                     </div>`;
                 });
             }
