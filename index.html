@@ -74,10 +74,10 @@
         }
 
         .legend-section {
-            border-bottom: 2px solid #e1e5e9;
-            padding: 10px;
+            border-bottom: 1px solid #e1e5e9;
+            padding: 8px;
             overflow-y: auto;
-            max-height: 500px;
+            max-height: 600px;
         }
 
         .legend h3 {
@@ -89,11 +89,11 @@
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 2px;
-            font-size: 13px;
+            margin-bottom: 1px;
+            font-size: 12px;
             cursor: pointer;
-            padding: 4px 6px;
-            border-radius: 4px;
+            padding: 2px 4px;
+            border-radius: 3px;
             transition: all 0.2s;
             border: 1px solid transparent;
         }
@@ -111,10 +111,10 @@
         }
 
         .legend-color {
-            width: 14px;
-            height: 14px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            margin-right: 8px;
+            margin-right: 6px;
             border: 2px solid #333;
             flex-shrink: 0;
         }
@@ -124,11 +124,11 @@
         }
 
         .color-picker {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             border: 1px solid #333;
-            margin-left: 8px;
+            margin-left: 6px;
             cursor: pointer;
             flex-shrink: 0;
             padding: 0;
@@ -146,8 +146,8 @@
         }
 
         .edit-section {
-            flex: 1;
-            padding: 10px;
+            flex: 0.7;
+            padding: 8px;
             overflow-y: auto;
         }
 
@@ -271,8 +271,8 @@
     <div class="main-content">
         <div class="left-panel">
             <div class="legend-section">
-                <div style="text-align: center; margin-bottom: 10px;">
-                    <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%;">Show All</button>
+                <div style="text-align: center; margin-bottom: 6px;">
+                    <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; padding: 6px 8px; font-size: 12px;">Show All</button>
                 </div>
                 
                 <div id="legendContent">Loading...</div>
@@ -660,18 +660,18 @@
 
             const actualIndex = allData.findIndex(r => r === row);
             const detailsHtml = `
-                <div style="font-weight: bold; color: #333; margin-bottom: 15px; font-size: 16px;">
+                <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
                     ${row['Dog Name']}
                 </div>
                 
-                <div style="margin-bottom: 10px;">
+                <div style="margin-bottom: 8px;">
                     <input type="text" id="editCombined" value="${row['Combined'] || ''}" 
-                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                           style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
                 </div>
                 
-                <div style="display: flex; gap: 5px;">
-                    <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" style="flex: 1;">Save</button>
-                    <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1;">Cancel</button>
+                <div style="display: flex; gap: 4px;">
+                    <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" style="flex: 1; padding: 6px 8px; font-size: 12px;">Save</button>
+                    <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1; padding: 6px 8px; font-size: 12px;">Cancel</button>
                 </div>
             `;
             
