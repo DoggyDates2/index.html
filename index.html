@@ -554,7 +554,7 @@
             let html = '';
             
             if (colorBy === 'Combined') {
-                Object.entries(colorMap).forEach(([driverName, color]) => {
+                Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([driverName, color]) => {
                     const isActive = currentFilter === driverName;
                     const driverCount = allData.filter(row => {
                         const combined = row['Combined'] || '';
@@ -567,7 +567,7 @@
                     </div>`;
                 });
             } else {
-                Object.entries(colorMap).forEach(([category, color]) => {
+                Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([category, color]) => {
                     const isActive = currentFilter === category;
                     html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
@@ -608,48 +608,20 @@
             }
             marker.setIcon(createMarkerIcon(color, true, markerType));
 
-            const hasCallout = row['Callout'] && row['Callout'].trim() !== '';
             const actualIndex = allData.findIndex(r => r === row);
             const detailsHtml = `
-                <div style="font-weight: bold; color: #333; margin-bottom: 10px; font-size: 16px;">
-                    🐕 ${row['Dog Name']}
+                <div style="font-weight: bold; color: #333; margin-bottom: 15px; font-size: 16px;">
+                    ${row['Dog Name']}
                 </div>
-                
-                <div style="font-weight: bold; color: #333; margin-bottom: 10px; font-size: 14px;">
-                    🏷️ ${row['Combined']}
-                </div>
-                
-                <div style="margin-bottom: 8px; color: #666;">
-                    ${row['Address']}
-                </div>
-                
-                ${row['District'] && row['District'].trim() !== '' ? `
-                <div style="margin-bottom: 8px; color: #666;">
-                    ${row['District']}
-                </div>` : ''}
-                
-                ${row['Capacity'] && row['Capacity'].trim() !== '' ? `
-                <div style="margin-bottom: 8px; color: #666;">
-                    ${row['Capacity']}
-                </div>` : ''}
-                
-                ${hasCallout ? `
-                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; border-radius: 4px; margin-bottom: 10px;">
-                    <strong>📢 CALLOUT:</strong><br>
-                    <span style="color: #856404; font-weight: bold;">${row['Callout']}</span>
-                </div>` : ''}
-                
-                <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
                 
                 <div style="margin-bottom: 10px;">
-                    <label style="font-weight: bold; color: #333; display: block; margin-bottom: 5px;">✏️ Edit:</label>
                     <input type="text" id="editCombined" value="${row['Combined'] || ''}" 
                            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
                 </div>
                 
                 <div style="display: flex; gap: 5px;">
-                    <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" style="flex: 1;">💾 Save</button>
-                    <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1;">❌ Cancel</button>
+                    <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" style="flex: 1;">Save</button>
+                    <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1;">Cancel</button>
                 </div>
             `;
             
