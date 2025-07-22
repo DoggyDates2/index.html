@@ -58,6 +58,33 @@
             border-color: #667eea;
         }
 
+        .group-filters {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .group-filter-btn {
+            padding: 6px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .group-filter-btn:hover {
+            border-color: #667eea;
+        }
+
+        .group-filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
         .main-content {
             display: flex;
             flex: 1;
@@ -244,6 +271,21 @@
             color: #666;
             margin: 5px 0;
         }
+
+        .shape-legend {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            font-size: 12px;
+            color: #666;
+            margin-left: 10px;
+        }
+
+        .shape-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
     </style>
 </head>
 <body>
@@ -261,6 +303,13 @@
             <input type="text" id="searchInput" placeholder="Search dogs, combined names, addresses..." />
         </div>
 
+        <div class="control-group group-filters">
+            <label>Show Groups:</label>
+            <button class="group-filter-btn active" data-group="1" onclick="toggleGroupFilter(1)">Group 1 ⭕</button>
+            <button class="group-filter-btn active" data-group="2" onclick="toggleGroupFilter(2)">Group 2 ▲</button>
+            <button class="group-filter-btn active" data-group="3" onclick="toggleGroupFilter(3)">Group 3 ■</button>
+        </div>
+
         <div class="control-group">
             <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
             <button class="btn btn-secondary" onclick="showStats()">📊 Stats</button>
@@ -273,6 +322,12 @@
             <div class="legend-section">
                 <div style="text-align: center; margin-bottom: 6px;">
                     <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; padding: 6px 8px; font-size: 12px;">Show All</button>
+                </div>
+                
+                <div class="shape-legend">
+                    <div class="shape-legend-item">⭕ Group 1</div>
+                    <div class="shape-legend-item">▲ Group 2</div>
+                    <div class="shape-legend-item">■ Group 3</div>
                 </div>
                 
                 <div id="legendContent">Loading...</div>
@@ -330,11 +385,26 @@
         // Global variables
         let map, markers = [], allData = [], filteredData = [], colorMap = {};
         let selectedMarker = null, selectedRow = null, currentFilter = null;
-        let driverColorMap = {}; // Simple driver name -> color mapping
-        let customColors = {}; // Store custom color overrides - THIS IS THE KEY!
+        let driverColorMap = {};
+        let customColors = {};
+        let activeGroups = [1, 2, 3]; // Track which groups are active
+
+        function getGroupFromCombined(combined) {
+            if (!combined) return null;
+            // Extract group number from Combined field (e.g., "Driver:1" → 1)
+            const parts = combined.split(':');
+            if (parts.length > 1) {
+                const groupPart = parts[1].trim();
+                // Handle cases like "1", "1,2", "1-2", etc.
+                const match = groupPart.match(/(\d)/);
+                if (match) {
+                    return parseInt(match[1]);
+                }
+            }
+            return null;
+        }
 
         function assignDriverColors() {
-            // Get all unique drivers from the data, sorted alphabetically for consistency
             const allDrivers = [...new Set(allData.map(row => {
                 const combined = row['Combined'] || '';
                 const driverName = combined.split(':')[0].trim();
@@ -343,26 +413,21 @@
             
             console.log('Found drivers:', allDrivers);
             
-            // Clear existing assignments
             driverColorMap = {};
             
-            // Assign colors sequentially - no duplicates possible!
             allDrivers.forEach((driver, index) => {
                 if (index < ALL_COLORS.length) {
                     driverColorMap[driver] = ALL_COLORS[index];
                 } else {
-                    // Fallback for more than 120 drivers (very unlikely)
                     driverColorMap[driver] = '#' + Math.floor(Math.random()*16777215).toString(16);
                 }
             });
             
             console.log('Driver color assignments:', driverColorMap);
-            console.log(`Assigned ${Object.keys(driverColorMap).length} unique colors to drivers`);
         }
 
         function getDriverColor(name) {
             if (!name || name.trim() === '') return '#999999';
-            // Check for custom color first - THIS IS IMPORTANT!
             if (customColors[name.trim()]) return customColors[name.trim()];
             return driverColorMap[name.trim()] || '#999999';
         }
@@ -373,7 +438,6 @@
                 return getDriverColor(driverName);
             }
             
-            // Check for custom color first for districts - THIS TOO!
             if (customColors[value]) return customColors[value];
             
             const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
@@ -386,40 +450,42 @@
             return colors[Math.abs(hash) % colors.length];
         }
 
-        function createMarkerIcon(color, isSelected = false, markerType = 'circle') {
+        function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null) {
             const strokeColor = '#000000';
             const strokeWidth = isSelected ? 3 : 2;
+            const size = 16; // Standard size for all markers
             
-            if (markerType === 'field') {
-                const size = 26; // 10% smaller (was 29)
+            // Determine shape based on group
+            if (group === 1 || markerType === 'circle') {
+                // Circle for Group 1
                 return L.divIcon({
-                    html: `<svg width="${size}" height="${size + 6}" viewBox="0 0 26 32" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
-                        <path d="M13 0C5.8 0 0 5.8 0 13c0 7.8 13 19 13 19s13-11.2 13-19C26 5.8 20.2 0 13 0z" 
-                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                        <text x="13" y="16" text-anchor="middle" fill="white" font-size="9" font-weight="bold">F</text>
-                    </svg>`,
-                    className: 'custom-field-marker',
-                    iconSize: [size, size + 6],
-                    iconAnchor: [size/2, size + 6]
-                });
-            } else if (markerType === 'parking') {
-                const size = 23; // 10% smaller (was 25)
-                return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">P</div>`,
-                    className: 'custom-parking-marker',
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    className: 'custom-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
                 });
-            } else if (markerType === 'diamond') {
-                const size = 18; // 10% smaller (was 20)
+            } else if (group === 2) {
+                // Triangle for Group 2
+                const svgSize = size + 4;
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; transform: rotate(45deg); box-shadow: 0 2px 4px rgba(0,0,0,0.3); margin: 3px;"></div>`,
-                    className: 'custom-diamond-marker',
-                    iconSize: [size + 6, size + 6],
-                    iconAnchor: [(size + 6)/2, (size + 6)/2]
+                    html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
+                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                    </svg>`,
+                    className: 'custom-triangle-marker',
+                    iconSize: [svgSize, svgSize],
+                    iconAnchor: [svgSize/2, svgSize/2]
+                });
+            } else if (group === 3) {
+                // Square for Group 3
+                return L.divIcon({
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    className: 'custom-square-marker',
+                    iconSize: [size, size],
+                    iconAnchor: [size/2, size/2]
                 });
             } else {
-                const size = 16; // 10% smaller (was 18)
+                // Default circle if no group specified
                 return L.divIcon({
                     html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                     className: 'custom-marker',
@@ -427,6 +493,23 @@
                     iconAnchor: [size/2, size/2]
                 });
             }
+        }
+
+        function toggleGroupFilter(group) {
+            const btn = document.querySelector(`[data-group="${group}"]`);
+            const index = activeGroups.indexOf(group);
+            
+            if (index > -1) {
+                // Remove from active groups
+                activeGroups.splice(index, 1);
+                btn.classList.remove('active');
+            } else {
+                // Add to active groups
+                activeGroups.push(group);
+                btn.classList.add('active');
+            }
+            
+            updateMap();
         }
 
         function initMap() {
@@ -476,9 +559,7 @@
 
                 updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
                 
-                // Assign colors to all drivers using simple sequential method
                 assignDriverColors();
-                
                 updateMap();
                 
             } catch (error) {
@@ -495,6 +576,10 @@
                 const searchText = `${row['Dog Name']} ${row['Address']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
                 const matchesSearch = searchText.includes(searchTerm);
                 
+                // Check group filter
+                const group = getGroupFromCombined(row['Combined']);
+                const matchesGroup = group === null || activeGroups.includes(group);
+                
                 let matchesFilter = currentFilter === null;
                 if (!matchesFilter && currentFilter !== null) {
                     if (colorBy === 'Combined') {
@@ -505,7 +590,7 @@
                     }
                 }
                 
-                return matchesSearch && matchesFilter;
+                return matchesSearch && matchesFilter && matchesGroup;
             });
 
             markers.forEach(m => map.removeLayer(m.marker));
@@ -519,7 +604,6 @@
                 
                 colorMap = {};
                 uniqueDrivers.forEach(driver => {
-                    // Use the color function that checks for custom colors
                     colorMap[driver] = getDriverColor(driver);
                 });
             } else {
@@ -544,36 +628,27 @@
                 }
                 
                 const isSelected = selectedRow === row;
-                const dogName = (row['Dog Name'] || '').toLowerCase();
-                const hasCallout = row['Callout'] && row['Callout'].trim() !== '';
-                
-                let markerType = 'circle';
-                if (dogName.includes('field')) {
-                    markerType = 'field';
-                } else if (dogName.includes('parking')) {
-                    markerType = 'parking';
-                } else if (hasCallout) {
-                    markerType = 'diamond';
-                    console.log('Creating diamond marker for:', row['Dog Name'], 'callout:', row['Callout']);
-                }
+                const group = getGroupFromCombined(row['Combined']);
                 
                 const marker = L.marker([lat, lng], {
-                    icon: createMarkerIcon(color, isSelected, markerType)
+                    icon: createMarkerIcon(color, isSelected, 'group', group)
                 }).addTo(map);
 
+                const groupText = group ? `Group ${group}` : 'No Group';
                 const popupContent = `
                     <strong>🐕 ${row['Dog Name']}</strong><br>
                     <strong>🏷️ ${row['Combined']}</strong><br>
+                    <strong>📋 ${groupText}</strong><br>
                     ${row['Address']}<br>
                     ${row['District'] && row['District'].trim() !== '' ? `${row['District']}<br>` : ''}
                     ${row['Capacity'] && row['Capacity'].trim() !== '' ? `${row['Capacity']}<br>` : ''}
-                    ${hasCallout ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${row['Callout']}</span><br>` : ''}
+                    ${row['Callout'] && row['Callout'].trim() !== '' ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${row['Callout']}</span><br>` : ''}
                 `;
 
                 marker.bindPopup(popupContent);
-                marker.on('click', () => selectMarker(marker, row, index, markerType));
+                marker.on('click', () => selectMarker(marker, row, index, group));
 
-                markers.push({marker, row, index, markerType});
+                markers.push({marker, row, index, group});
             });
 
             updateLegend();
@@ -592,9 +667,26 @@
                         return combined.split(':')[0] === driverName;
                     }).length;
                     
+                    // Count dogs by group for this driver
+                    const groupCounts = { 1: 0, 2: 0, 3: 0 };
+                    allData.forEach(row => {
+                        const combined = row['Combined'] || '';
+                        if (combined.split(':')[0] === driverName) {
+                            const group = getGroupFromCombined(combined);
+                            if (group && groupCounts[group] !== undefined) {
+                                groupCounts[group]++;
+                            }
+                        }
+                    });
+                    
+                    const groupInfo = Object.entries(groupCounts)
+                        .filter(([, count]) => count > 0)
+                        .map(([group, count]) => `G${group}: ${count}`)
+                        .join(', ');
+                    
                     html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${driverName}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
-                        <span class="legend-text">${driverName} (${driverCount} dogs)</span>
+                        <span class="legend-text">${driverName} (${driverCount} dogs${groupInfo ? ' - ' + groupInfo : ''})</span>
                         <input type="color" class="color-picker" value="${color}" 
                                onclick="event.stopPropagation()" 
                                onchange="changeCustomColor('${driverName}', this.value)">
@@ -616,20 +708,19 @@
             document.getElementById('legendContent').innerHTML = html;
         }
 
-        // THE MAGIC FUNCTIONS - these handle the color picking!
         function changeCustomColor(categoryName, newColor) {
             console.log('Changing color for:', categoryName, 'to:', newColor);
             customColors[categoryName] = newColor;
-            updateMap(); // This will refresh the map with new colors
+            updateMap();
         }
 
         function resetColors() {
             console.log('Resetting all custom colors');
             customColors = {};
-            updateMap(); // This will refresh back to default colors
+            updateMap();
         }
 
-        function selectMarker(marker, row, index, markerType) {
+        function selectMarker(marker, row, index, group) {
             if (selectedMarker) {
                 const prevData = markers.find(m => m.marker === selectedMarker);
                 if (prevData) {
@@ -641,7 +732,7 @@
                     } else {
                         color = colorMap[prevData.row[colorBy]] || '#999999';
                     }
-                    selectedMarker.setIcon(createMarkerIcon(color, false, prevData.markerType));
+                    selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group));
                 }
             }
 
@@ -656,12 +747,13 @@
             } else {
                 color = colorMap[row[colorBy]] || '#999999';
             }
-            marker.setIcon(createMarkerIcon(color, true, markerType));
+            marker.setIcon(createMarkerIcon(color, true, 'group', group));
 
             const actualIndex = allData.findIndex(r => r === row);
+            const groupText = group ? `Group ${group}` : 'No Group';
             const detailsHtml = `
                 <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
-                    ${row['Dog Name']}
+                    ${row['Dog Name']} (${groupText})
                 </div>
                 
                 <div style="margin-bottom: 8px;">
@@ -708,8 +800,26 @@
                 return acc;
             }, {});
             
+            const groups = { 1: 0, 2: 0, 3: 0, 'None': 0 };
+            allData.forEach(row => {
+                const group = getGroupFromCombined(row['Combined']);
+                if (group && groups[group] !== undefined) {
+                    groups[group]++;
+                } else {
+                    groups['None']++;
+                }
+            });
+            
             let statsText = "📊 DETAILED STATISTICS\n\n";
-            statsText += "👤 DRIVERS:\n";
+            
+            statsText += "🔢 GROUPS:\n";
+            Object.entries(groups).forEach(([group, count]) => {
+                if (count > 0) {
+                    statsText += `  Group ${group}: ${count} dogs\n`;
+                }
+            });
+            
+            statsText += "\n👤 DRIVERS:\n";
             Object.entries(drivers).sort((a, b) => b[1] - a[1]).forEach(([name, count]) => {
                 statsText += `  ${name}: ${count} dogs\n`;
             });
@@ -730,31 +840,27 @@
                 return;
             }
 
-            // Find the actual index in allData to ensure we're updating the right row
             const actualIndex = allData.findIndex(row => row === selectedRow);
             if (actualIndex === -1) {
                 updateStatus('❌ Error: Could not find row in data', 'error');
                 return;
             }
 
-            // Update local data immediately
             selectedRow['Combined'] = newCombined;
             allData[actualIndex]['Combined'] = newCombined;
             
-            // Try to save to Google Sheets if configured
             if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
                 try {
                     updateStatus('💾 Saving to Google Sheets...', 'loading');
                     
                     const payload = {
                         action: 'updateCombined',
-                        rowIndex: actualIndex + 2, // +2 because: +1 for header row, +1 for 1-based indexing
+                        rowIndex: actualIndex + 2,
                         dogId: selectedRow['Dog ID'] || '',
                         newCombined: newCombined
                     };
                     
                     console.log('🔧 DEBUG: Sending to Apps Script:', payload);
-                    console.log('🔧 DEBUG: URL:', CONFIG.APPS_SCRIPT_URL);
                     
                     const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
                         method: 'POST',
@@ -762,32 +868,24 @@
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify(payload),
-                        mode: 'cors' // Try CORS first
+                        mode: 'cors'
                     });
-
-                    console.log('🔧 DEBUG: Response status:', response.status);
-                    console.log('🔧 DEBUG: Response ok:', response.ok);
 
                     if (response.ok) {
                         const result = await response.json();
-                        console.log('🔧 DEBUG: Response data:', result);
                         if (result.success) {
                             updateStatus(`✅ Saved to Google Sheets: ${newCombined}`, 'success');
                         } else {
                             throw new Error(result.error || 'Unknown error from Apps Script');
                         }
                     } else {
-                        const errorText = await response.text();
-                        console.log('🔧 DEBUG: Error response text:', errorText);
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
                     
                 } catch (error) {
                     console.error('🔧 DEBUG: Google Sheets save error:', error);
                     
-                    // Try with no-cors as fallback (won't get response but might work)
                     try {
-                        console.log('🔧 DEBUG: Trying no-cors fallback...');
                         await fetch(CONFIG.APPS_SCRIPT_URL, {
                             method: 'POST',
                             mode: 'no-cors',
@@ -813,15 +911,14 @@
                 }
             }
             
-            // Re-assign colors in case driver changed
             assignDriverColors();
             updateMap();
             
-            // Refresh the details panel
             if (selectedMarker) {
                 const markerData = markers.find(m => m.marker === selectedMarker);
                 if (markerData) {
-                    selectMarker(selectedMarker, selectedRow, actualIndex, markerData.markerType);
+                    const newGroup = getGroupFromCombined(newCombined);
+                    selectMarker(selectedMarker, selectedRow, actualIndex, newGroup);
                 }
             }
         }
@@ -831,7 +928,7 @@
                 const markerData = markers.find(m => m.marker === selectedMarker);
                 if (markerData) {
                     const index = allData.findIndex(row => row === selectedRow);
-                    selectMarker(selectedMarker, selectedRow, index, markerData.markerType);
+                    selectMarker(selectedMarker, selectedRow, index, markerData.group);
                 }
             }
         }
@@ -840,7 +937,6 @@
             selectedMarker = null;
             selectedRow = null;
             currentFilter = null;
-            // Keep existing driver color assignments for consistency
             document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
             loadData();
         }
