@@ -662,10 +662,6 @@
             if (colorBy === 'Combined') {
                 Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([driverName, color]) => {
                     const isActive = currentFilter === driverName;
-                    const driverCount = allData.filter(row => {
-                        const combined = row['Combined'] || '';
-                        return combined.split(':')[0] === driverName;
-                    }).length;
                     
                     // Count dogs by group for this driver
                     const groupCounts = { 1: 0, 2: 0, 3: 0 };
@@ -679,14 +675,18 @@
                         }
                     });
                     
-                    const groupInfo = Object.entries(groupCounts)
-                        .filter(([, count]) => count > 0)
-                        .map(([group, count]) => `G${group}: ${count}`)
-                        .join(', ');
+                    // Build simple count display: "10, 11, 12"
+                    const counts = [];
+                    for (let i = 1; i <= 3; i++) {
+                        if (groupCounts[i] > 0) {
+                            counts.push(groupCounts[i]);
+                        }
+                    }
+                    const countsDisplay = counts.length > 0 ? ' ' + counts.join(', ') : '';
                     
                     html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${driverName}')">
                         <div class="legend-color" style="background-color: ${color}"></div>
-                        <span class="legend-text">${driverName} (${driverCount} dogs${groupInfo ? ' - ' + groupInfo : ''})</span>
+                        <span class="legend-text">${driverName}${countsDisplay}</span>
                         <input type="color" class="color-picker" value="${color}" 
                                onclick="event.stopPropagation()" 
                                onchange="changeCustomColor('${driverName}', this.value)">
