@@ -634,9 +634,28 @@
                     
                     if (!controlAdded) {
                         map.addControl(drawControl);
+                        console.log('✅ Draw control added to map');
                     }
                     
-                    updateStatus('🎯 Selection mode active - Draw a rectangle to select markers', 'success');
+                    // Force enable rectangle tool
+                    setTimeout(() => {
+                        // Try to find and click the rectangle button
+                        const rectangleBtn = document.querySelector('.leaflet-draw-draw-rectangle');
+                        if (rectangleBtn) {
+                            console.log('Found rectangle button, clicking it...');
+                            rectangleBtn.click();
+                        } else {
+                            console.warn('Rectangle button not found in toolbar');
+                            // List all draw buttons
+                            const drawButtons = document.querySelectorAll('.leaflet-draw-toolbar a');
+                            console.log('Available draw buttons:', drawButtons.length);
+                            drawButtons.forEach((btn, i) => {
+                                console.log(`Button ${i}:`, btn.className, btn.title);
+                            });
+                        }
+                    }, 100);
+                    
+                    updateStatus('🎯 Selection mode active - Click the rectangle tool in the toolbar', 'success');
                     clearMultiSelection();
                 } catch (e) {
                     console.error('Error enabling selection mode:', e);
@@ -797,63 +816,88 @@
                     }
                 });
 
-                // Handle rectangle creation
-                map.on('draw:created', function (e) {
-                    console.log('Rectangle drawn');
+                // Handle rectangle creation - Debug version
+                const handleDrawCreated = function(e) {
+                    console.log('🟦 Rectangle drawn!', e);
+                    updateStatus('Processing selection...', 'loading');
                     
                     if (!markers || markers.length === 0) {
+                        console.error('No markers array');
                         updateStatus('No markers to select', 'error');
                         return;
                     }
                     
+                    console.log(`Total markers available: ${markers.length}`);
+                    
                     const layer = e.layer;
                     const bounds = layer.getBounds();
+                    console.log('Rectangle bounds:', bounds);
+                    
+                    // Add the rectangle to the map temporarily so we can see it
+                    drawnItems.addLayer(layer);
                     
                     // Clear previous selections
                     selectedMarkers.clear();
                     
                     // Find markers within the rectangle
                     let foundCount = 0;
-                    markers.forEach(markerData => {
+                    let checkedCount = 0;
+                    
+                    markers.forEach((markerData, index) => {
+                        checkedCount++;
                         if (markerData && markerData.marker) {
                             try {
                                 const markerLatLng = markerData.marker.getLatLng();
                                 if (bounds.contains(markerLatLng)) {
                                     selectedMarkers.add(markerData.marker);
                                     foundCount++;
+                                    console.log(`Found marker ${index} at`, markerLatLng);
                                 }
                             } catch (err) {
-                                console.error('Error checking marker:', err);
+                                console.error(`Error checking marker ${index}:`, err);
                             }
+                        } else {
+                            console.warn(`Invalid marker data at index ${index}`);
                         }
                     });
                     
-                    console.log(`Found ${foundCount} markers in selection`);
+                    console.log(`✅ Checked ${checkedCount} markers, found ${foundCount} in selection`);
                     
                     // Update display
                     updateMarkersDisplay();
                     
                     if (selectedMarkers.size > 0) {
                         showMultiEditUI();
-                        updateStatus(`Selected ${selectedMarkers.size} markers`, 'success');
+                        updateStatus(`✅ Selected ${selectedMarkers.size} markers`, 'success');
                     } else {
-                        updateStatus('No markers found in selection area', 'error');
+                        updateStatus('❌ No markers found in selection area - try a larger rectangle', 'error');
                     }
                     
-                    // Remove the rectangle after a short delay
+                    // Remove the rectangle after a delay
                     setTimeout(() => {
                         try {
-                            drawnItems.removeLayer(layer);
+                            drawnItems.clearLayers();
                         } catch (err) {
-                            console.error('Error removing layer:', err);
+                            console.error('Error clearing layers:', err);
                         }
-                    }, 500);
-                });
+                    }, 1000);
+                };
 
-                // Also listen for the specific event name used by some versions
-                map.on(L.Draw.Event.CREATED, function (e) {
-                    console.log('Draw event created (alternate)');
-                    map.fire('draw:created', e);
+                // Listen for multiple event types to ensure we catch the drawing
+                map.on('draw:created', handleDrawCreated);
+                map.on(L.Draw.Event.CREATED, handleDrawCreated);
+                
+                // Additional debug listeners
+                map.on('draw:drawstart', function(e) {
+                    console.log('🟦 Started drawing rectangle');
+                });
+                
+                map.on('draw:drawstop', function(e) {
+                    console.log('🟦 Stopped drawing rectangle');
+                });
+                
+                map.on('draw:drawvertex', function(e) {
+                    console.log('🟦 Drawing vertex');
                 });
 
                 console.log('Drawing features initialized successfully');
@@ -1014,6 +1058,7 @@
             }
 
             // Add markers
+            console.log(`Creating ${filteredData.length} markers...`);
             filteredData.forEach((row, index) => {
                 const lat = parseFloat(row['Latitude']);
                 const lng = parseFloat(row['Longitude']);
@@ -1054,6 +1099,8 @@
 
                 markers.push({marker, row, index, group});
             });
+            
+            console.log(`✅ Created ${markers.length} markers total`);
 
             updateLegend();
             updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
@@ -1492,6 +1539,63 @@
             loadData();
         }
 
+        // Test selection manually
+        function testSelection() {
+            if (!map || markers.length === 0) {
+                alert('No map or markers available');
+                return;
+            }
+            
+            // Get map bounds
+            const mapBounds = map.getBounds();
+            const center = map.getCenter();
+            
+            // Create a test rectangle around the center
+            const latOffset = 0.01; // about 1km
+            const lngOffset = 0.01;
+            
+            const testBounds = L.latLngBounds(
+                [center.lat - latOffset, center.lng - lngOffset],
+                [center.lat + latOffset, center.lng + lngOffset]
+            );
+            
+            // Draw the test rectangle
+            const testRect = L.rectangle(testBounds, {
+                color: '#FF0000',
+                weight: 3,
+                fillOpacity: 0.1
+            }).addTo(map);
+            
+            // Test selection logic
+            selectedMarkers.clear();
+            let foundCount = 0;
+            
+            markers.forEach((markerData, index) => {
+                if (markerData && markerData.marker) {
+                    const markerLatLng = markerData.marker.getLatLng();
+                    if (testBounds.contains(markerLatLng)) {
+                        selectedMarkers.add(markerData.marker);
+                        foundCount++;
+                        console.log(`Test found marker at:`, markerLatLng);
+                    }
+                }
+            });
+            
+            alert(`Test selection found ${foundCount} markers in the center area`);
+            
+            // Update display
+            updateMarkersDisplay();
+            
+            if (foundCount > 0) {
+                showMultiEditUI();
+            }
+            
+            // Remove test rectangle after 3 seconds
+            setTimeout(() => {
+                map.removeLayer(testRect);
+            }, 3000);
+        }
+
         // Ensure Leaflet Draw is loaded
         function ensureLeafletDraw() {
             if (typeof L !== 'undefined' && L.Control && L.Control.Draw) {
@@ -1539,15 +1643,22 @@
             
             alert(debugInfo);
             
-            // Try to reinitialize if needed
-            if (!drawControl && map) {
-                if (confirm("Draw control not initialized. Try to initialize now?")) {
-                    ensureLeafletDraw().then(() => {
-                        initializeDrawingFeatures();
-                    }).catch(err => {
-                        alert('Failed to load drawing library: ' + err.message);
-                    });
-                }
+            // Show additional options
+            const action = prompt("Debug Actions:\n1. Reinitialize drawing\n2. Test selection\n3. Show console logs\n\nEnter number:");
+            
+            if (action === '1' && !drawControl && map) {
+                ensureLeafletDraw().then(() => {
+                    initializeDrawingFeatures();
+                }).catch(err => {
+                    alert('Failed to load drawing library: ' + err.message);
+                });
+            } else if (action === '2') {
+                testSelection();
+            } else if (action === '3') {
+                alert('Check browser console (F12) for detailed logs');
+                console.log('Current markers array:', markers);
+                console.log('Map bounds:', map.getBounds());
+                console.log('Draw control:', drawControl);
             }
         }
 
