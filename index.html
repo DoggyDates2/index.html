@@ -6,9 +6,13 @@
     <title>🐕 Dog Walking Map</title>
     
     <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin=""/>
     <!-- Leaflet Draw CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" 
+          integrity="sha512-gc3xjCmIy673V6MyOAZhIW93xhM9ei1I+gLbmFjUHIjocENRsLX/QUE1htk5q1XV2D/iie/VQ8DXI6Vu8bexvQ==" 
+          crossorigin="anonymous" />
     
     <style>
         * {
@@ -371,6 +375,7 @@
             <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
             <button class="btn btn-secondary" onclick="showStats()">📊 Stats</button>
             <button class="btn btn-secondary" onclick="resetColors()">🎨 Reset Colors</button>
+            <button class="btn btn-secondary" onclick="debugDrawing()" style="background: #FFA500;">🔧 Debug</button>
         </div>
     </div>
 
@@ -409,9 +414,13 @@
     <div class="status" id="status">Loading dog walking data...</div>
 
     <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+            crossorigin=""></script>
     <!-- Leaflet Draw JS -->
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" 
+            integrity="sha512-ozq8xQKq6urvuU6jNgkfqAmT7jKN2XumbrX1JiB3TnF7tI48DPI4Gy1GXKD/V3EExgAs1V+pRO7vwtS1LHg0Gw==" 
+            crossorigin="anonymous"></script>
     
     <script>
         // Configuration
@@ -582,8 +591,26 @@
 
         // Toggle selection mode
         function toggleSelectionMode() {
+            console.log('Toggling selection mode...');
+            
+            // First check if drawing features are available
             if (!drawControl) {
-                updateStatus('❌ Drawing controls not initialized', 'error');
+                console.error('Draw control not initialized');
+                updateStatus('⚠️ Initializing drawing tools...', 'loading');
+                
+                // Try to initialize drawing features again
+                initializeDrawingFeatures();
+                
+                // Check again after initialization attempt
+                setTimeout(() => {
+                    if (!drawControl) {
+                        updateStatus('❌ Drawing tools could not be initialized', 'error');
+                        return;
+                    } else {
+                        // Try toggling again
+                        toggleSelectionMode();
+                    }
+                }, 500);
                 return;
             }
             
@@ -592,27 +619,44 @@
             const info = document.getElementById('selectionModeInfo');
             
             if (selectionMode) {
+                console.log('Enabling selection mode...');
                 btn.classList.add('active');
                 info.style.display = 'block';
+                
                 try {
-                    map.addControl(drawControl);
+                    // Check if control is already added to map
+                    let controlAdded = false;
+                    map.eachLayer(function(layer) {
+                        if (layer === drawControl) {
+                            controlAdded = true;
+                        }
+                    });
+                    
+                    if (!controlAdded) {
+                        map.addControl(drawControl);
+                    }
+                    
+                    updateStatus('🎯 Selection mode active - Draw a rectangle to select markers', 'success');
+                    clearMultiSelection();
                 } catch (e) {
-                    console.error('Error adding draw control:', e);
+                    console.error('Error enabling selection mode:', e);
                     selectionMode = false;
                     btn.classList.remove('active');
                     info.style.display = 'none';
-                    updateStatus('❌ Could not enable selection mode', 'error');
-                    return;
+                    updateStatus('❌ Could not enable selection mode: ' + e.message, 'error');
                 }
-                clearMultiSelection();
             } else {
+                console.log('Disabling selection mode...');
                 btn.classList.remove('active');
                 info.style.display = 'none';
+                
                 try {
                     map.removeControl(drawControl);
+                    updateStatus('✅ Selection mode disabled', 'success');
                 } catch (e) {
                     console.error('Error removing draw control:', e);
                 }
+                
                 clearMultiSelection();
             }
         }
@@ -669,82 +713,18 @@
                 // Force map to redraw after a short delay
                 setTimeout(() => {
                     map.invalidateSize();
-                }, 250);
-
-                // Initialize drawing features if available
-                if (typeof L.Control.Draw !== 'undefined') {
-                    drawnItems = new L.FeatureGroup();
-                    map.addLayer(drawnItems);
-
-                    try {
-                        drawControl = new L.Control.Draw({
-                            draw: {
-                                polygon: false,
-                                marker: false,
-                                circlemarker: false,
-                                circle: false,
-                                polyline: false,
-                                rectangle: {
-                                    shapeOptions: {
-                                        color: '#FF0000',
-                                        weight: 2,
-                                        fillOpacity: 0.1
-                                    }
-                                }
-                            },
-                            edit: {
-                                featureGroup: drawnItems,
-                                edit: false,
-                                remove: false
-                            }
-                        });
-
-                        // Handle shape creation
-                        map.on(L.Draw.Event.CREATED, function (e) {
-                            if (!markers || markers.length === 0) {
-                                updateStatus('No markers to select', 'error');
-                                return;
-                            }
-                            
-                            const layer = e.layer;
-                            drawnItems.addLayer(layer);
-                            
-                            const bounds = layer.getBounds();
-                            selectedMarkers.clear();
-                            
-                            let foundAny = false;
-                            markers.forEach(markerData => {
-                                if (markerData && markerData.marker) {
-                                    const markerLatLng = markerData.marker.getLatLng();
-                                    if (bounds.contains(markerLatLng)) {
-                                        selectedMarkers.add(markerData.marker);
-                                        foundAny = true;
-                                    }
-                                }
-                            });
-                            
-                            updateMarkersDisplay();
-                            
-                            if (selectedMarkers.size > 0) {
-                                showMultiEditUI();
-                            } else if (!foundAny) {
-                                updateStatus('No markers found in selection area', 'error');
-                            }
-                            
-                            setTimeout(() => {
-                                drawnItems.clearLayers();
-                            }, 500);
-                        });
-                    } catch (e) {
-                        console.error('Error initializing draw control:', e);
+                    
+                    // Ensure Leaflet Draw is loaded, then initialize drawing features
+                    ensureLeafletDraw().then(() => {
+                        initializeDrawingFeatures();
+                    }).catch(err => {
+                        console.error('Could not load Leaflet Draw:', err);
                         const selectBtn = document.getElementById('selectModeBtn');
-                        if (selectBtn) selectBtn.style.display = 'none';
-                    }
-                } else {
-                    console.warn('Leaflet Draw plugin not loaded');
-                    const selectBtn = document.getElementById('selectModeBtn');
-                    if (selectBtn) selectBtn.style.display = 'none';
-                }
+                        if (selectBtn) {
+                            selectBtn.style.display = 'none';
+                        }
+                    });
+                }, 250);
 
                 document.getElementById('colorBy').addEventListener('change', updateMap);
                 document.getElementById('searchInput').addEventListener('input', updateMap);
@@ -754,6 +734,138 @@
             } catch (error) {
                 console.error('Error initializing map:', error);
                 updateStatus('Error initializing map: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize drawing features separately
+        function initializeDrawingFeatures() {
+            console.log('Initializing drawing features...');
+            
+            // Check if Leaflet Draw is available
+            if (typeof L === 'undefined' || typeof L.Control === 'undefined' || typeof L.Control.Draw === 'undefined') {
+                console.error('Leaflet Draw not loaded yet, waiting...');
+                
+                // Try again after a delay
+                setTimeout(() => {
+                    if (typeof L !== 'undefined' && L.Control && L.Control.Draw) {
+                        console.log('Leaflet Draw now available, retrying...');
+                        initializeDrawingFeatures();
+                    } else {
+                        console.error('Leaflet Draw still not available');
+                        updateStatus('⚠️ Multi-select unavailable - Drawing library failed to load', 'error');
+                        const selectBtn = document.getElementById('selectModeBtn');
+                        if (selectBtn) {
+                            selectBtn.style.display = 'none';
+                        }
+                    }
+                }, 1000);
+                return;
+            }
+
+            try {
+                // Initialize the FeatureGroup to store editable layers
+                drawnItems = new L.FeatureGroup();
+                map.addLayer(drawnItems);
+
+                // Initialize the draw control
+                drawControl = new L.Control.Draw({
+                    position: 'topright',
+                    draw: {
+                        polygon: false,
+                        marker: false,
+                        circlemarker: false,
+                        circle: false,
+                        polyline: false,
+                        rectangle: {
+                            shapeOptions: {
+                                clickable: true,
+                                color: '#FF0000',
+                                weight: 2,
+                                opacity: 0.8,
+                                fill: true,
+                                fillColor: '#FF0000',
+                                fillOpacity: 0.1
+                            },
+                            showArea: true,
+                            metric: true
+                        }
+                    },
+                    edit: {
+                        featureGroup: drawnItems,
+                        edit: false,
+                        remove: false
+                    }
+                });
+
+                // Handle rectangle creation
+                map.on('draw:created', function (e) {
+                    console.log('Rectangle drawn');
+                    
+                    if (!markers || markers.length === 0) {
+                        updateStatus('No markers to select', 'error');
+                        return;
+                    }
+                    
+                    const layer = e.layer;
+                    const bounds = layer.getBounds();
+                    
+                    // Clear previous selections
+                    selectedMarkers.clear();
+                    
+                    // Find markers within the rectangle
+                    let foundCount = 0;
+                    markers.forEach(markerData => {
+                        if (markerData && markerData.marker) {
+                            try {
+                                const markerLatLng = markerData.marker.getLatLng();
+                                if (bounds.contains(markerLatLng)) {
+                                    selectedMarkers.add(markerData.marker);
+                                    foundCount++;
+                                }
+                            } catch (err) {
+                                console.error('Error checking marker:', err);
+                            }
+                        }
+                    });
+                    
+                    console.log(`Found ${foundCount} markers in selection`);
+                    
+                    // Update display
+                    updateMarkersDisplay();
+                    
+                    if (selectedMarkers.size > 0) {
+                        showMultiEditUI();
+                        updateStatus(`Selected ${selectedMarkers.size} markers`, 'success');
+                    } else {
+                        updateStatus('No markers found in selection area', 'error');
+                    }
+                    
+                    // Remove the rectangle after a short delay
+                    setTimeout(() => {
+                        try {
+                            drawnItems.removeLayer(layer);
+                        } catch (err) {
+                            console.error('Error removing layer:', err);
+                        }
+                    }, 500);
+                });
+
+                // Also listen for the specific event name used by some versions
+                map.on(L.Draw.Event.CREATED, function (e) {
+                    console.log('Draw event created (alternate)');
+                    map.fire('draw:created', e);
+                });
+
+                console.log('Drawing features initialized successfully');
+                updateStatus('✅ Multi-select ready', 'success');
+                
+            } catch (e) {
+                console.error('Error initializing draw control:', e);
+                updateStatus('❌ Could not initialize multi-select', 'error');
+                const selectBtn = document.getElementById('selectModeBtn');
+                if (selectBtn) {
+                    selectBtn.style.display = 'none';
+                }
             }
         }
 
@@ -1380,6 +1492,65 @@
             loadData();
         }
 
+        // Ensure Leaflet Draw is loaded
+        function ensureLeafletDraw() {
+            if (typeof L !== 'undefined' && L.Control && L.Control.Draw) {
+                console.log('Leaflet Draw already loaded');
+                return Promise.resolve();
+            }
+            
+            console.log('Loading Leaflet Draw dynamically...');
+            return new Promise((resolve, reject) => {
+                // Load CSS if not already loaded
+                if (!document.querySelector('link[href*="leaflet.draw.css"]')) {
+                    const css = document.createElement('link');
+                    css.rel = 'stylesheet';
+                    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css';
+                    document.head.appendChild(css);
+                }
+                
+                // Load JS
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js';
+                script.onload = () => {
+                    console.log('Leaflet Draw loaded successfully');
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error('Failed to load Leaflet Draw');
+                    reject(new Error('Failed to load Leaflet Draw'));
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        // Debug drawing functionality
+        function debugDrawing() {
+            let debugInfo = "🔧 DRAWING DEBUG INFO:\n\n";
+            
+            debugInfo += "Leaflet: " + (typeof L !== 'undefined' ? '✅ Loaded' : '❌ Not loaded') + "\n";
+            debugInfo += "Leaflet Draw: " + (typeof L !== 'undefined' && L.Control && L.Control.Draw ? '✅ Loaded' : '❌ Not loaded') + "\n";
+            debugInfo += "Draw Events: " + (typeof L !== 'undefined' && L.Draw && L.Draw.Event ? '✅ Available' : '❌ Not available') + "\n";
+            debugInfo += "Map Instance: " + (map ? '✅ Created' : '❌ Not created') + "\n";
+            debugInfo += "Draw Control: " + (drawControl ? '✅ Created' : '❌ Not created') + "\n";
+            debugInfo += "Drawn Items Layer: " + (drawnItems ? '✅ Created' : '❌ Not created') + "\n";
+            debugInfo += "Selection Mode: " + (selectionMode ? '✅ Active' : '❌ Inactive') + "\n";
+            debugInfo += "Total Markers: " + markers.length + "\n";
+            
+            alert(debugInfo);
+            
+            // Try to reinitialize if needed
+            if (!drawControl && map) {
+                if (confirm("Draw control not initialized. Try to initialize now?")) {
+                    ensureLeafletDraw().then(() => {
+                        initializeDrawingFeatures();
+                    }).catch(err => {
+                        alert('Failed to load drawing library: ' + err.message);
+                    });
+                }
+            }
+        }
+
         // Update status
         function updateStatus(message, type = '') {
             const status = document.getElementById('status');
@@ -1406,9 +1577,19 @@
                 return;
             }
             
+            // Debug Leaflet Draw loading
+            console.log('Checking Leaflet Draw availability...');
+            console.log('L:', typeof L !== 'undefined' ? 'loaded' : 'not loaded');
+            console.log('L.Control:', typeof L !== 'undefined' && L.Control ? 'loaded' : 'not loaded');
+            console.log('L.Control.Draw:', typeof L !== 'undefined' && L.Control && L.Control.Draw ? 'loaded' : 'not loaded');
+            console.log('L.Draw:', typeof L !== 'undefined' && L.Draw ? 'loaded' : 'not loaded');
+            
             // Wait a bit for all resources to load
             setTimeout(() => {
                 try {
+                    // Check again after delay
+                    console.log('After delay - L.Control.Draw:', typeof L !== 'undefined' && L.Control && L.Control.Draw ? 'loaded' : 'not loaded');
+                    
                     initMap();
                     loadData();
                 } catch (e) {
@@ -1420,6 +1601,16 @@
 
         // Also try on window load as backup
         window.addEventListener('load', function() {
+            console.log('Window fully loaded');
+            
+            // Always try to initialize drawing features on full load
+            if (map && !drawControl) {
+                console.log('Map exists but draw control missing, initializing drawing features...');
+                setTimeout(() => {
+                    initializeDrawingFeatures();
+                }, 500);
+            }
+            
             if (!map) {
                 console.log('Window loaded, checking if map needs initialization...');
                 setTimeout(() => {
