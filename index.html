@@ -91,6 +91,7 @@
             display: flex;
             flex: 1;
             overflow: hidden;
+            min-height: 0;
         }
 
         .left-panel {
@@ -247,13 +248,16 @@
         .map-container {
             flex: 1;
             position: relative;
-            min-height: 400px;
         }
 
         #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             width: 100%;
             height: 100%;
-            min-height: 400px;
         }
 
         .status {
@@ -650,94 +654,107 @@
 
         // Initialize map
         function initMap() {
-            map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM]);
+            console.log('Initializing map...');
             
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '© OpenStreetMap contributors, © CARTO',
-                subdomains: 'abcd',
-                maxZoom: 19
-            }).addTo(map);
-
-            // Check if Leaflet Draw is loaded
-            if (typeof L.Control.Draw === 'undefined') {
-                console.error('Leaflet Draw plugin not loaded');
-                updateStatus('⚠️ Multi-select feature unavailable', 'error');
-                const selectBtn = document.getElementById('selectModeBtn');
-                if (selectBtn) selectBtn.style.display = 'none';
-                return;
-            }
-
-            // Initialize drawing features
-            drawnItems = new L.FeatureGroup();
-            map.addLayer(drawnItems);
-
             try {
-                drawControl = new L.Control.Draw({
-                    draw: {
-                        polygon: false,
-                        marker: false,
-                        circlemarker: false,
-                        circle: false,
-                        polyline: false,
-                        rectangle: {
-                            shapeOptions: {
-                                color: '#FF0000',
-                                weight: 2,
-                                fillOpacity: 0.1
-                            }
-                        }
-                    },
-                    edit: {
-                        featureGroup: drawnItems,
-                        edit: false,
-                        remove: false
-                    }
-                });
-            } catch (e) {
-                console.error('Error initializing draw control:', e);
-                const selectBtn = document.getElementById('selectModeBtn');
-                if (selectBtn) selectBtn.style.display = 'none';
-            }
+                // Initialize map
+                map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
+                
+                // Add tile layer - Using OpenStreetMap as primary
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(map);
 
-            // Handle shape creation
-            map.on(L.Draw.Event.CREATED, function (e) {
-                if (!markers || markers.length === 0) {
-                    updateStatus('No markers to select', 'error');
-                    return;
-                }
-                
-                const layer = e.layer;
-                drawnItems.addLayer(layer);
-                
-                const bounds = layer.getBounds();
-                selectedMarkers.clear();
-                
-                let foundAny = false;
-                markers.forEach(markerData => {
-                    if (markerData && markerData.marker) {
-                        const markerLatLng = markerData.marker.getLatLng();
-                        if (bounds.contains(markerLatLng)) {
-                            selectedMarkers.add(markerData.marker);
-                            foundAny = true;
-                        }
-                    }
-                });
-                
-                updateMarkersDisplay();
-                
-                if (selectedMarkers.size > 0) {
-                    showMultiEditUI();
-                } else if (!foundAny) {
-                    updateStatus('No markers found in selection area', 'error');
-                }
-                
+                // Force map to redraw after a short delay
                 setTimeout(() => {
-                    drawnItems.clearLayers();
-                }, 500);
-            });
+                    map.invalidateSize();
+                }, 250);
 
-            document.getElementById('colorBy').addEventListener('change', updateMap);
-            document.getElementById('searchInput').addEventListener('input', updateMap);
+                // Initialize drawing features if available
+                if (typeof L.Control.Draw !== 'undefined') {
+                    drawnItems = new L.FeatureGroup();
+                    map.addLayer(drawnItems);
+
+                    try {
+                        drawControl = new L.Control.Draw({
+                            draw: {
+                                polygon: false,
+                                marker: false,
+                                circlemarker: false,
+                                circle: false,
+                                polyline: false,
+                                rectangle: {
+                                    shapeOptions: {
+                                        color: '#FF0000',
+                                        weight: 2,
+                                        fillOpacity: 0.1
+                                    }
+                                }
+                            },
+                            edit: {
+                                featureGroup: drawnItems,
+                                edit: false,
+                                remove: false
+                            }
+                        });
+
+                        // Handle shape creation
+                        map.on(L.Draw.Event.CREATED, function (e) {
+                            if (!markers || markers.length === 0) {
+                                updateStatus('No markers to select', 'error');
+                                return;
+                            }
+                            
+                            const layer = e.layer;
+                            drawnItems.addLayer(layer);
+                            
+                            const bounds = layer.getBounds();
+                            selectedMarkers.clear();
+                            
+                            let foundAny = false;
+                            markers.forEach(markerData => {
+                                if (markerData && markerData.marker) {
+                                    const markerLatLng = markerData.marker.getLatLng();
+                                    if (bounds.contains(markerLatLng)) {
+                                        selectedMarkers.add(markerData.marker);
+                                        foundAny = true;
+                                    }
+                                }
+                            });
+                            
+                            updateMarkersDisplay();
+                            
+                            if (selectedMarkers.size > 0) {
+                                showMultiEditUI();
+                            } else if (!foundAny) {
+                                updateStatus('No markers found in selection area', 'error');
+                            }
+                            
+                            setTimeout(() => {
+                                drawnItems.clearLayers();
+                            }, 500);
+                        });
+                    } catch (e) {
+                        console.error('Error initializing draw control:', e);
+                        const selectBtn = document.getElementById('selectModeBtn');
+                        if (selectBtn) selectBtn.style.display = 'none';
+                    }
+                } else {
+                    console.warn('Leaflet Draw plugin not loaded');
+                    const selectBtn = document.getElementById('selectModeBtn');
+                    if (selectBtn) selectBtn.style.display = 'none';
+                }
+
+                document.getElementById('colorBy').addEventListener('change', updateMap);
+                document.getElementById('searchInput').addEventListener('input', updateMap);
+                
+                console.log('Map initialized successfully');
+                
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                updateStatus('Error initializing map: ' + error.message, 'error');
+            }
         }
 
         // Show multi edit UI
@@ -1372,6 +1389,8 @@
 
         // Initialize on DOM ready
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, starting initialization...');
+            
             const requiredElements = ['map', 'colorBy', 'searchInput', 'legendContent', 'detailsContent', 'status'];
             let allElementsExist = true;
             
@@ -1387,12 +1406,29 @@
                 return;
             }
             
-            try {
-                initMap();
-                loadData();
-            } catch (e) {
-                console.error('Error initializing application:', e);
-                updateStatus('❌ Error initializing map', 'error');
+            // Wait a bit for all resources to load
+            setTimeout(() => {
+                try {
+                    initMap();
+                    loadData();
+                } catch (e) {
+                    console.error('Error initializing application:', e);
+                    updateStatus('❌ Error initializing map', 'error');
+                }
+            }, 500);
+        });
+
+        // Also try on window load as backup
+        window.addEventListener('load', function() {
+            if (!map) {
+                console.log('Window loaded, checking if map needs initialization...');
+                setTimeout(() => {
+                    if (!map) {
+                        console.log('Map still not initialized, trying again...');
+                        initMap();
+                        loadData();
+                    }
+                }, 1000);
             }
         });
     </script>
