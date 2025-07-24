@@ -1,7 +1,10 @@
 function showMultiEditUI() {
             const selectedData = [];
             markers.forEach(markerData => {
-                if (selecte<!DOCTYPE html>
+                if (selectedMarkers.has(markerData.marker)) {
+                    selectedData.push(markerData.row);
+                }
+            });<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
