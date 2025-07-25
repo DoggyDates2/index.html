@@ -1,1436 +1,1380 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map</title>
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Leaflet Draw CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<div class="control-group">
+        <label for="searchInput">Search:</label>
+        <input type="text" id="searchInput" placeholder="Search dogs, combined names, addresses..." />
+    </div>
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f8f9fa;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+    <div class="control-group group-filters">
+        <label>Show Groups:</label>
+        <button class="group-filter-btn active" data-group="1" onclick="toggleGroupFilter(1)">Group 1 ⭕</button>
+        <button class="group-filter-btn active" data-group="2" onclick="toggleGroupFilter(2)">Group 2 ▲</button>
+        <button class="group-filter-btn active" data-group="3" onclick="toggleGroupFilter(3)">Group 3 ■</button>
+    </div>
 
-        .controls {
-            background: white;
-            padding: 15px 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            flex-wrap: wrap;
-            flex-shrink: 0;
-        }
+    <div class="control-group">
+        <button class="btn btn-select" id="selectModeBtn" onclick="toggleSelectionMode()">✏️ Select Mode</button>
+        <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
+        <button class="btn btn-secondary" onclick="showStats()">📊 Stats</button>
+        <button class="btn btn-secondary" onclick="resetColors()">🎨 Reset Colors</button>
+        <button class="btn btn-secondary" onclick="debugDrawing()" style="background: #FFA500;">🔧 Debug</button>
+    </div>
+</div>
 
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+<div class="selection-mode-info" id="selectionModeInfo">
+    🎯 SELECTION MODE: Draw a rectangle on the map to select multiple markers
+</div>
 
-        .control-group label {
-            font-weight: 600;
-            color: #333;
-        }
-
-        select, input {
-            padding: 6px 10px;
-            border: 2px solid #e1e5e9;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.2s;
-        }
-
-        select:focus, input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .group-filters {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .group-filter-btn {
-            padding: 6px 12px;
-            border: 2px solid #e1e5e9;
-            border-radius: 6px;
-            background: white;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            font-size: 14px;
-        }
-
-        .group-filter-btn:hover {
-            border-color: #667eea;
-        }
-
-        .group-filter-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .main-content {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-            min-height: 0;
-        }
-
-        .left-panel {
-            width: 300px;
-            background: white;
-            border-right: 2px solid #e1e5e9;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .legend-section {
-            border-bottom: 1px solid #e1e5e9;
-            padding: 8px;
-            overflow-y: auto;
-            max-height: 600px;
-        }
-
-        .legend h3 {
-            margin-bottom: 8px;
-            color: #333;
-            font-size: 15px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 1px;
-            font-size: 12px;
-            cursor: pointer;
-            padding: 2px 4px;
-            border-radius: 3px;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .legend-item:hover {
-            background-color: #f8f9fa;
-            border-color: #dee2e6;
-            transform: translateX(2px);
-        }
-
-        .legend-item.active {
-            background-color: #e3f2fd;
-            border-color: #2196F3;
-            font-weight: bold;
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 6px;
-            border: 2px solid #333;
-            flex-shrink: 0;
-        }
-
-        .legend-text {
-            flex: 1;
-        }
-
-        .color-picker {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            border: 1px solid #333;
-            margin-left: 6px;
-            cursor: pointer;
-            flex-shrink: 0;
-            padding: 0;
-            background: none;
-        }
-
-        .color-picker::-webkit-color-swatch-wrapper {
-            padding: 0;
-            border-radius: 50%;
-        }
-
-        .color-picker::-webkit-color-swatch {
-            border: none;
-            border-radius: 50%;
-        }
-
-        .edit-section {
-            flex: 0.7;
-            padding: 8px;
-            overflow-y: auto;
-        }
-
-        .edit-section h3 {
-            margin-bottom: 15px;
-            color: #333;
-            font-size: 16px;
-        }
-
-        .no-selection {
-            text-align: center;
-            color: #6c757d;
-            font-style: italic;
-            margin-top: 20px;
-        }
-
-        .btn {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            font-size: 14px;
-            margin: 2px;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5a6fd8;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #545b62;
-        }
-
-        .btn-clear {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-clear:hover {
-            background: #218838;
-        }
-
-        .btn-select {
-            background: #FF6B6B;
-            color: white;
-        }
-
-        .btn-select:hover {
-            background: #FF5252;
-        }
-
-        .btn-select.active {
-            background: #D32F2F;
-        }
-
-        .map-container {
-            flex: 1;
-            position: relative;
-        }
-
-        #map {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        .status {
-            background: white;
-            padding: 8px 20px;
-            text-align: center;
-            font-weight: 600;
-            border-top: 1px solid #e1e5e9;
-            font-size: 14px;
-            flex-shrink: 0;
-        }
-
-        .status.loading {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .dog-info {
-            font-size: 12px;
-            color: #666;
-            margin: 5px 0;
-        }
-
-        .shape-legend {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            font-size: 12px;
-            color: #666;
-            margin-left: 10px;
-        }
-
-        .shape-legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .multi-select-info {
-            background: #e3f2fd;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        .multi-select-info strong {
-            color: #1976D2;
-        }
-
-        .selection-mode-info {
-            background: #FFE0B2;
-            padding: 10px;
-            text-align: center;
-            font-weight: bold;
-            color: #E65100;
-            display: none;
-        }
-
-        .selected-marker {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.1);
-            }
-            100% {
-                transform: scale(1);
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="controls">
-        <div class="control-group">
-            <label for="colorBy">Color by:</label>
-            <select id="colorBy">
-                <option value="Combined">Combined (Driver:Group)</option>
-                <option value="District">District</option>
-            </select>
+<div class="main-content">
+    <div class="left-panel">
+        <div class="legend-section">
+            <div style="text-align: center; margin-bottom: 6px;">
+                <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; padding: 6px 8px; font-size: 12px;">Show All</button>
+            </div>
+            
+            <div class="shape-legend">
+                <div class="shape-legend-item">⭕ Group 1</div>
+                <div class="shape-legend-item">▲ Group 2</div>
+                <div class="shape-legend-item">■ Group 3</div>
+            </div>
+            
+            <div id="legendContent">Loading...</div>
         </div>
         
-        <div class="control-group">
-            <label for="searchInput">Search:</label>
-            <input type="text" id="searchInput" placeholder="Search dogs, combined names, addresses..." />
-        </div>
-
-        <div class="control-group group-filters">
-            <label>Show Groups:</label>
-            <button class="group-filter-btn active" data-group="1" onclick="toggleGroupFilter(1)">Group 1 ⭕</button>
-            <button class="group-filter-btn active" data-group="2" onclick="toggleGroupFilter(2)">Group 2 ▲</button>
-            <button class="group-filter-btn active" data-group="3" onclick="toggleGroupFilter(3)">Group 3 ■</button>
-        </div>
-
-        <div class="control-group">
-            <button class="btn btn-select" id="selectModeBtn" onclick="toggleSelectionMode()">✏️ Select Mode</button>
-            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
-            <button class="btn btn-secondary" onclick="showStats()">📊 Stats</button>
-            <button class="btn btn-secondary" onclick="resetColors()">🎨 Reset Colors</button>
-        </div>
-    </div>
-
-    <div class="selection-mode-info" id="selectionModeInfo">
-        🎯 SELECTION MODE: Draw a rectangle on the map to select multiple markers
-    </div>
-
-    <div class="main-content">
-        <div class="left-panel">
-            <div class="legend-section">
-                <div style="text-align: center; margin-bottom: 6px;">
-                    <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; padding: 6px 8px; font-size: 12px;">Show All</button>
-                </div>
-                
-                <div class="shape-legend">
-                    <div class="shape-legend-item">⭕ Group 1</div>
-                    <div class="shape-legend-item">▲ Group 2</div>
-                    <div class="shape-legend-item">■ Group 3</div>
-                </div>
-                
-                <div id="legendContent">Loading...</div>
-            </div>
-            
-            <div class="edit-section">
-                <div id="detailsContent" class="no-selection">
-                    Click a marker on the map to see details
-                </div>
+        <div class="edit-section">
+            <div id="detailsContent" class="no-selection">
+                Click a marker on the map to see details
             </div>
         </div>
-
-        <div class="map-container">
-            <div id="map"></div>
-        </div>
     </div>
 
-    <div class="status" id="status">Loading dog walking data...</div>
+    <div class="map-container">
+        <div id="map"></div>
+    </div>
+</div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet Draw JS -->
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-    
-    <script>
-        // Configuration
-        const CONFIG = {
-            SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
-            WORKSHEET_NAME: 'Map',
-            API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
-            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwhtJNojYGhpG6gwiRjo3-g_qluGWx_0q5cQplyOnEsoBF8lqxMY2RAjmq4bhfj3P4AbQ/exec',
-            DEFAULT_LAT: 42.2968,
-            DEFAULT_LNG: -71.2636,
-            DEFAULT_ZOOM: 11
-        };
+<div class="status" id="status">Loading dog walking data...</div>
 
-        // Master color palette
-        const ALL_COLORS = [
-            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
-            '#bcbd22', '#17becf', '#ff9896', '#98df8a', '#c5b0d5', '#c49c94', '#f7b6d3', '#c7c7c7',
-            '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF',
-            '#5F27CD', '#00D2D3', '#FF9F43', '#10AC84', '#EE5A24', '#0097E6', '#8C7AE6', '#F79F1F',
-            '#A3CB38', '#E74C3C', '#3742FA', '#2F3542', '#FF3838', '#2ECC71', '#9B59B6', '#E67E22',
-            '#1ABC9C', '#34495E', '#F39C12', '#E91E63', '#00BCD4', '#607D8B', '#795548', '#009688',
-            '#FF5722', '#673AB7', '#3F51B5', '#2196F3', '#03DAC6', '#6200EA', '#FF4081', '#FFAB00'
-        ];
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+        crossorigin=""></script>
+<!-- Leaflet Draw JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" 
+        integrity="sha512-ozq8xQKq6urvuU6jNgkfqAmT7jKN2XumbrX1JiB3TnF7tI48DPI4Gy1GXKD/V3EExgAs1V+pRO7vwtS1LHg0Gw==" 
+        crossorigin="anonymous"></script>
 
-        // Global variables
-        let map, markers = [], allData = [], filteredData = [], colorMap = {};
-        let selectedMarker = null, selectedRow = null, currentFilter = null;
-        let driverColorMap = {};
-        let customColors = {};
-        let activeGroups = [1, 2, 3];
-        let selectionMode = false;
-        let selectedMarkers = new Set();
-        let drawnItems, drawControl;
+<script>
+    // Configuration
+    const CONFIG = {
+        SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
+        WORKSHEET_NAME: 'Map',
+        API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
+        APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwhtJNojYGhpG6gwiRjo3-g_qluGWx_0q5cQplyOnEsoBF8lqxMY2RAjmq4bhfj3P4AbQ/exec',
+        DEFAULT_LAT: 42.2968,
+        DEFAULT_LNG: -71.2636,
+        DEFAULT_ZOOM: 11
+    };
 
-        // Utility function to escape HTML
-        function escapeHtml(unsafe) {
-            if (!unsafe) return '';
-            return unsafe
-                .toString()
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
+    // Google Maps style color palette - very muted
+    const ALL_COLORS = [
+        '#E8E8E8', '#D4D4D4', '#BDBDBD', '#9E9E9E', '#757575', // Grays
+        '#90CAF9', '#64B5F6', '#42A5F5', '#2196F3', '#1E88E5', // Light blues
+        '#A5D6A7', '#81C784', '#66BB6A', '#4CAF50', '#43A047', // Light greens
+        '#FFCCBC', '#FFAB91', '#FF8A65', '#FF7043', '#FF5722', // Light oranges
+        '#F8BBD0', '#F48FB1', '#F06292', '#EC407A', '#E91E63', // Light pinks
+        '#CE93D8', '#BA68C8', '#AB47BC', '#9C27B0', '#8E24AA', // Light purples
+        '#80DEEA', '#4DD0E1', '#26C6DA', '#00BCD4', '#00ACC1', // Light cyans
+        '#FFF59D', '#FFF176', '#FFEE58', '#FFEB3B', '#FDD835', // Light yellows
+        '#BCAAA4', '#A1887F', '#8D6E63', '#795548', '#6D4C41'  // Light browns
+    ];
 
-        // Extract group number from Combined field
-        function getGroupFromCombined(combined) {
-            if (!combined) return null;
-            const parts = combined.split(':');
-            if (parts.length > 1) {
-                const groupPart = parts[1].trim();
-                const match = groupPart.match(/(\d)/);
-                if (match) {
-                    return parseInt(match[1]);
-                }
+    // Global variables
+    let map, markers = [], allData = [], filteredData = [], colorMap = {};
+    let selectedMarker = null, selectedRow = null, currentFilter = null;
+    let driverColorMap = {};
+    let customColors = {};
+    let activeGroups = [1, 2, 3];
+    let selectionMode = false;
+    let selectedMarkers = new Set();
+    let drawnItems, drawControl;
+
+    // Utility function to escape HTML
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Extract group number from Combined field
+    function getGroupFromCombined(combined) {
+        if (!combined) return null;
+        const parts = combined.split(':');
+        if (parts.length > 1) {
+            const groupPart = parts[1].trim();
+            const match = groupPart.match(/(\d)/);
+            if (match) {
+                return parseInt(match[1]);
             }
-            return null;
         }
+        return null;
+    }
 
-        // Assign colors to drivers
-        function assignDriverColors() {
-            const allDrivers = [...new Set(allData.map(row => {
-                const combined = row['Combined'] || '';
-                const driverName = combined.split(':')[0].trim();
-                return driverName;
-            }).filter(driver => driver !== ''))].sort();
-            
-            driverColorMap = {};
-            driverColorMap[''] = '#999999'; // Default color for empty drivers
-            
-            allDrivers.forEach((driver, index) => {
-                if (index < ALL_COLORS.length) {
-                    driverColorMap[driver] = ALL_COLORS[index];
-                } else {
-                    const hue = (index * 137.5) % 360;
-                    driverColorMap[driver] = `hsl(${hue}, 70%, 50%)`;
-                }
+    // Assign colors to drivers
+    function assignDriverColors() {
+        const allDrivers = [...new Set(allData.map(row => {
+            const combined = row['Combined'] || '';
+            const driverName = combined.split(':')[0].trim();
+            return driverName;
+        }).filter(driver => driver !== ''))].sort();
+        
+        driverColorMap = {};
+        driverColorMap[''] = '#BDBDBD'; // Default gray for empty drivers
+        
+        allDrivers.forEach((driver, index) => {
+            if (index < ALL_COLORS.length) {
+                driverColorMap[driver] = ALL_COLORS[index];
+            } else {
+                // Generate additional muted colors if needed
+                const hue = (index * 137.5) % 360;
+                driverColorMap[driver] = `hsl(${hue}, 30%, 70%)`; // Low saturation for muted colors
+            }
+        });
+    }
+
+    // Get color for driver
+    function getDriverColor(name) {
+        if (!name || name.trim() === '') return '#BDBDBD';
+        if (customColors[name.trim()]) return customColors[name.trim()];
+        return driverColorMap[name.trim()] || '#BDBDBD';
+    }
+
+    // Get color for value based on attribute
+    function getColorForValue(value, attribute) {
+        if (attribute === 'Combined') {
+            const driverName = value ? value.split(':')[0] : '';
+            return getDriverColor(driverName);
+        }
+        
+        if (customColors[value]) return customColors[value];
+        
+        // Use first 6 colors from the muted palette
+        const colors = ['#E8E8E8', '#90CAF9', '#A5D6A7', '#FFCCBC', '#F8BBD0', '#CE93D8'];
+        let hash = 0;
+        if (value) {
+            for (let i = 0; i < value.length; i++) {
+                hash = value.charCodeAt(i) + ((hash << 5) - hash);
+            }
+        }
+        return colors[Math.abs(hash) % colors.length];
+    }
+
+    // Create marker icon
+    function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null, isMultiSelected = false) {
+        const strokeColor = isMultiSelected ? '#FF0000' : '#000000';
+        const strokeWidth = isSelected || isMultiSelected ? 3 : 2;
+        const size = isMultiSelected ? 20 : 16;
+        
+        if (group === 1) {
+            // Circle for Group 1
+            return L.divIcon({
+                html: `<div class="${isMultiSelected ? 'selected-marker' : ''}" style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                className: 'custom-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        } else if (group === 2) {
+            // Triangle for Group 2
+            const svgSize = size + 4;
+            return L.divIcon({
+                html: `<svg class="${isMultiSelected ? 'selected-marker' : ''}" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                    <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
+                          fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                </svg>`,
+                className: 'custom-triangle-marker',
+                iconSize: [svgSize, svgSize],
+                iconAnchor: [svgSize/2, svgSize/2]
+            });
+        } else if (group === 3) {
+            // Square for Group 3
+            return L.divIcon({
+                html: `<div class="${isMultiSelected ? 'selected-marker' : ''}" style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                className: 'custom-square-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        } else {
+            // Default circle
+            return L.divIcon({
+                html: `<div class="${isMultiSelected ? 'selected-marker' : ''}" style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                className: 'custom-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
             });
         }
+    }
 
-        // Get color for driver
-        function getDriverColor(name) {
-            if (!name || name.trim() === '') return '#999999';
-            if (customColors[name.trim()]) return customColors[name.trim()];
-            return driverColorMap[name.trim()] || '#999999';
+    // Toggle group filter
+    function toggleGroupFilter(group) {
+        const btn = document.querySelector(`[data-group="${group}"]`);
+        const index = activeGroups.indexOf(group);
+        
+        if (index > -1) {
+            activeGroups.splice(index, 1);
+            btn.classList.remove('active');
+        } else {
+            activeGroups.push(group);
+            btn.classList.add('active');
         }
+        
+        updateMap();
+    }
 
-        // Get color for value based on attribute
-        function getColorForValue(value, attribute) {
-            if (attribute === 'Combined') {
-                const driverName = value ? value.split(':')[0] : '';
-                return getDriverColor(driverName);
-            }
+    // Toggle selection mode
+    function toggleSelectionMode() {
+        console.log('Toggling selection mode...');
+        
+        // First check if drawing features are available
+        if (!drawControl) {
+            console.error('Draw control not initialized');
+            updateStatus('⚠️ Initializing drawing tools...', 'loading');
             
-            if (customColors[value]) return customColors[value];
+            // Try to initialize drawing features again
+            initializeDrawingFeatures();
             
-            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
-            let hash = 0;
-            if (value) {
-                for (let i = 0; i < value.length; i++) {
-                    hash = value.charCodeAt(i) + ((hash << 5) - hash);
-                }
-            }
-            return colors[Math.abs(hash) % colors.length];
-        }
-
-        // Create marker icon
-        function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null, isMultiSelected = false) {
-            const strokeColor = isMultiSelected ? '#FF0000' : '#000000';
-            const strokeWidth = isSelected || isMultiSelected ? 3 : 2;
-            const size = isMultiSelected ? 20 : 16;
-            
-            if (group === 1) {
-                // Circle for Group 1
-                return L.divIcon({
-                    html: `<div class="${isMultiSelected ? 'selected-marker' : ''}" style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                    className: 'custom-marker',
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            } else if (group === 2) {
-                // Triangle for Group 2
-                const svgSize = size + 4;
-                return L.divIcon({
-                    html: `<svg class="${isMultiSelected ? 'selected-marker' : ''}" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
-                        <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
-                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                    </svg>`,
-                    className: 'custom-triangle-marker',
-                    iconSize: [svgSize, svgSize],
-                    iconAnchor: [svgSize/2, svgSize/2]
-                });
-            } else if (group === 3) {
-                // Square for Group 3
-                return L.divIcon({
-                    html: `<div class="${isMultiSelected ? 'selected-marker' : ''}" style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                    className: 'custom-square-marker',
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            } else {
-                // Default circle
-                return L.divIcon({
-                    html: `<div class="${isMultiSelected ? 'selected-marker' : ''}" style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                    className: 'custom-marker',
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            }
-        }
-
-        // Toggle group filter
-        function toggleGroupFilter(group) {
-            const btn = document.querySelector(`[data-group="${group}"]`);
-            const index = activeGroups.indexOf(group);
-            
-            if (index > -1) {
-                activeGroups.splice(index, 1);
-                btn.classList.remove('active');
-            } else {
-                activeGroups.push(group);
-                btn.classList.add('active');
-            }
-            
-            updateMap();
-        }
-
-        // Toggle selection mode
-        function toggleSelectionMode() {
-            if (!drawControl) {
-                updateStatus('❌ Drawing controls not initialized', 'error');
-                return;
-            }
-            
-            selectionMode = !selectionMode;
-            const btn = document.getElementById('selectModeBtn');
-            const info = document.getElementById('selectionModeInfo');
-            
-            if (selectionMode) {
-                btn.classList.add('active');
-                info.style.display = 'block';
-                try {
-                    map.addControl(drawControl);
-                } catch (e) {
-                    console.error('Error adding draw control:', e);
-                    selectionMode = false;
-                    btn.classList.remove('active');
-                    info.style.display = 'none';
-                    updateStatus('❌ Could not enable selection mode', 'error');
+            // Check again after initialization attempt
+            setTimeout(() => {
+                if (!drawControl) {
+                    updateStatus('❌ Drawing tools could not be initialized', 'error');
                     return;
+                } else {
+                    // Try toggling again
+                    toggleSelectionMode();
                 }
+            }, 500);
+            return;
+        }
+        
+        selectionMode = !selectionMode;
+        const btn = document.getElementById('selectModeBtn');
+        const info = document.getElementById('selectionModeInfo');
+        
+        if (selectionMode) {
+            console.log('Enabling selection mode...');
+            btn.classList.add('active');
+            info.style.display = 'block';
+            
+            try {
+                // Check if control is already added to map
+                let controlAdded = false;
+                map.eachLayer(function(layer) {
+                    if (layer === drawControl) {
+                        controlAdded = true;
+                    }
+                });
+                
+                if (!controlAdded) {
+                    map.addControl(drawControl);
+                    console.log('✅ Draw control added to map');
+                }
+                
+                // Force enable rectangle tool
+                setTimeout(() => {
+                    // Try to find and click the rectangle button
+                    const rectangleBtn = document.querySelector('.leaflet-draw-draw-rectangle');
+                    if (rectangleBtn) {
+                        console.log('Found rectangle button, clicking it...');
+                        rectangleBtn.click();
+                    } else {
+                        console.warn('Rectangle button not found in toolbar');
+                        // List all draw buttons
+                        const drawButtons = document.querySelectorAll('.leaflet-draw-toolbar a');
+                        console.log('Available draw buttons:', drawButtons.length);
+                        drawButtons.forEach((btn, i) => {
+                            console.log(`Button ${i}:`, btn.className, btn.title);
+                        });
+                    }
+                }, 100);
+                
+                updateStatus('🎯 Selection mode active - Click the rectangle tool in the toolbar', 'success');
                 clearMultiSelection();
-            } else {
+            } catch (e) {
+                console.error('Error enabling selection mode:', e);
+                selectionMode = false;
                 btn.classList.remove('active');
                 info.style.display = 'none';
-                try {
-                    map.removeControl(drawControl);
-                } catch (e) {
-                    console.error('Error removing draw control:', e);
-                }
-                clearMultiSelection();
+                updateStatus('❌ Could not enable selection mode: ' + e.message, 'error');
             }
-        }
-
-        // Clear multi selection
-        function clearMultiSelection() {
-            selectedMarkers.clear();
-            if (drawnItems) {
-                try {
-                    drawnItems.clearLayers();
-                } catch (e) {
-                    console.error('Error clearing drawn items:', e);
-                }
-            }
-            updateMarkersDisplay();
-            document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
-        }
-
-        // Update markers display
-        function updateMarkersDisplay() {
-            markers.forEach(markerData => {
-                const { marker, row, index, group } = markerData;
-                const colorBy = document.getElementById('colorBy').value;
-                let color;
-                
-                if (colorBy === 'Combined') {
-                    const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                    color = colorMap[driverName] || '#999999';
-                } else {
-                    color = colorMap[row[colorBy]] || '#999999';
-                }
-                
-                const isSelected = selectedMarker === marker;
-                const isMultiSelected = selectedMarkers.has(marker);
-                
-                marker.setIcon(createMarkerIcon(color, isSelected, 'group', group, isMultiSelected));
-            });
-        }
-
-        // Initialize map
-        function initMap() {
-            console.log('Initializing map...');
+        } else {
+            console.log('Disabling selection mode...');
+            btn.classList.remove('active');
+            info.style.display = 'none';
             
             try {
-                // Initialize map
-                map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
-                
-                // Add tile layer - Using OpenStreetMap as primary
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors',
-                    maxZoom: 19
-                }).addTo(map);
-
-                // Force map to redraw after a short delay
-                setTimeout(() => {
-                    map.invalidateSize();
-                }, 250);
-
-                // Initialize drawing features if available
-                if (typeof L.Control.Draw !== 'undefined') {
-                    drawnItems = new L.FeatureGroup();
-                    map.addLayer(drawnItems);
-
-                    try {
-                        drawControl = new L.Control.Draw({
-                            draw: {
-                                polygon: false,
-                                marker: false,
-                                circlemarker: false,
-                                circle: false,
-                                polyline: false,
-                                rectangle: {
-                                    shapeOptions: {
-                                        color: '#FF0000',
-                                        weight: 2,
-                                        fillOpacity: 0.1
-                                    }
-                                }
-                            },
-                            edit: {
-                                featureGroup: drawnItems,
-                                edit: false,
-                                remove: false
-                            }
-                        });
-
-                        // Handle shape creation
-                        map.on(L.Draw.Event.CREATED, function (e) {
-                            if (!markers || markers.length === 0) {
-                                updateStatus('No markers to select', 'error');
-                                return;
-                            }
-                            
-                            const layer = e.layer;
-                            drawnItems.addLayer(layer);
-                            
-                            const bounds = layer.getBounds();
-                            selectedMarkers.clear();
-                            
-                            let foundAny = false;
-                            markers.forEach(markerData => {
-                                if (markerData && markerData.marker) {
-                                    const markerLatLng = markerData.marker.getLatLng();
-                                    if (bounds.contains(markerLatLng)) {
-                                        selectedMarkers.add(markerData.marker);
-                                        foundAny = true;
-                                    }
-                                }
-                            });
-                            
-                            updateMarkersDisplay();
-                            
-                            if (selectedMarkers.size > 0) {
-                                showMultiEditUI();
-                            } else if (!foundAny) {
-                                updateStatus('No markers found in selection area', 'error');
-                            }
-                            
-                            setTimeout(() => {
-                                drawnItems.clearLayers();
-                            }, 500);
-                        });
-                    } catch (e) {
-                        console.error('Error initializing draw control:', e);
-                        const selectBtn = document.getElementById('selectModeBtn');
-                        if (selectBtn) selectBtn.style.display = 'none';
-                    }
-                } else {
-                    console.warn('Leaflet Draw plugin not loaded');
-                    const selectBtn = document.getElementById('selectModeBtn');
-                    if (selectBtn) selectBtn.style.display = 'none';
-                }
-
-                document.getElementById('colorBy').addEventListener('change', updateMap);
-                document.getElementById('searchInput').addEventListener('input', updateMap);
-                
-                console.log('Map initialized successfully');
-                
-            } catch (error) {
-                console.error('Error initializing map:', error);
-                updateStatus('Error initializing map: ' + error.message, 'error');
+                map.removeControl(drawControl);
+                updateStatus('✅ Selection mode disabled', 'success');
+            } catch (e) {
+                console.error('Error removing draw control:', e);
             }
+            
+            clearMultiSelection();
         }
+    }
 
-        // Show multi edit UI
-        function showMultiEditUI() {
-            const selectedData = [];
-            markers.forEach(markerData => {
-                if (selectedMarkers.has(markerData.marker)) {
-                    selectedData.push(markerData.row);
-                }
-            });
-            
-            const currentDrivers = [...new Set(selectedData.map(row => {
-                const combined = row['Combined'] || '';
-                return combined.split(':')[0];
-            }))];
-            
-            const driverText = currentDrivers.length === 1 ? currentDrivers[0] : 'Multiple drivers';
-            
-            const detailsHtml = `
-                <div class="multi-select-info">
-                    <strong>🎯 ${selectedMarkers.size} markers selected</strong>
-                </div>
-                
-                <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
-                    Bulk Edit Driver Name
-                </div>
-                
-                <div style="margin-bottom: 8px;">
-                    <input type="text" id="editDriverMulti" placeholder="${escapeHtml(driverText)}" 
-                           style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
-                    <small style="color: #666;">Enter new driver name (groups will be preserved)</small>
-                </div>
-                
-                <div style="display: flex; gap: 4px;">
-                    <button class="btn btn-primary" onclick="saveMultipleCombinedNames()" style="flex: 1; padding: 6px 8px; font-size: 12px;">Save All</button>
-                    <button class="btn btn-secondary" onclick="clearMultiSelection()" style="flex: 1; padding: 6px 8px; font-size: 12px;">Cancel</button>
-                </div>
-                
-                <div style="margin-top: 15px; max-height: 200px; overflow-y: auto; font-size: 12px;">
-                    <strong>Selected Dogs:</strong><br>
-                    ${selectedData.map(row => {
-                        const combined = row['Combined'] || '';
-                        const parts = combined.split(':');
-                        const driver = parts[0] || 'No driver';
-                        const group = parts.length > 1 ? ` (Group ${parts[1]})` : '';
-                        return `• ${escapeHtml(row['Dog Name'] || '')} - ${escapeHtml(driver)}${group}`;
-                    }).join('<br>')}
-                </div>
-            `;
-            
-            document.getElementById('detailsContent').innerHTML = detailsHtml;
-        }
-
-        // Load data from Google Sheets
-        async function loadData() {
-            updateStatus('Loading data...', 'loading');
-            
+    // Clear multi selection
+    function clearMultiSelection() {
+        selectedMarkers.clear();
+        if (drawnItems) {
             try {
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
-                const response = await fetch(url);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                
-                if (!data.values || data.values.length < 2) {
-                    throw new Error('No data found in the sheet');
-                }
-                
-                const headers = data.values[0];
-                const rows = data.values.slice(1);
-                
-                allData = rows.map(row => {
-                    const obj = {};
-                    headers.forEach((header, index) => {
-                        obj[header] = row[index] || '';
-                    });
-                    return obj;
-                }).filter(row => {
-                    const lat = parseFloat(row['Latitude']);
-                    const lng = parseFloat(row['Longitude']);
-                    return !isNaN(lat) && !isNaN(lng) && row['Dog Name'] && lat !== 0 && lng !== 0;
-                });
-
-                updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
-                
-                assignDriverColors();
-                updateMap();
-                
-            } catch (error) {
-                updateStatus(`Error: ${error.message}`, 'error');
-                console.error('Data loading error:', error);
+                drawnItems.clearLayers();
+            } catch (e) {
+                console.error('Error clearing drawn items:', e);
             }
         }
+        updateMarkersDisplay();
+        document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
+    }
 
-        // Update map with current data and filters
-        function updateMap() {
+    // Update markers display
+    function updateMarkersDisplay() {
+        markers.forEach(markerData => {
+            const { marker, row, index, group } = markerData;
             const colorBy = document.getElementById('colorBy').value;
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            let color;
+            
+            if (colorBy === 'Combined') {
+                const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
+                color = colorMap[driverName] || '#BDBDBD';
+            } else {
+                color = colorMap[row[colorBy]] || '#BDBDBD';
+            }
+            
+            const isSelected = selectedMarker === marker;
+            const isMultiSelected = selectedMarkers.has(marker);
+            
+            marker.setIcon(createMarkerIcon(color, isSelected, 'group', group, isMultiSelected));
+        });
+    }
 
-            // Filter data
-            filteredData = allData.filter(row => {
-                const searchText = `${row['Dog Name']} ${row['Address']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
-                const matchesSearch = searchText.includes(searchTerm);
+    // Initialize map
+    function initMap() {
+        console.log('Initializing map...');
+        
+        try {
+            // Initialize map
+            map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
+            
+            // Add tile layer - Using OpenStreetMap as primary
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Force map to redraw after a short delay
+            setTimeout(() => {
+                map.invalidateSize();
                 
-                const group = getGroupFromCombined(row['Combined']);
-                const matchesGroup = group === null || activeGroups.includes(group);
-                
-                let matchesFilter = currentFilter === null;
-                if (!matchesFilter && currentFilter !== null) {
-                    if (colorBy === 'Combined') {
-                        const driverName = row['Combined'] ? row['Combined'].split(':')[0].trim() : '';
-                        matchesFilter = driverName === currentFilter;
-                    } else {
-                        matchesFilter = row[colorBy] === currentFilter;
+                // Ensure Leaflet Draw is loaded, then initialize drawing features
+                ensureLeafletDraw().then(() => {
+                    initializeDrawingFeatures();
+                }).catch(err => {
+                    console.error('Could not load Leaflet Draw:', err);
+                    const selectBtn = document.getElementById('selectModeBtn');
+                    if (selectBtn) {
+                        selectBtn.style.display = 'none';
+                    }
+                });
+            }, 250);
+
+            document.getElementById('colorBy').addEventListener('change', updateMap);
+            document.getElementById('searchInput').addEventListener('input', updateMap);
+            
+            console.log('Map initialized successfully');
+            
+        } catch (error) {
+            console.error('Error initializing map:', error);
+            updateStatus('Error initializing map: ' + error.message, 'error');
+        }
+    }
+
+    // Initialize drawing features separately
+    function initializeDrawingFeatures() {
+        console.log('Initializing drawing features...');
+        
+        // Check if Leaflet Draw is available
+        if (typeof L === 'undefined' || typeof L.Control === 'undefined' || typeof L.Control.Draw === 'undefined') {
+            console.error('Leaflet Draw not loaded yet, waiting...');
+            
+            // Try again after a delay
+            setTimeout(() => {
+                if (typeof L !== 'undefined' && L.Control && L.Control.Draw) {
+                    console.log('Leaflet Draw now available, retrying...');
+                    initializeDrawingFeatures();
+                } else {
+                    console.error('Leaflet Draw still not available');
+                    updateStatus('⚠️ Multi-select unavailable - Drawing library failed to load', 'error');
+                    const selectBtn = document.getElementById('selectModeBtn');
+                    if (selectBtn) {
+                        selectBtn.style.display = 'none';
                     }
                 }
-                
-                return matchesSearch && matchesFilter && matchesGroup;
+            }, 1000);
+            return;
+        }
+
+        try {
+            // Initialize the FeatureGroup to store editable layers
+            drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            // Initialize the draw control
+            drawControl = new L.Control.Draw({
+                position: 'topright',
+                draw: {
+                    polygon: false,
+                    marker: false,
+                    circlemarker: false,
+                    circle: false,
+                    polyline: false,
+                    rectangle: {
+                        shapeOptions: {
+                            clickable: true,
+                            color: '#FF0000',
+                            weight: 2,
+                            opacity: 0.8,
+                            fill: true,
+                            fillColor: '#FF0000',
+                            fillOpacity: 0.1
+                        },
+                        showArea: true,
+                        metric: true
+                    }
+                },
+                edit: {
+                    featureGroup: drawnItems,
+                    edit: false,
+                    remove: false
+                }
             });
 
-            // Clear existing markers
-            markers.forEach(m => map.removeLayer(m.marker));
-            markers = [];
-
-            // Update color map
-            if (colorBy === 'Combined') {
-                const uniqueDrivers = [...new Set(allData.map(row => {
-                    const combined = row['Combined'] || '';
-                    return combined.split(':')[0];
-                }).filter(driver => driver !== undefined))];
+            // Handle rectangle creation - Debug version
+            const handleDrawCreated = function(e) {
+                console.log('🟦 Rectangle drawn!', e);
+                updateStatus('Processing selection...', 'loading');
                 
-                colorMap = {};
-                uniqueDrivers.forEach(driver => {
-                    colorMap[driver] = getDriverColor(driver);
+                if (!markers || markers.length === 0) {
+                    console.error('No markers array');
+                    updateStatus('No markers to select', 'error');
+                    return;
+                }
+                
+                console.log(`Total markers available: ${markers.length}`);
+                
+                const layer = e.layer;
+                const bounds = layer.getBounds();
+                console.log('Rectangle bounds:', bounds);
+                
+                // Add the rectangle to the map temporarily so we can see it
+                drawnItems.addLayer(layer);
+                
+                // Clear previous selections
+                selectedMarkers.clear();
+                
+                // Find markers within the rectangle
+                let foundCount = 0;
+                let checkedCount = 0;
+                
+                markers.forEach((markerData, index) => {
+                    checkedCount++;
+                    if (markerData && markerData.marker) {
+                        try {
+                            const markerLatLng = markerData.marker.getLatLng();
+                            if (bounds.contains(markerLatLng)) {
+                                selectedMarkers.add(markerData.marker);
+                                foundCount++;
+                                console.log(`Found marker ${index} at`, markerLatLng);
+                            }
+                        } catch (err) {
+                            console.error(`Error checking marker ${index}:`, err);
+                        }
+                    } else {
+                        console.warn(`Invalid marker data at index ${index}`);
+                    }
                 });
-            } else {
-                const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
-                colorMap = {};
-                uniqueValues.forEach(value => {
-                    colorMap[value] = getColorForValue(value, colorBy);
-                });
-            }
+                
+                console.log(`✅ Checked ${checkedCount} markers, found ${foundCount} in selection`);
+                
+                // Update display
+                updateMarkersDisplay();
+                
+                if (selectedMarkers.size > 0) {
+                    showMultiEditUI();
+                    updateStatus(`✅ Selected ${selectedMarkers.size} markers`, 'success');
+                } else {
+                    updateStatus('❌ No markers found in selection area - try a larger rectangle', 'error');
+                }
+                
+                // Remove the rectangle after a delay
+                setTimeout(() => {
+                    try {
+                        drawnItems.clearLayers();
+                    } catch (err) {
+                        console.error('Error clearing layers:', err);
+                    }
+                }, 1000);
+            };
 
-            // Add markers
-            filteredData.forEach((row, index) => {
+            // Listen for multiple event types to ensure we catch the drawing
+            map.on('draw:created', handleDrawCreated);
+            map.on(L.Draw.Event.CREATED, handleDrawCreated);
+            
+            // Additional debug listeners
+            map.on('draw:drawstart', function(e) {
+                console.log('🟦 Started drawing rectangle');
+            });
+            
+            map.on('draw:drawstop', function(e) {
+                console.log('🟦 Stopped drawing rectangle');
+            });
+            
+            map.on('draw:drawvertex', function(e) {
+                console.log('🟦 Drawing vertex');
+            });
+
+            console.log('Drawing features initialized successfully');
+            updateStatus('✅ Multi-select ready', 'success');
+            
+        } catch (e) {
+            console.error('Error initializing draw control:', e);
+            updateStatus('❌ Could not initialize multi-select', 'error');
+            const selectBtn = document.getElementById('selectModeBtn');
+            if (selectBtn) {
+                selectBtn.style.display = 'none';
+            }
+        }
+    }
+
+    // Show multi edit UI
+    function showMultiEditUI() {
+        const selectedData = [];
+        markers.forEach(markerData => {
+            if (selectedMarkers.has(markerData.marker)) {
+                selectedData.push(markerData.row);
+            }
+        });
+        
+        const currentDrivers = [...new Set(selectedData.map(row => {
+            const combined = row['Combined'] || '';
+            return combined.split(':')[0];
+        }))];
+        
+        const driverText = currentDrivers.length === 1 ? currentDrivers[0] : 'Multiple drivers';
+        
+        const detailsHtml = `
+            <div class="multi-select-info">
+                <strong>🎯 ${selectedMarkers.size} markers selected</strong>
+            </div>
+            
+            <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
+                Bulk Edit Driver Name
+            </div>
+            
+            <div style="margin-bottom: 8px;">
+                <input type="text" id="editDriverMulti" placeholder="${escapeHtml(driverText)}" 
+                       style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                <small style="color: #666;">Enter new driver name (groups will be preserved)</small>
+            </div>
+            
+            <div style="display: flex; gap: 4px;">
+                <button class="btn btn-primary" onclick="saveMultipleCombinedNames()" style="flex: 1; padding: 6px 8px; font-size: 12px;">Save All</button>
+                <button class="btn btn-secondary" onclick="clearMultiSelection()" style="flex: 1; padding: 6px 8px; font-size: 12px;">Cancel</button>
+            </div>
+            
+            <div style="margin-top: 15px; max-height: 200px; overflow-y: auto; font-size: 12px;">
+                <strong>Selected Dogs:</strong><br>
+                ${selectedData.map(row => {
+                    const combined = row['Combined'] || '';
+                    const parts = combined.split(':');
+                    const driver = parts[0] || 'No driver';
+                    const group = parts.length > 1 ? ` (Group ${parts[1]})` : '';
+                    return `• ${escapeHtml(row['Dog Name'] || '')} - ${escapeHtml(driver)}${group}`;
+                }).join('<br>')}
+            </div>
+        `;
+        
+        document.getElementById('detailsContent').innerHTML = detailsHtml;
+    }
+
+    // Load data from Google Sheets
+    async function loadData() {
+        updateStatus('Loading data...', 'loading');
+        
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.values || data.values.length < 2) {
+                throw new Error('No data found in the sheet');
+            }
+            
+            const headers = data.values[0];
+            const rows = data.values.slice(1);
+            
+            allData = rows.map(row => {
+                const obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = row[index] || '';
+                });
+                return obj;
+            }).filter(row => {
                 const lat = parseFloat(row['Latitude']);
                 const lng = parseFloat(row['Longitude']);
-                if (isNaN(lat) || isNaN(lng)) return;
-
-                let color;
-                if (colorBy === 'Combined') {
-                    const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                    color = colorMap[driverName] || '#999999';
-                } else {
-                    color = colorMap[row[colorBy]] || '#999999';
-                }
-                
-                const isSelected = selectedRow === row;
-                const group = getGroupFromCombined(row['Combined']);
-                
-                const marker = L.marker([lat, lng], {
-                    icon: createMarkerIcon(color, isSelected, 'group', group)
-                }).addTo(map);
-
-                const groupText = group ? `Group ${group}` : 'No Group';
-                const popupContent = `
-                    <strong>🐕 ${escapeHtml(row['Dog Name'] || '')}</strong><br>
-                    <strong>🏷️ ${escapeHtml(row['Combined'] || '')}</strong><br>
-                    <strong>📋 ${groupText}</strong><br>
-                    ${escapeHtml(row['Address'] || '')}<br>
-                    ${row['District'] && row['District'].trim() !== '' ? `${escapeHtml(row['District'])}<br>` : ''}
-                    ${row['Capacity'] && row['Capacity'].trim() !== '' ? `${escapeHtml(row['Capacity'])}<br>` : ''}
-                    ${row['Callout'] && row['Callout'].trim() !== '' ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${escapeHtml(row['Callout'])}</span><br>` : ''}
-                `;
-
-                marker.bindPopup(popupContent);
-                marker.on('click', () => {
-                    if (!selectionMode) {
-                        selectMarker(marker, row, index, group);
-                    }
-                });
-
-                markers.push({marker, row, index, group});
+                return !isNaN(lat) && !isNaN(lng) && row['Dog Name'] && lat !== 0 && lng !== 0;
             });
 
-            updateLegend();
-            updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
-        }
-
-        // Update legend
-        function updateLegend() {
-            const colorBy = document.getElementById('colorBy').value;
-            const legendContent = document.getElementById('legendContent');
-            legendContent.innerHTML = '';
+            updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
             
-            if (colorBy === 'Combined') {
-                Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([driverName, color]) => {
-                    const isActive = currentFilter === driverName;
-                    
-                    const groupCounts = { 1: 0, 2: 0, 3: 0 };
-                    allData.forEach(row => {
-                        const combined = row['Combined'] || '';
-                        if (combined.split(':')[0] === driverName) {
-                            const group = getGroupFromCombined(combined);
-                            if (group && groupCounts[group] !== undefined) {
-                                groupCounts[group]++;
-                            }
-                        }
-                    });
-                    
-                    const counts = [];
-                    for (let i = 1; i <= 3; i++) {
-                        if (groupCounts[i] > 0) {
-                            counts.push(groupCounts[i]);
-                        }
-                    }
-                    const countsDisplay = counts.length > 0 ? ' ' + counts.join(', ') : '';
-                    
-                    const legendItem = document.createElement('div');
-                    legendItem.className = `legend-item ${isActive ? 'active' : ''}`;
-                    legendItem.dataset.category = driverName;
-                    legendItem.onclick = function() { filterByCategory(driverName); };
-                    
-                    legendItem.innerHTML = `
-                        <div class="legend-color" style="background-color: ${color}"></div>
-                        <span class="legend-text">${escapeHtml(driverName)}${countsDisplay}</span>
-                        <input type="color" class="color-picker" value="${color}" 
-                               onclick="event.stopPropagation()">
-                    `;
-                    
-                    const colorPicker = legendItem.querySelector('.color-picker');
-                    colorPicker.onchange = function(e) {
-                        e.stopPropagation();
-                        changeCustomColor(driverName, this.value);
-                    };
-                    
-                    legendContent.appendChild(legendItem);
-                });
-            } else {
-                Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([category, color]) => {
-                    const isActive = currentFilter === category;
-                    
-                    const legendItem = document.createElement('div');
-                    legendItem.className = `legend-item ${isActive ? 'active' : ''}`;
-                    legendItem.dataset.category = category;
-                    legendItem.onclick = function() { filterByCategory(category); };
-                    
-                    legendItem.innerHTML = `
-                        <div class="legend-color" style="background-color: ${color}"></div>
-                        <span class="legend-text">${escapeHtml(category)}</span>
-                        <input type="color" class="color-picker" value="${color}" 
-                               onclick="event.stopPropagation()">
-                    `;
-                    
-                    const colorPicker = legendItem.querySelector('.color-picker');
-                    colorPicker.onchange = function(e) {
-                        e.stopPropagation();
-                        changeCustomColor(category, this.value);
-                    };
-                    
-                    legendContent.appendChild(legendItem);
-                });
-            }
-        }
-
-        // Change custom color
-        function changeCustomColor(categoryName, newColor) {
-            if (!newColor || !newColor.match(/^#[0-9A-Fa-f]{6}$/)) {
-                console.error('Invalid color format:', newColor);
-                return;
-            }
+            assignDriverColors();
+            updateMap();
             
-            console.log('Changing color for:', categoryName, 'to:', newColor);
-            customColors[categoryName] = newColor;
-            updateMap();
+        } catch (error) {
+            updateStatus(`Error: ${error.message}`, 'error');
+            console.error('Data loading error:', error);
         }
+    }
 
-        // Reset colors
-        function resetColors() {
-            console.log('Resetting all custom colors');
-            customColors = {};
-            updateMap();
-        }
+    // Update map with current data and filters
+    function updateMap() {
+        const colorBy = document.getElementById('colorBy').value;
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
 
-        // Select marker
-        function selectMarker(marker, row, index, group) {
-            if (selectedMarker) {
-                const prevData = markers.find(m => m.marker === selectedMarker);
-                if (prevData) {
-                    const colorBy = document.getElementById('colorBy').value;
-                    let color;
-                    if (colorBy === 'Combined') {
-                        const driverName = prevData.row['Combined'] ? prevData.row['Combined'].split(':')[0] : '';
-                        color = colorMap[driverName] || '#999999';
-                    } else {
-                        color = colorMap[prevData.row[colorBy]] || '#999999';
-                    }
-                    selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group));
+        // Filter data
+        filteredData = allData.filter(row => {
+            const searchText = `${row['Dog Name']} ${row['Address']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
+            const matchesSearch = searchText.includes(searchTerm);
+            
+            const group = getGroupFromCombined(row['Combined']);
+            const matchesGroup = group === null || activeGroups.includes(group);
+            
+            let matchesFilter = currentFilter === null;
+            if (!matchesFilter && currentFilter !== null) {
+                if (colorBy === 'Combined') {
+                    const driverName = row['Combined'] ? row['Combined'].split(':')[0].trim() : '';
+                    matchesFilter = driverName === currentFilter;
+                } else {
+                    matchesFilter = row[colorBy] === currentFilter;
                 }
             }
-
-            selectedMarker = marker;
-            selectedRow = row;
             
-            const colorBy = document.getElementById('colorBy').value;
+            return matchesSearch && matchesFilter && matchesGroup;
+        });
+
+        // Clear existing markers
+        markers.forEach(m => map.removeLayer(m.marker));
+        markers = [];
+
+        // Update color map
+        if (colorBy === 'Combined') {
+            const uniqueDrivers = [...new Set(allData.map(row => {
+                const combined = row['Combined'] || '';
+                return combined.split(':')[0];
+            }).filter(driver => driver !== undefined))];
+            
+            colorMap = {};
+            uniqueDrivers.forEach(driver => {
+                colorMap[driver] = getDriverColor(driver);
+            });
+        } else {
+            const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
+            colorMap = {};
+            uniqueValues.forEach(value => {
+                colorMap[value] = getColorForValue(value, colorBy);
+            });
+        }
+
+        // Add markers
+        console.log(`Creating ${filteredData.length} markers...`);
+        filteredData.forEach((row, index) => {
+            const lat = parseFloat(row['Latitude']);
+            const lng = parseFloat(row['Longitude']);
+            if (isNaN(lat) || isNaN(lng)) return;
+
             let color;
             if (colorBy === 'Combined') {
                 const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                color = colorMap[driverName] || '#999999';
+                color = colorMap[driverName] || '#BDBDBD';
             } else {
-                color = colorMap[row[colorBy]] || '#999999';
+                color = colorMap[row[colorBy]] || '#BDBDBD';
             }
-            marker.setIcon(createMarkerIcon(color, true, 'group', group));
+            
+            const isSelected = selectedRow === row;
+            const group = getGroupFromCombined(row['Combined']);
+            
+            const marker = L.marker([lat, lng], {
+                icon: createMarkerIcon(color, isSelected, 'group', group)
+            }).addTo(map);
 
-            const actualIndex = allData.findIndex(r => r === row);
             const groupText = group ? `Group ${group}` : 'No Group';
-            
-            const currentCombined = row['Combined'] || '';
-            const combinedParts = currentCombined.split(':');
-            const currentDriver = combinedParts[0] || '';
-            const currentGroup = combinedParts.length > 1 ? ':' + combinedParts.slice(1).join(':') : '';
-            
-            const detailsHtml = `
-                <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
-                    ${escapeHtml(row['Dog Name'] || '')} (${groupText})
-                </div>
-                
-                <div style="margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 4px;">
-                        <input type="text" id="editDriver" value="${escapeHtml(currentDriver)}" 
-                               style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
-                        <span style="font-weight: bold; color: #666;">${escapeHtml(currentGroup)}</span>
-                    </div>
-                    <small style="color: #666;">Edit driver name only (group preserved)</small>
-                </div>
-                
-                <div style="display: flex; gap: 4px;">
-                    <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" style="flex: 1; padding: 6px 8px; font-size: 12px;">Save</button>
-                    <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1; padding: 6px 8px; font-size: 12px;">Cancel</button>
-                </div>
+            const popupContent = `
+                <strong>🐕 ${escapeHtml(row['Dog Name'] || '')}</strong><br>
+                <strong>🏷️ ${escapeHtml(row['Combined'] || '')}</strong><br>
+                <strong>📋 ${groupText}</strong><br>
+                ${escapeHtml(row['Address'] || '')}<br>
+                ${row['District'] && row['District'].trim() !== '' ? `${escapeHtml(row['District'])}<br>` : ''}
+                ${row['Capacity'] && row['Capacity'].trim() !== '' ? `${escapeHtml(row['Capacity'])}<br>` : ''}
+                ${row['Callout'] && row['Callout'].trim() !== '' ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${escapeHtml(row['Callout'])}</span><br>` : ''}
             `;
-            
-            document.getElementById('detailsContent').innerHTML = detailsHtml;
-        }
 
-        // Filter by category
-        function filterByCategory(category) {
-            if (typeof category !== 'string') {
-                console.error('Invalid category:', category);
-                return;
-            }
-            
-            currentFilter = currentFilter === category ? null : category;
-            updateMap();
-        }
+            marker.bindPopup(popupContent);
+            marker.on('click', () => {
+                if (!selectionMode) {
+                    selectMarker(marker, row, index, group);
+                }
+            });
 
-        // Clear filter
-        function clearFilter() {
-            currentFilter = null;
-            document.getElementById('searchInput').value = '';
-            updateMap();
-        }
+            markers.push({marker, row, index, group});
+        });
+        
+        console.log(`✅ Created ${markers.length} markers total`);
 
-        // Show statistics
-        function showStats() {
-            if (!allData || allData.length === 0) {
-                alert('No data available to show statistics');
-                return;
-            }
-            
-            try {
-                const drivers = allData.reduce((acc, row) => {
-                    const combined = row['Combined'] || '';
-                    const driverName = combined.split(':')[0];
-                    if (driverName && driverName.trim() !== '') {
-                        acc[driverName] = (acc[driverName] || 0) + 1;
-                    }
-                    return acc;
-                }, {});
+        updateLegend();
+        updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
+    }
+
+    // Update legend
+    function updateLegend() {
+        const colorBy = document.getElementById('colorBy').value;
+        const legendContent = document.getElementById('legendContent');
+        legendContent.innerHTML = '';
+        
+        if (colorBy === 'Combined') {
+            Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([driverName, color]) => {
+                const isActive = currentFilter === driverName;
                 
-                const districts = allData.reduce((acc, row) => {
-                    if (row['District'] && row['District'].trim() !== '') {
-                        acc[row['District']] = (acc[row['District']] || 0) + 1;
-                    }
-                    return acc;
-                }, {});
-                
-                const groups = { 1: 0, 2: 0, 3: 0, 'None': 0 };
+                const groupCounts = { 1: 0, 2: 0, 3: 0 };
                 allData.forEach(row => {
-                    const group = getGroupFromCombined(row['Combined']);
-                    if (group && groups[group] !== undefined) {
-                        groups[group]++;
-                    } else {
-                        groups['None']++;
+                    const combined = row['Combined'] || '';
+                    if (combined.split(':')[0] === driverName) {
+                        const group = getGroupFromCombined(combined);
+                        if (group && groupCounts[group] !== undefined) {
+                            groupCounts[group]++;
+                        }
                     }
                 });
                 
-                let statsText = "📊 DETAILED STATISTICS\n\n";
-                
-                statsText += "🔢 GROUPS:\n";
-                Object.entries(groups).forEach(([group, count]) => {
-                    if (count > 0) {
-                        statsText += `  Group ${group}: ${count} dogs\n`;
+                const counts = [];
+                for (let i = 1; i <= 3; i++) {
+                    if (groupCounts[i] > 0) {
+                        counts.push(groupCounts[i]);
                     }
-                });
+                }
+                const countsDisplay = counts.length > 0 ? ' ' + counts.join(', ') : '';
                 
-                statsText += "\n👤 DRIVERS:\n";
-                Object.entries(drivers).sort((a, b) => b[1] - a[1]).forEach(([name, count]) => {
-                    statsText += `  ${name}: ${count} dogs\n`;
-                });
+                const legendItem = document.createElement('div');
+                legendItem.className = `legend-item ${isActive ? 'active' : ''}`;
+                legendItem.dataset.category = driverName;
+                legendItem.onclick = function() { filterByCategory(driverName); };
                 
-                statsText += "\n🗺️ DISTRICTS:\n";
-                Object.entries(districts).sort((a, b) => b[1] - a[1]).forEach(([district, count]) => {
-                    statsText += `  ${district}: ${count} dogs\n`;
-                });
+                legendItem.innerHTML = `
+                    <div class="legend-color" style="background-color: ${color}"></div>
+                    <span class="legend-text">${escapeHtml(driverName)}${countsDisplay}</span>
+                    <input type="color" class="color-picker" value="${color}" 
+                           onclick="event.stopPropagation()">
+                `;
                 
-                alert(statsText);
-            } catch (e) {
-                console.error('Error generating statistics:', e);
-                alert('Error generating statistics. Please check the console for details.');
+                const colorPicker = legendItem.querySelector('.color-picker');
+                colorPicker.onchange = function(e) {
+                    e.stopPropagation();
+                    changeCustomColor(driverName, this.value);
+                };
+                
+                legendContent.appendChild(legendItem);
+            });
+        } else {
+            Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([category, color]) => {
+                const isActive = currentFilter === category;
+                
+                const legendItem = document.createElement('div');
+                legendItem.className = `legend-item ${isActive ? 'active' : ''}`;
+                legendItem.dataset.category = category;
+                legendItem.onclick = function() { filterByCategory(category); };
+                
+                legendItem.innerHTML = `
+                    <div class="legend-color" style="background-color: ${color}"></div>
+                    <span class="legend-text">${escapeHtml(category)}</span>
+                    <input type="color" class="color-picker" value="${color}" 
+                           onclick="event.stopPropagation()">
+                `;
+                
+                const colorPicker = legendItem.querySelector('.color-picker');
+                colorPicker.onchange = function(e) {
+                    e.stopPropagation();
+                    changeCustomColor(category, this.value);
+                };
+                
+                legendContent.appendChild(legendItem);
+            });
+        }
+    }
+
+    // Change custom color
+    function changeCustomColor(categoryName, newColor) {
+        if (!newColor || !newColor.match(/^#[0-9A-Fa-f]{6}$/)) {
+            console.error('Invalid color format:', newColor);
+            return;
+        }
+        
+        console.log('Changing color for:', categoryName, 'to:', newColor);
+        customColors[categoryName] = newColor;
+        updateMap();
+    }
+
+    // Reset colors
+    function resetColors() {
+        console.log('Resetting all custom colors');
+        customColors = {};
+        updateMap();
+    }
+
+    // Select marker
+    function selectMarker(marker, row, index, group) {
+        if (selectedMarker) {
+            const prevData = markers.find(m => m.marker === selectedMarker);
+            if (prevData) {
+                const colorBy = document.getElementById('colorBy').value;
+                let color;
+                if (colorBy === 'Combined') {
+                    const driverName = prevData.row['Combined'] ? prevData.row['Combined'].split(':')[0] : '';
+                    color = colorMap[driverName] || '#BDBDBD';
+                } else {
+                    color = colorMap[prevData.row[colorBy]] || '#BDBDBD';
+                }
+                selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group));
             }
         }
 
-        // Save combined name (single)
-        async function saveCombinedName(index) {
-            const newDriver = document.getElementById('editDriver').value.trim();
-            
-            if (!selectedRow || typeof index !== 'number' || !allData[index]) {
-                updateStatus('❌ Error: Invalid selection', 'error');
-                return;
-            }
+        selectedMarker = marker;
+        selectedRow = row;
+        
+        const colorBy = document.getElementById('colorBy').value;
+        let color;
+        if (colorBy === 'Combined') {
+            const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
+            color = colorMap[driverName] || '#BDBDBD';
+        } else {
+            color = colorMap[row[colorBy]] || '#BDBDBD';
+        }
+        marker.setIcon(createMarkerIcon(color, true, 'group', group));
 
-            const actualIndex = allData.findIndex(row => row === selectedRow);
-            if (actualIndex === -1) {
-                updateStatus('❌ Error: Could not find row in data', 'error');
-                return;
-            }
-
-            const currentCombined = selectedRow['Combined'] || '';
-            const combinedParts = currentCombined.split(':');
-            const groupPart = combinedParts.length > 1 ? ':' + combinedParts.slice(1).join(':') : '';
+        const actualIndex = allData.findIndex(r => r === row);
+        const groupText = group ? `Group ${group}` : 'No Group';
+        
+        const currentCombined = row['Combined'] || '';
+        const combinedParts = currentCombined.split(':');
+        const currentDriver = combinedParts[0] || '';
+        const currentGroup = combinedParts.length > 1 ? ':' + combinedParts.slice(1).join(':') : '';
+        
+        const detailsHtml = `
+            <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
+                ${escapeHtml(row['Dog Name'] || '')} (${groupText})
+            </div>
             
-            const newCombined = newDriver + groupPart;
-
-            selectedRow['Combined'] = newCombined;
-            allData[actualIndex]['Combined'] = newCombined;
+            <div style="margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="text" id="editDriver" value="${escapeHtml(currentDriver)}" 
+                           style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                    <span style="font-weight: bold; color: #666;">${escapeHtml(currentGroup)}</span>
+                </div>
+                <small style="color: #666;">Edit driver name only (group preserved)</small>
+            </div>
             
-            if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
-                try {
-                    updateStatus('💾 Saving to Google Sheets...', 'loading');
-                    
-                    const payload = {
+            <div style="display: flex; gap: 4px;">
+                <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" style="flex: 1; padding: 6px 8px; font-size: 12px;">Save</button>
+                <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1; padding: 6px 8px; font-size: 12px;">Cancel</button>
+            </div>
+        `;
+        
+        document.getElementById('detailsContent').innerHTML = detailsHtml;
+    }
+
+    // Filter by category
+    function filterByCategory(category) {
+        if (typeof category !== 'string') {
+            console.error('Invalid category:', category);
+            return;
+        }
+        
+        currentFilter = currentFilter === category ? null : category;
+        updateMap();
+    }
+
+    // Clear filter
+    function clearFilter() {
+        currentFilter = null;
+        document.getElementById('searchInput').value = '';
+        updateMap();
+    }
+
+    // Show statistics
+    function showStats() {
+        if (!allData || allData.length === 0) {
+            alert('No data available to show statistics');
+            return;
+        }
+        
+        try {
+            const drivers = allData.reduce((acc, row) => {
+                const combined = row['Combined'] || '';
+                const driverName = combined.split(':')[0];
+                if (driverName && driverName.trim() !== '') {
+                    acc[driverName] = (acc[driverName] || 0) + 1;
+                }
+                return acc;
+            }, {});
+            
+            const districts = allData.reduce((acc, row) => {
+                if (row['District'] && row['District'].trim() !== '') {
+                    acc[row['District']] = (acc[row['District']] || 0) + 1;
+                }
+                return acc;
+            }, {});
+            
+            const groups = { 1: 0, 2: 0, 3: 0, 'None': 0 };
+            allData.forEach(row => {
+                const group = getGroupFromCombined(row['Combined']);
+                if (group && groups[group] !== undefined) {
+                    groups[group]++;
+                } else {
+                    groups['None']++;
+                }
+            });
+            
+            let statsText = "📊 DETAILED STATISTICS\n\n";
+            
+            statsText += "🔢 GROUPS:\n";
+            Object.entries(groups).forEach(([group, count]) => {
+                if (count > 0) {
+                    statsText += `  Group ${group}: ${count} dogs\n`;
+                }
+            });
+            
+            statsText += "\n👤 DRIVERS:\n";
+            Object.entries(drivers).sort((a, b) => b[1] - a[1]).forEach(([name, count]) => {
+                statsText += `  ${name}: ${count} dogs\n`;
+            });
+            
+            statsText += "\n🗺️ DISTRICTS:\n";
+            Object.entries(districts).sort((a, b) => b[1] - a[1]).forEach(([district, count]) => {
+                statsText += `  ${district}: ${count} dogs\n`;
+            });
+            
+            alert(statsText);
+        } catch (e) {
+            console.error('Error generating statistics:', e);
+            alert('Error generating statistics. Please check the console for details.');
+        }
+    }
+
+    // Save combined name (single)
+    async function saveCombinedName(index) {
+        const newDriver = document.getElementById('editDriver').value.trim();
+        
+        if (!selectedRow || typeof index !== 'number' || !allData[index]) {
+            updateStatus('❌ Error: Invalid selection', 'error');
+            return;
+        }
+
+        const actualIndex = allData.findIndex(row => row === selectedRow);
+        if (actualIndex === -1) {
+            updateStatus('❌ Error: Could not find row in data', 'error');
+            return;
+        }
+
+        const currentCombined = selectedRow['Combined'] || '';
+        const combinedParts = currentCombined.split(':');
+        const groupPart = combinedParts.length > 1 ? ':' + combinedParts.slice(1).join(':') : '';
+        
+        const newCombined = newDriver + groupPart;
+
+        selectedRow['Combined'] = newCombined;
+        allData[actualIndex]['Combined'] = newCombined;
+        
+        if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
+            try {
+                updateStatus('💾 Saving to Google Sheets...', 'loading');
+                
+                const payload = {
+                    action: 'updateCombined',
+                    rowIndex: actualIndex + 2,
+                    dogId: selectedRow['Dog ID'] || '',
+                    newCombined: newCombined
+                };
+                
+                console.log('🔧 DEBUG: Sending to Apps Script:', payload);
+                
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                    mode: 'cors'
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        updateStatus(`✅ Saved to Google Sheets: ${newCombined}`, 'success');
+                    } else {
+                        throw new Error(result.error || 'Unknown error from Apps Script');
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+            } catch (error) {
+                console.error('🔧 DEBUG: Google Sheets save error:', error);
+                
+                // Try no-cors as fallback - fire and forget
+                fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                         action: 'updateCombined',
                         rowIndex: actualIndex + 2,
                         dogId: selectedRow['Dog ID'] || '',
                         newCombined: newCombined
-                    };
-                    
-                    console.log('🔧 DEBUG: Sending to Apps Script:', payload);
-                    
-                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(payload),
-                        mode: 'cors'
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json();
-                        if (result.success) {
-                            updateStatus(`✅ Saved to Google Sheets: ${newCombined}`, 'success');
-                        } else {
-                            throw new Error(result.error || 'Unknown error from Apps Script');
-                        }
-                    } else {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                } catch (error) {
-                    console.error('🔧 DEBUG: Google Sheets save error:', error);
-                    
-                    // Try no-cors as fallback - fire and forget
-                    fetch(CONFIG.APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'updateCombined',
-                            rowIndex: actualIndex + 2,
-                            dogId: selectedRow['Dog ID'] || '',
-                            newCombined: newCombined
-                        })
-                    }).then(() => {
-                        console.log('No-cors request sent');
-                    }).catch(noCorsError => {
-                        console.error('🔧 DEBUG: No-cors also failed:', noCorsError);
-                    });
-                    
-                    updateStatus(`⚠️ Saved locally only. Sheets error: ${error.message}`, 'error');
-                }
-            } else {
-                if (CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
-                    updateStatus(`⚠️ Updated locally only. Please configure APPS_SCRIPT_URL`, 'error');
-                } else {
-                    updateStatus(`✅ Updated locally: ${newCombined}`, 'success');
-                }
+                    })
+                }).then(() => {
+                    console.log('No-cors request sent');
+                }).catch(noCorsError => {
+                    console.error('🔧 DEBUG: No-cors also failed:', noCorsError);
+                });
+                
+                updateStatus(`⚠️ Saved locally only. Sheets error: ${error.message}`, 'error');
             }
-            
-            assignDriverColors();
-            updateMap();
-            
-            if (selectedMarker) {
-                const markerData = markers.find(m => m.marker === selectedMarker);
-                if (markerData) {
-                    const newGroup = getGroupFromCombined(newCombined);
-                    selectMarker(selectedMarker, selectedRow, actualIndex, newGroup);
-                }
+        } else {
+            if (CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
+                updateStatus(`⚠️ Updated locally only. Please configure APPS_SCRIPT_URL`, 'error');
+            } else {
+                updateStatus(`✅ Updated locally: ${newCombined}`, 'success');
             }
         }
+        
+        assignDriverColors();
+        updateMap();
+        
+        if (selectedMarker) {
+            const markerData = markers.find(m => m.marker === selectedMarker);
+            if (markerData) {
+                const newGroup = getGroupFromCombined(newCombined);
+                selectMarker(selectedMarker, selectedRow, actualIndex, newGroup);
+            }
+        }
+    }
 
-        // Save multiple combined names
-        async function saveMultipleCombinedNames() {
-            const newDriver = document.getElementById('editDriverMulti').value.trim();
-            
-            const selectedData = [];
-            markers.forEach(markerData => {
-                if (selectedMarkers.has(markerData.marker)) {
-                    selectedData.push({
-                        row: markerData.row,
-                        index: allData.findIndex(r => r === markerData.row)
-                    });
-                }
-            });
-            
-            updateStatus(`💾 Updating ${selectedData.length} records...`, 'loading');
-            
-            selectedData.forEach(({row, index}) => {
-                if (index !== -1) {
+    // Save multiple combined names
+    async function saveMultipleCombinedNames() {
+        const newDriver = document.getElementById('editDriverMulti').value.trim();
+        
+        const selectedData = [];
+        markers.forEach(markerData => {
+            if (selectedMarkers.has(markerData.marker)) {
+                selectedData.push({
+                    row: markerData.row,
+                    index: allData.findIndex(r => r === markerData.row)
+                });
+            }
+        });
+        
+        updateStatus(`💾 Updating ${selectedData.length} records...`, 'loading');
+        
+        selectedData.forEach(({row, index}) => {
+            if (index !== -1) {
+                const currentCombined = row['Combined'] || '';
+                const combinedParts = currentCombined.split(':');
+                const groupPart = combinedParts.length > 1 ? ':' + combinedParts.slice(1).join(':') : '';
+                
+                const newCombined = newDriver + groupPart;
+                row['Combined'] = newCombined;
+                allData[index]['Combined'] = newCombined;
+            }
+        });
+        
+        if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
+            try {
+                const updates = selectedData.map(({row, index}) => {
                     const currentCombined = row['Combined'] || '';
                     const combinedParts = currentCombined.split(':');
                     const groupPart = combinedParts.length > 1 ? ':' + combinedParts.slice(1).join(':') : '';
-                    
                     const newCombined = newDriver + groupPart;
-                    row['Combined'] = newCombined;
-                    allData[index]['Combined'] = newCombined;
-                }
-            });
-            
-            if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
-                try {
-                    const updates = selectedData.map(({row, index}) => {
-                        const currentCombined = row['Combined'] || '';
-                        const combinedParts = currentCombined.split(':');
-                        const groupPart = combinedParts.length > 1 ? ':' + combinedParts.slice(1).join(':') : '';
-                        const newCombined = newDriver + groupPart;
-                        
-                        return {
-                            rowIndex: index + 2,
-                            dogId: row['Dog ID'] || '',
-                            newCombined: newCombined
-                        };
-                    });
                     
-                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'batchUpdateCombined',
-                            updates: updates
-                        }),
-                        mode: 'cors'
-                    });
-                    
-                    if (response.ok) {
-                        const driverText = newDriver || '(empty)';
-                        updateStatus(`✅ Updated ${selectedData.length} records to driver: ${driverText}`, 'success');
-                    }
-                } catch (error) {
-                    console.error('Batch update error:', error);
-                    updateStatus(`⚠️ Updated locally only. Sheets error: ${error.message}`, 'error');
+                    return {
+                        rowIndex: index + 2,
+                        dogId: row['Dog ID'] || '',
+                        newCombined: newCombined
+                    };
+                });
+                
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'batchUpdateCombined',
+                        updates: updates
+                    }),
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const driverText = newDriver || '(empty)';
+                    updateStatus(`✅ Updated ${selectedData.length} records to driver: ${driverText}`, 'success');
                 }
-            } else {
-                const driverText = newDriver || '(empty)';
-                updateStatus(`✅ Updated ${selectedData.length} records locally to driver: ${driverText}`, 'success');
+            } catch (error) {
+                console.error('Batch update error:', error);
+                updateStatus(`⚠️ Updated locally only. Sheets error: ${error.message}`, 'error');
             }
-            
-            clearMultiSelection();
-            assignDriverColors();
-            updateMap();
+        } else {
+            const driverText = newDriver || '(empty)';
+            updateStatus(`✅ Updated ${selectedData.length} records locally to driver: ${driverText}`, 'success');
         }
+        
+        clearMultiSelection();
+        assignDriverColors();
+        updateMap();
+    }
 
-        // Cancel edit
-        function cancelEdit() {
-            if (selectedMarker && selectedRow) {
-                const markerData = markers.find(m => m.marker === selectedMarker);
-                if (markerData) {
-                    const index = allData.findIndex(row => row === selectedRow);
-                    if (index !== -1) {
-                        selectMarker(selectedMarker, selectedRow, index, markerData.group);
-                    }
+    // Cancel edit
+    function cancelEdit() {
+        if (selectedMarker && selectedRow) {
+            const markerData = markers.find(m => m.marker === selectedMarker);
+            if (markerData) {
+                const index = allData.findIndex(row => row === selectedRow);
+                if (index !== -1) {
+                    selectMarker(selectedMarker, selectedRow, index, markerData.group);
                 }
-            } else {
-                document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
             }
-        }
-
-        // Refresh data
-        function refreshData() {
-            if (selectionMode) {
-                toggleSelectionMode();
-            }
-            
-            selectedMarker = null;
-            selectedRow = null;
-            currentFilter = null;
-            selectedMarkers.clear();
+        } else {
             document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
-            loadData();
         }
+    }
 
-        // Update status
-        function updateStatus(message, type = '') {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status ${type}`;
+    // Refresh data
+    function refreshData() {
+        if (selectionMode) {
+            toggleSelectionMode();
         }
+        
+        selectedMarker = null;
+        selectedRow = null;
+        currentFilter = null;
+        selectedMarkers.clear();
+        document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
+        loadData();
+    }
 
-        // Initialize on DOM ready
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, starting initialization...');
-            
-            const requiredElements = ['map', 'colorBy', 'searchInput', 'legendContent', 'detailsContent', 'status'];
-            let allElementsExist = true;
-            
-            requiredElements.forEach(id => {
-                if (!document.getElementById(id)) {
-                    console.error(`Required element missing: ${id}`);
-                    allElementsExist = false;
+    // Test selection manually
+    function testSelection() {
+        if (!map || markers.length === 0) {
+            alert('No map or markers available');
+            return;
+        }
+        
+        // Get map bounds
+        const mapBounds = map.getBounds();
+        const center = map.getCenter();
+        
+        // Create a test rectangle around the center
+        const latOffset = 0.01; // about 1km
+        const lngOffset = 0.01;
+        
+        const testBounds = L.latLngBounds(
+            [center.lat - latOffset, center.lng - lngOffset],
+            [center.lat + latOffset, center.lng + lngOffset]
+        );
+        
+        // Draw the test rectangle
+        const testRect = L.rectangle(testBounds, {
+            color: '#FF0000',
+            weight: 3,
+            fillOpacity: 0.1
+        }).addTo(map);
+        
+        // Test selection logic
+        selectedMarkers.clear();
+        let foundCount = 0;
+        
+        markers.forEach((markerData, index) => {
+            if (markerData && markerData.marker) {
+                const markerLatLng = markerData.marker.getLatLng();
+                if (testBounds.contains(markerLatLng)) {
+                    selectedMarkers.add(markerData.marker);
+                    foundCount++;
+                    console.log(`Test found marker at:`, markerLatLng);
                 }
-            });
-            
-            if (!allElementsExist) {
-                alert('Error: Some required page elements are missing. Please refresh the page.');
-                return;
+            }
+        });
+        
+        alert(`Test selection found ${foundCount} markers in the center area`);
+        
+        // Update display
+        updateMarkersDisplay();
+        
+        if (foundCount > 0) {
+            showMultiEditUI();
+        }
+        
+        // Remove test rectangle after 3 seconds
+        setTimeout(() => {
+            map.removeLayer(testRect);
+        }, 3000);
+    }
+
+    // Ensure Leaflet Draw is loaded
+    function ensureLeafletDraw() {
+        if (typeof L !== 'undefined' && L.Control && L.Control.Draw) {
+            console.log('Leaflet Draw already loaded');
+            return Promise.resolve();
+        }
+        
+        console.log('Loading Leaflet Draw dynamically...');
+        return new Promise((resolve, reject) => {
+            // Load CSS if not already loaded
+            if (!document.querySelector('link[href*="leaflet.draw.css"]')) {
+                const css = document.createElement('link');
+                css.rel = 'stylesheet';
+                css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css';
+                document.head.appendChild(css);
             }
             
-            // Wait a bit for all resources to load
+            // Load JS
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js';
+            script.onload = () => {
+                console.log('Leaflet Draw loaded successfully');
+                resolve();
+            };
+            script.onerror = () => {
+                console.error('Failed to load Leaflet Draw');
+                reject(new Error('Failed to load Leaflet Draw'));
+            };
+            document.body.appendChild(script);
+        });
+    }
+
+    // Debug drawing functionality
+    function debugDrawing() {
+        let debugInfo = "🔧 DRAWING DEBUG INFO:\n\n";
+        
+        debugInfo += "Leaflet: " + (typeof L !== 'undefined' ? '✅ Loaded' : '❌ Not loaded') + "\n";
+        debugInfo += "Leaflet Draw: " + (typeof L !== 'undefined' && L.Control && L.Control.Draw ? '✅ Loaded' : '❌ Not loaded') + "\n";
+        debugInfo += "Draw Events: " + (typeof L !== 'undefined' && L.Draw && L.Draw.Event ? '✅ Available' : '❌ Not available') + "\n";
+        debugInfo += "Map Instance: " + (map ? '✅ Created' : '❌ Not created') + "\n";
+        debugInfo += "Draw Control: " + (drawControl ? '✅ Created' : '❌ Not created') + "\n";
+        debugInfo += "Drawn Items Layer: " + (drawnItems ? '✅ Created' : '❌ Not created') + "\n";
+        debugInfo += "Selection Mode: " + (selectionMode ? '✅ Active' : '❌ Inactive') + "\n";
+        debugInfo += "Total Markers: " + markers.length + "\n";
+        
+        alert(debugInfo);
+        
+        // Show additional options
+        const action = prompt("Debug Actions:\n1. Reinitialize drawing\n2. Test selection\n3. Show console logs\n\nEnter number:");
+        
+        if (action === '1' && !drawControl && map) {
+            ensureLeafletDraw().then(() => {
+                initializeDrawingFeatures();
+            }).catch(err => {
+                alert('Failed to load drawing library: ' + err.message);
+            });
+        } else if (action === '2') {
+            testSelection();
+        } else if (action === '3') {
+            alert('Check browser console (F12) for detailed logs');
+            console.log('Current markers array:', markers);
+            console.log('Map bounds:', map.getBounds());
+            console.log('Draw control:', drawControl);
+        }
+    }
+
+    // Update status
+    function updateStatus(message, type = '') {
+        const status = document.getElementById('status');
+        status.textContent = message;
+        status.className = `status ${type}`;
+    }
+
+    // Initialize on DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, starting initialization...');
+        
+        const requiredElements = ['map', 'colorBy', 'searchInput', 'legendContent', 'detailsContent', 'status'];
+        let allElementsExist = true;
+        
+        requiredElements.forEach(id => {
+            if (!document.getElementById(id)) {
+                console.error(`Required element missing: ${id}`);
+                allElementsExist = false;
+            }
+        });
+        
+        if (!allElementsExist) {
+            alert('Error: Some required page elements are missing. Please refresh the page.');
+            return;
+        }
+        
+        // Debug Leaflet Draw loading
+        console.log('Checking Leaflet Draw availability...');
+        console.log('L:', typeof L !== 'undefined' ? 'loaded' : 'not loaded');
+        console.log('L.Control:', typeof L !== 'undefined' && L.Control ? 'loaded' : 'not loaded');
+        console.log('L.Control.Draw:', typeof L !== 'undefined' && L.Control && L.Control.Draw ? 'loaded' : 'not loaded');
+        console.log('L.Draw:', typeof L !== 'undefined' && L.Draw ? 'loaded' : 'not loaded');
+        
+        // Wait a bit for all resources to load
+        setTimeout(() => {
+            try {
+                // Check again after delay
+                console.log('After delay - L.Control.Draw:', typeof L !== 'undefined' && L.Control && L.Control.Draw ? 'loaded' : 'not loaded');
+                
+                initMap();
+                loadData();
+            } catch (e) {
+                console.error('Error initializing application:', e);
+                updateStatus('❌ Error initializing map', 'error');
+            }
+        }, 500);
+    });
+
+    // Also try on window load as backup
+    window.addEventListener('load', function() {
+        console.log('Window fully loaded');
+        
+        // Always try to initialize drawing features on full load
+        if (map && !drawControl) {
+            console.log('Map exists but draw control missing, initializing drawing features...');
             setTimeout(() => {
-                try {
+                initializeDrawingFeatures();
+            }, 500);
+        }
+        
+        if (!map) {
+            console.log('Window loaded, checking if map needs initialization...');
+            setTimeout(() => {
+                if (!map) {
+                    console.log('Map still not initialized, trying again...');
                     initMap();
                     loadData();
-                } catch (e) {
-                    console.error('Error initializing application:', e);
-                    updateStatus('❌ Error initializing map', 'error');
                 }
-            }, 500);
-        });
-
-        // Also try on window load as backup
-        window.addEventListener('load', function() {
-            if (!map) {
-                console.log('Window loaded, checking if map needs initialization...');
-                setTimeout(() => {
-                    if (!map) {
-                        console.log('Map still not initialized, trying again...');
-                        initMap();
-                        loadData();
-                    }
-                }, 1000);
-            }
-        });
-    </script>
-</body>
-</html>
+            }, 1000);
+        }
+    });
+</script>
