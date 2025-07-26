@@ -850,7 +850,7 @@
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
             API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
-            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzpYHBprWc__W-UFv-R-gcWtOTU1dHy-Ilskeyg5K7zu_sbN92Acf7WXqZiRXwfFZmDGA/exec',
+            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyIpguLp7CULrrmxL9y50jQsL7ZGqUZ4phLafOZ4Xh2AYtc9XwnYsOGFkD8Y2ZzekHlUg/exec',
             DEFAULT_LAT: 42.2968,
             DEFAULT_LNG: -71.2636,
             DEFAULT_ZOOM: 11,
@@ -912,6 +912,40 @@
             lastUpdateTime: 0,
             dirtyData: new Set()
         };
+
+        // Helper function to call Apps Script with proper error handling
+        async function callAppsScript(payload) {
+            try {
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const text = await response.text();
+                
+                // Try to parse as JSON
+                try {
+                    const result = JSON.parse(text);
+                    if (!result.success) {
+                        throw new Error(result.message || 'Apps Script returned error');
+                    }
+                    return result;
+                } catch (parseError) {
+                    // If we can't parse the response, check if it contains common error patterns
+                    if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                        throw new Error('Apps Script returned HTML instead of JSON. Check deployment settings.');
+                    }
+                    throw new Error(`Invalid response from Apps Script: ${text.substring(0, 200)}`);
+                }
+                
+            } catch (error) {
+                console.error('Apps Script call failed:', error);
+                throw error;
+            }
+        }
 
         // Utility: Generate unique operation ID
         function getOperationId() {
@@ -1932,27 +1966,27 @@
                     };
                     
                     try {
-                        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'text/plain;charset=utf-8'
-                            },
-                            body: JSON.stringify(payload),
-                            mode: 'no-cors'
-                        });
+                        const result = await callAppsScript(payload);
                         
-                        // Since we're using no-cors, we can't read the response
-                        // Assume success and verify with a refresh later if needed
-                        updateStatus(`✅ Bulk updated ${validSelectedRows.length} records: ${newCombined}`, 'success');
-                        showNotification('Bulk update sent to Google Sheets', 'success');
-                        
-                        // Clear dirty flags
-                        updates.forEach(u => state.dirtyData.delete(u.rowIndex));
+                        if (result.success) {
+                            updateStatus(`✅ Bulk updated ${validSelectedRows.length} records: ${newCombined}`, 'success');
+                            showNotification('Bulk update completed successfully', 'success');
+                            
+                            // Clear dirty flags
+                            updates.forEach(u => state.dirtyData.delete(u.rowIndex));
+                        } else {
+                            throw new Error(result.message || 'Bulk update failed');
+                        }
                         
                     } catch (error) {
                         console.error('Bulk update error:', error);
-                        updateStatus(`⚠️ Updated locally only. Sheets error: ${error.message}`, 'error');
-                        showNotification('Updated locally only - refresh to sync with sheet', 'error', 5000);
+                        updateStatus(`⚠️ Bulk update failed: ${error.message}`, 'error');
+                        showNotification(`Bulk update failed: ${error.message}`, 'error', 5000);
+                        
+                        // Optionally revert changes
+                        if (confirm('Bulk update failed. Do you want to revert the local changes?')) {
+                            await refreshData();
+                        }
                     }
                 } else {
                     updateStatus(`✅ Bulk updated ${validSelectedRows.length} records locally: ${newCombined}`, 'success');
@@ -3043,25 +3077,27 @@
                     };
                     
                     try {
-                        await fetch(CONFIG.APPS_SCRIPT_URL, {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'text/plain;charset=utf-8'
-                            },
-                            body: JSON.stringify(payload),
-                            mode: 'no-cors'
-                        });
+                        const result = await callAppsScript(payload);
                         
-                        // Since we're using no-cors, we can't read the response
-                        // Assume success
-                        updateStatus(`✅ Saved to Google Sheets: ${newCombined || '(empty)'}`, 'success');
-                        showNotification('Changes sent to Google Sheets', 'success');
-                        state.dirtyData.delete(actualIndex);
+                        if (result.success) {
+                            updateStatus(`✅ Saved to Google Sheets: ${newCombined || '(empty)'}`, 'success');
+                            showNotification('Changes saved successfully', 'success');
+                            state.dirtyData.delete(actualIndex);
+                        } else {
+                            throw new Error(result.message || 'Save failed');
+                        }
                         
                     } catch (error) {
                         console.error('Google Sheets save error:', error);
-                        updateStatus(`⚠️ Saved locally only. Sheets error: ${error.message}`, 'error');
-                        showNotification('Saved locally only - refresh to sync with sheet', 'error', 5000);
+                        updateStatus(`⚠️ Save failed: ${error.message}`, 'error');
+                        showNotification(`Save failed: ${error.message}`, 'error', 5000);
+                        
+                        // Optionally revert changes
+                        if (confirm('Save failed. Do you want to revert the changes?')) {
+                            state.selectedRow['Combined'] = oldValue;
+                            state.allData[actualIndex]['Combined'] = oldValue;
+                            state.dirtyData.delete(actualIndex);
+                        }
                     }
                 } else {
                     updateStatus(`✅ Updated locally: ${newCombined || '(empty)'}`, 'success');
@@ -3378,16 +3414,64 @@
             getDirtyCount: () => state.dirtyData.size,
             testAppsScript: async () => {
                 try {
-                    const response = await fetch(CONFIG.APPS_SCRIPT_URL);
+                    console.log('Testing Apps Script connection...');
+                    const testPayload = {
+                        action: 'getAllData'
+                    };
+                    
+                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(testPayload)
+                    });
+                    
                     const text = await response.text();
-                    console.log('Apps Script response:', text);
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    console.log('Response text:', text);
+                    
+                    try {
+                        const json = JSON.parse(text);
+                        console.log('Parsed response:', json);
+                        
+                        if (json.success) {
+                            console.log('✅ Apps Script connection successful!');
+                            console.log('Row count:', json.data?.rowCount);
+                        } else {
+                            console.error('❌ Apps Script returned error:', json.message);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse response as JSON:', e);
+                        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                            console.error('Apps Script is returning HTML. Check deployment settings.');
+                        }
+                    }
                 } catch (error) {
                     console.error('Apps Script test failed:', error);
+                }
+            },
+            testSaveOperation: async () => {
+                try {
+                    console.log('Testing save operation...');
+                    const testPayload = {
+                        action: 'updateRow',
+                        rowIndex: 0,
+                        updatedData: { 'Combined': 'Test Driver:1' },
+                        timestamp: Date.now()
+                    };
+                    
+                    const result = await callAppsScript(testPayload);
+                    console.log('Save test result:', result);
+                } catch (error) {
+                    console.error('Save test failed:', error);
                 }
             }
         };
 
-        console.log('Dog Walking Map application loaded. Version: 2.1.0-debugged');
+        console.log('Dog Walking Map application loaded. Version: 3.0.0');
+        console.log('Use dogWalkingMapDebug.testAppsScript() to test the connection');
     </script>
 </body>
 </html>
