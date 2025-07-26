@@ -6,7 +6,13 @@
     <title>🐕 Dog Walking Map</title>
     
     <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin="anonymous" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" 
+          integrity="sha512-gc3xjCmIy673V6MyOAZhIW93xhM9ei1I+gLbmFjUHIjocENRsLX/QUE1htk5q1XV2D/iie/VQ8DXI6Vu8bexvQ==" 
+          crossorigin="anonymous" />
     
     <style>
         * {
@@ -21,6 +27,9 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         .controls {
@@ -32,6 +41,8 @@
             align-items: center;
             flex-wrap: wrap;
             flex-shrink: 0;
+            min-height: 60px;
+            z-index: 1000;
         }
 
         .control-group {
@@ -43,19 +54,22 @@
         .control-group label {
             font-weight: 600;
             color: #333;
+            white-space: nowrap;
         }
 
-        select, input {
+        select, input[type="text"] {
             padding: 6px 10px;
             border: 2px solid #e1e5e9;
             border-radius: 6px;
             font-size: 14px;
             transition: border-color 0.2s;
+            background: white;
         }
 
-        select:focus, input:focus {
+        select:focus, input[type="text"]:focus {
             outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .group-filters {
@@ -73,10 +87,19 @@
             font-weight: 600;
             transition: all 0.2s;
             font-size: 14px;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
 
-        .group-filter-btn:hover {
+        .group-filter-btn:hover:not(:disabled) {
             border-color: #667eea;
+            transform: translateY(-1px);
+        }
+
+        .group-filter-btn:active:not(:disabled) {
+            transform: translateY(0);
         }
 
         .group-filter-btn.active {
@@ -85,10 +108,24 @@
             border-color: #667eea;
         }
 
+        .group-filter-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .selection-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border-left: 2px solid #e1e5e9;
+            padding-left: 20px;
+        }
+
         .main-content {
             display: flex;
             flex: 1;
             overflow: hidden;
+            position: relative;
         }
 
         .left-panel {
@@ -98,13 +135,73 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            z-index: 999;
+            transition: transform 0.3s ease;
+        }
+
+        .panel-toggle {
+            display: none;
+            position: absolute;
+            left: 300px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            border: 2px solid #e1e5e9;
+            border-left: none;
+            padding: 10px 5px;
+            cursor: pointer;
+            z-index: 1000;
+            border-radius: 0 5px 5px 0;
+        }
+
+        @media (max-width: 768px) {
+            .left-panel {
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                transform: translateX(-100%);
+                box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            }
+            
+            .left-panel.open {
+                transform: translateX(0);
+            }
+            
+            .panel-toggle {
+                display: block;
+                left: 0;
+            }
+            
+            .left-panel.open ~ .panel-toggle {
+                left: 300px;
+            }
         }
 
         .legend-section {
             border-bottom: 1px solid #e1e5e9;
             padding: 8px;
             overflow-y: auto;
-            max-height: 600px;
+            max-height: 400px;
+            scrollbar-width: thin;
+            scrollbar-color: #ccc #f8f9fa;
+        }
+
+        .legend-section::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .legend-section::-webkit-scrollbar-track {
+            background: #f8f9fa;
+        }
+
+        .legend-section::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        .legend-section::-webkit-scrollbar-thumb:hover {
+            background: #999;
         }
 
         .legend h3 {
@@ -123,6 +220,8 @@
             border-radius: 3px;
             transition: all 0.2s;
             border: 1px solid transparent;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .legend-item:hover {
@@ -148,6 +247,9 @@
 
         .legend-text {
             flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .color-picker {
@@ -160,6 +262,12 @@
             flex-shrink: 0;
             padding: 0;
             background: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .color-picker:hover {
+            opacity: 1;
         }
 
         .color-picker::-webkit-color-swatch-wrapper {
@@ -172,10 +280,30 @@
             border-radius: 50%;
         }
 
+        .color-picker::-moz-color-swatch {
+            border: none;
+            border-radius: 50%;
+        }
+
         .edit-section {
-            flex: 0.7;
+            flex: 1;
             padding: 8px;
             overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #ccc #f8f9fa;
+        }
+
+        .edit-section::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .edit-section::-webkit-scrollbar-track {
+            background: #f8f9fa;
+        }
+
+        .edit-section::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
         }
 
         .edit-section h3 {
@@ -189,6 +317,7 @@
             color: #6c757d;
             font-style: italic;
             margin-top: 20px;
+            padding: 0 10px;
         }
 
         .btn {
@@ -200,6 +329,26 @@
             transition: all 0.2s;
             font-size: 14px;
             margin: 2px;
+            user-select: none;
+            -webkit-user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn:not(:disabled):active {
+            transform: translateY(0);
+            box-shadow: none;
         }
 
         .btn-primary {
@@ -207,7 +356,7 @@
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background: #5a6fd8;
         }
 
@@ -216,7 +365,7 @@
             color: white;
         }
 
-        .btn-secondary:hover {
+        .btn-secondary:hover:not(:disabled) {
             background: #545b62;
         }
 
@@ -225,14 +374,39 @@
             color: white;
         }
 
-        .btn-clear:hover {
+        .btn-clear:hover:not(:disabled) {
             background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: #e0a800;
+        }
+
+        .selection-mode-active {
+            background: #fff3cd !important;
+            border-color: #ffc107 !important;
+            color: #856404 !important;
         }
 
         .map-container {
             flex: 1;
             position: relative;
             min-height: 400px;
+            background: #e5e5e5;
         }
 
         #map {
@@ -249,6 +423,12 @@
             border-top: 1px solid #e1e5e9;
             font-size: 14px;
             flex-shrink: 0;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            z-index: 1000;
         }
 
         .status.loading {
@@ -279,6 +459,7 @@
             font-size: 12px;
             color: #666;
             margin-left: 10px;
+            margin-bottom: 10px;
         }
 
         .shape-legend-item {
@@ -286,13 +467,298 @@
             align-items: center;
             gap: 5px;
         }
+
+        .bulk-edit-panel {
+            background: #f8f9fa;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .bulk-edit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .bulk-edit-header h4 {
+            color: #007bff;
+            margin: 0;
+        }
+
+        .selected-count {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .bulk-edit-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .bulk-edit-input {
+            flex: 1;
+            min-width: 150px;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .bulk-edit-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .selected-dogs-preview {
+            max-height: 120px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            margin: 10px 0;
+            font-size: 12px;
+            scrollbar-width: thin;
+            scrollbar-color: #ccc #f8f9fa;
+        }
+
+        .selected-dogs-preview::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .selected-dogs-preview::-webkit-scrollbar-track {
+            background: #f8f9fa;
+        }
+
+        .selected-dogs-preview::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        .selected-dog-item {
+            padding: 2px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .selected-dog-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Selection highlighting */
+        .marker-selected {
+            filter: drop-shadow(0 0 10px #007bff) brightness(1.2);
+            transform: scale(1.2);
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #333;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 9999;
+            animation: slideInRight 0.3s ease;
+            max-width: 350px;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .notification-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .notification-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .notification-info {
+            background: #cfe2ff;
+            color: #084298;
+            border: 1px solid #b6d4fe;
+        }
+
+        /* Error message styling */
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Success message styling */
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+            border: 1px solid #c3e6cb;
+        }
+
+        /* Accessibility improvements */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Focus visible for keyboard navigation */
+        *:focus-visible {
+            outline: 2px solid #667eea;
+            outline-offset: 2px;
+        }
+
+        /* Print styles */
+        @media print {
+            .controls, .left-panel, .status, .panel-toggle {
+                display: none !important;
+            }
+            
+            .map-container {
+                width: 100% !important;
+            }
+        }
+
+        /* Custom popup styles */
+        .custom-popup {
+            font-size: 13px;
+        }
+        
+        .custom-popup strong {
+            color: #333;
+        }
+        
+        .leaflet-popup-content {
+            margin: 13px 19px;
+            line-height: 1.4;
+        }
+        
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .controls, .left-panel, .status {
+                border: 2px solid currentColor;
+            }
+            
+            .btn {
+                border: 2px solid currentColor;
+            }
+        }
+        
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1a1a1a;
+                color: #e0e0e0;
+            }
+            
+            .controls, .left-panel, .status {
+                background: #2a2a2a;
+                color: #e0e0e0;
+            }
+            
+            input, select {
+                background: #3a3a3a;
+                color: #e0e0e0;
+                border-color: #4a4a4a;
+            }
+            
+            .legend-item:hover {
+                background-color: #3a3a3a;
+            }
+            
+            .map-container {
+                background: #1a1a1a;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="controls">
         <div class="control-group">
             <label for="colorBy">Color by:</label>
-            <select id="colorBy">
+            <select id="colorBy" aria-label="Color markers by">
                 <option value="Combined">Combined (Driver:Group)</option>
                 <option value="District">District</option>
             </select>
@@ -300,25 +766,38 @@
         
         <div class="control-group">
             <label for="searchInput">Search:</label>
-            <input type="text" id="searchInput" placeholder="Search dogs, combined names, addresses..." />
+            <input type="text" id="searchInput" placeholder="Search dogs, combined names, addresses..." 
+                   aria-label="Search for dogs, drivers, or addresses" autocomplete="off" />
         </div>
 
         <div class="control-group group-filters">
             <label>Show Groups:</label>
-            <button class="group-filter-btn active" data-group="1" onclick="toggleGroupFilter(1)">Group 1 ⭕</button>
-            <button class="group-filter-btn active" data-group="2" onclick="toggleGroupFilter(2)">Group 2 ▲</button>
-            <button class="group-filter-btn active" data-group="3" onclick="toggleGroupFilter(3)">Group 3 ■</button>
+            <button class="group-filter-btn active" data-group="1" onclick="toggleGroupFilter(1)" 
+                    aria-label="Toggle Group 1" aria-pressed="true">Group 1 ⭕</button>
+            <button class="group-filter-btn active" data-group="2" onclick="toggleGroupFilter(2)" 
+                    aria-label="Toggle Group 2" aria-pressed="true">Group 2 ▲</button>
+            <button class="group-filter-btn active" data-group="3" onclick="toggleGroupFilter(3)" 
+                    aria-label="Toggle Group 3" aria-pressed="true">Group 3 ■</button>
+        </div>
+
+        <div class="selection-controls">
+            <button class="btn btn-warning" id="selectionModeBtn" onclick="toggleSelectionMode()" 
+                    aria-label="Toggle selection mode">🎯 Select Mode</button>
+            <button class="btn btn-danger" id="clearSelectionBtn" onclick="clearSelection()" 
+                    style="display: none;" aria-label="Clear selection">✖️ Clear Selection</button>
         </div>
 
         <div class="control-group">
-            <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
-            <button class="btn btn-secondary" onclick="showStats()">📊 Stats</button>
-            <button class="btn btn-secondary" onclick="resetColors()">🎨 Reset Colors</button>
+            <button class="btn btn-secondary" onclick="refreshData()" aria-label="Refresh data">
+                <span id="refreshIcon">🔄</span> Refresh
+            </button>
+            <button class="btn btn-secondary" onclick="showStats()" aria-label="Show statistics">📊 Stats</button>
+            <button class="btn btn-secondary" onclick="resetColors()" aria-label="Reset custom colors">🎨 Reset Colors</button>
         </div>
     </div>
 
     <div class="main-content">
-        <div class="left-panel">
+        <div class="left-panel" id="leftPanel">
             <div class="legend-section">
                 <div style="text-align: center; margin-bottom: 6px;">
                     <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; padding: 6px 8px; font-size: 12px;">Show All</button>
@@ -330,40 +809,64 @@
                     <div class="shape-legend-item">■ Group 3</div>
                 </div>
                 
-                <div id="legendContent">Loading...</div>
+                <div id="legendContent" aria-live="polite">Loading...</div>
             </div>
             
             <div class="edit-section">
-                <div id="detailsContent" class="no-selection">
-                    Click a marker on the map to see details
+                <div id="bulkEditPanel" style="display: none;" role="region" aria-label="Bulk edit panel"></div>
+                <div id="detailsContent" class="no-selection" role="region" aria-label="Dog details">
+                    Click a marker on the map to see details, or use Select Mode to choose multiple markers
                 </div>
             </div>
         </div>
+        
+        <button class="panel-toggle" id="panelToggle" onclick="togglePanel()" aria-label="Toggle side panel">
+            <span id="panelToggleIcon">◀</span>
+        </button>
 
         <div class="map-container">
-            <div id="map"></div>
+            <div id="map" role="application" aria-label="Dog walking locations map"></div>
         </div>
     </div>
 
-    <div class="status" id="status">Loading dog walking data...</div>
+    <div class="status" id="status" role="status" aria-live="polite">
+        <span id="statusText">Loading dog walking data...</span>
+    </div>
 
     <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+            crossorigin="anonymous"></script>
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" 
+            integrity="sha512-ozq8xQKq6urvuU6jNgkfqAmT7jKN2XumbrX1JiB3TnF7tI48DPI4Gy1GXKD/V3EExgAs1V+pRO7vwtS1LHg0Gw==" 
+            crossorigin="anonymous"></script>
     
     <script>
+        'use strict';
+
         // Configuration
-        const CONFIG = {
+        const CONFIG = Object.freeze({
             SHEET_ID: '1mg8d5CLxSR54KhNUL8SpL5jzrGN-bghTsC9vxSK8lR0',
             WORKSHEET_NAME: 'Map',
             API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
             APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwhtJNojYGhpG6gwiRjo3-g_qluGWx_0q5cQplyOnEsoBF8lqxMY2RAjmq4bhfj3P4AbQ/exec',
             DEFAULT_LAT: 42.2968,
             DEFAULT_LNG: -71.2636,
-            DEFAULT_ZOOM: 11
-        };
+            DEFAULT_ZOOM: 11,
+            DEBOUNCE_DELAY: 300,
+            THROTTLE_DELAY: 100,
+            MAX_RETRIES: 3,
+            RETRY_DELAY: 1000,
+            MAX_MARKERS: 10000,
+            BATCH_SIZE: 100,
+            MAX_SELECTION: 500,
+            CLICK_DELAY: 300,
+            DOUBLE_CLICK_PREVENTION: 500
+        });
 
-        // Master color palette - 120+ unique colors
-        const ALL_COLORS = [
+        // Master color palette
+        const ALL_COLORS = Object.freeze([
             '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
             '#bcbd22', '#17becf', '#ff9896', '#98df8a', '#c5b0d5', '#c49c94', '#f7b6d3', '#c7c7c7',
             '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF',
@@ -380,577 +883,2511 @@
             '#512DA8', '#81C784', '#FFCDD2', '#F8BBD9', '#E1BEE7', '#D1C4E9', '#C5CAE9', '#BBDEFB',
             '#B3E5FC', '#B2EBF2', '#B2DFDB', '#C8E6C9', '#DCEDC8', '#F0F4C3', '#FFF9C4', '#FFECB3',
             '#FFE0B2', '#FFCCBC', '#D7CCC8', '#F5F5F5', '#CFD8DC', '#FF8A80', '#FF80AB', '#EA80FC'
-        ];
+        ]);
 
-        // Global variables
-        let map, markers = [], allData = [], filteredData = [], colorMap = {};
-        let selectedMarker = null, selectedRow = null, currentFilter = null;
-        let driverColorMap = {};
-        let customColors = {};
-        let activeGroups = [1, 2, 3]; // Track which groups are active
+        // State management
+        const state = {
+            map: null,
+            markers: [],
+            markerLookup: new Map(),
+            coordinateLookup: new Map(),
+            allData: [],
+            filteredData: [],
+            colorMap: {},
+            selectedMarker: null,
+            selectedRow: null,
+            currentFilter: null,
+            driverColorMap: {},
+            customColors: {},
+            activeGroups: [1, 2, 3],
+            selectionMode: false,
+            selectedMarkers: new Set(),
+            drawControl: null,
+            drawnItems: null,
+            isUpdating: false,
+            operationId: 0,
+            lastClickTime: 0,
+            refreshInProgress: false,
+            loadAttempts: 0,
+            lastUpdateTime: 0,
+            dirtyData: new Set()
+        };
 
-        function getGroupFromCombined(combined) {
-            if (!combined) return null;
-            // Extract group number from Combined field (e.g., "Driver:1" → 1)
-            const parts = combined.split(':');
-            if (parts.length > 1) {
-                const groupPart = parts[1].trim();
-                // Handle cases like "1", "1,2", "1-2", etc.
-                const match = groupPart.match(/(\d)/);
-                if (match) {
-                    return parseInt(match[1]);
+        // Utility: Generate unique operation ID
+        function getOperationId() {
+            return ++state.operationId;
+        }
+
+        // Utility: Debounce with cancellation
+        function debounce(func, wait) {
+            let timeoutId = null;
+            let lastCallTime = 0;
+            
+            const debounced = function(...args) {
+                const now = Date.now();
+                const timeSinceLastCall = now - lastCallTime;
+                
+                const later = () => {
+                    timeoutId = null;
+                    lastCallTime = Date.now();
+                    func.apply(this, args);
+                };
+                
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+                
+                if (timeSinceLastCall >= wait) {
+                    lastCallTime = now;
+                    func.apply(this, args);
+                } else {
+                    timeoutId = setTimeout(later, wait);
+                }
+            };
+            
+            debounced.cancel = function() {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+            };
+            
+            return debounced;
+        }
+
+        // Utility: Throttle function
+        function throttle(func, wait) {
+            let inThrottle = false;
+            return function(...args) {
+                if (!inThrottle) {
+                    func.apply(this, args);
+                    inThrottle = true;
+                    setTimeout(() => {
+                        inThrottle = false;
+                    }, wait);
+                }
+            };
+        }
+
+        // Utility: Retry with exponential backoff
+        async function retryOperation(operation, retries = CONFIG.MAX_RETRIES) {
+            let lastError;
+            for (let i = 0; i < retries; i++) {
+                try {
+                    return await operation();
+                } catch (error) {
+                    lastError = error;
+                    if (i === retries - 1) throw error;
+                    
+                    const delay = CONFIG.RETRY_DELAY * Math.pow(2, i);
+                    await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
-            return null;
+            throw lastError;
         }
 
-        function assignDriverColors() {
-            const allDrivers = [...new Set(allData.map(row => {
-                const combined = row['Combined'] || '';
-                const driverName = combined.split(':')[0].trim();
-                return driverName;
-            }).filter(driver => driver !== ''))].sort();
+        // Enhanced HTML escaping
+        const escapeHtml = (() => {
+            const escapeMap = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#x27;',
+                '/': '&#x2F;',
+                '`': '&#x60;',
+                '=': '&#x3D;'
+            };
             
-            console.log('Found drivers:', allDrivers);
+            const escapeRegex = new RegExp('[' + Object.keys(escapeMap).join('') + ']', 'g');
             
-            driverColorMap = {};
+            return function(text) {
+                if (text == null) return '';
+                return String(text).replace(escapeRegex, char => escapeMap[char]);
+            };
+        })();
+
+        // Enhanced coordinate validation
+        function validateCoordinates(lat, lng) {
+            const latNum = Number(lat);
+            const lngNum = Number(lng);
             
-            allDrivers.forEach((driver, index) => {
-                if (index < ALL_COLORS.length) {
-                    driverColorMap[driver] = ALL_COLORS[index];
-                } else {
-                    driverColorMap[driver] = '#' + Math.floor(Math.random()*16777215).toString(16);
+            if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+                return false;
+            }
+            
+            if (latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+                return false;
+            }
+            
+            // Check for null island or suspiciously small values
+            if (Math.abs(latNum) < 0.0001 && Math.abs(lngNum) < 0.0001) {
+                return false;
+            }
+            
+            return true;
+        }
+
+        // Enhanced color validation
+        function validateAndNormalizeColor(color) {
+            if (!color || typeof color !== 'string') {
+                return '#999999';
+            }
+            
+            color = color.trim();
+            
+            // Hex color validation and normalization
+            const hexMatch = color.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+            if (hexMatch) {
+                if (hexMatch[1].length === 3) {
+                    // Convert 3-char to 6-char
+                    const [r, g, b] = hexMatch[1].split('');
+                    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
                 }
-            });
+                return color.toLowerCase();
+            }
             
-            console.log('Driver color assignments:', driverColorMap);
+            // RGB/RGBA validation
+            const rgbMatch = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)$/);
+            if (rgbMatch) {
+                const r = Math.min(255, Math.max(0, parseInt(rgbMatch[1])));
+                const g = Math.min(255, Math.max(0, parseInt(rgbMatch[2])));
+                const b = Math.min(255, Math.max(0, parseInt(rgbMatch[3])));
+                return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+            }
+            
+            // Named colors
+            const namedColors = {
+                'red': '#ff0000', 'green': '#008000', 'blue': '#0000ff',
+                'black': '#000000', 'white': '#ffffff', 'gray': '#808080',
+                'grey': '#808080', 'yellow': '#ffff00', 'orange': '#ffa500',
+                'purple': '#800080', 'pink': '#ffc0cb', 'brown': '#a52a2a',
+                'cyan': '#00ffff', 'magenta': '#ff00ff', 'lime': '#00ff00'
+            };
+            
+            const lowerColor = color.toLowerCase();
+            if (namedColors[lowerColor]) {
+                return namedColors[lowerColor];
+            }
+            
+            return '#999999';
         }
 
+        // Get group from combined field with validation
+        function getGroupFromCombined(combined) {
+            if (!combined || typeof combined !== 'string') return null;
+            
+            try {
+                const colonIndex = combined.lastIndexOf(':');
+                if (colonIndex === -1) return null;
+                
+                const groupPart = combined.substring(colonIndex + 1).trim();
+                const groupMatch = groupPart.match(/^(\d+)/);
+                
+                if (groupMatch) {
+                    const groupNum = parseInt(groupMatch[1], 10);
+                    if (groupNum >= 1 && groupNum <= 3) {
+                        return groupNum;
+                    }
+                }
+                
+                return null;
+            } catch (error) {
+                console.warn('Error parsing group from combined:', combined, error);
+                return null;
+            }
+        }
+
+        // Assign driver colors with stability
+        function assignDriverColors() {
+            if (!state.allData || state.allData.length === 0) {
+                state.driverColorMap = {};
+                return;
+            }
+            
+            try {
+                const drivers = new Set();
+                
+                state.allData.forEach(row => {
+                    if (row && row['Combined']) {
+                        const colonIndex = row['Combined'].lastIndexOf(':');
+                        const driverName = colonIndex > -1 ? 
+                            row['Combined'].substring(0, colonIndex).trim() : 
+                            row['Combined'].trim();
+                        if (driverName) {
+                            drivers.add(driverName);
+                        }
+                    }
+                });
+                
+                const sortedDrivers = Array.from(drivers).sort();
+                const newColorMap = {};
+                
+                sortedDrivers.forEach((driver, index) => {
+                    // Preserve existing color assignments
+                    if (state.driverColorMap[driver]) {
+                        newColorMap[driver] = state.driverColorMap[driver];
+                    } else if (index < ALL_COLORS.length) {
+                        newColorMap[driver] = ALL_COLORS[index];
+                    } else {
+                        // Deterministic color generation
+                        let hash = 0;
+                        for (let i = 0; i < driver.length; i++) {
+                            hash = ((hash << 5) - hash) + driver.charCodeAt(i);
+                            hash = hash & hash; // Convert to 32-bit integer
+                        }
+                        const hue = Math.abs(hash) % 360;
+                        newColorMap[driver] = `hsl(${hue}, 70%, 50%)`;
+                    }
+                });
+                
+                state.driverColorMap = newColorMap;
+                console.log('Assigned colors to', sortedDrivers.length, 'drivers');
+            } catch (error) {
+                console.error('Error assigning driver colors:', error);
+                state.driverColorMap = {};
+            }
+        }
+
+        // Get driver color with custom color support
         function getDriverColor(name) {
             if (!name || name.trim() === '') return '#999999';
-            if (customColors[name.trim()]) return customColors[name.trim()];
-            return driverColorMap[name.trim()] || '#999999';
+            const trimmedName = name.trim();
+            if (state.customColors[trimmedName]) return state.customColors[trimmedName];
+            return state.driverColorMap[trimmedName] || '#999999';
         }
 
+        // Get color for value
         function getColorForValue(value, attribute) {
+            if (!value) return '#999999';
+            
             if (attribute === 'Combined') {
-                const driverName = value ? value.split(':')[0] : '';
+                const colonIndex = value.lastIndexOf(':');
+                const driverName = colonIndex > -1 ? 
+                    value.substring(0, colonIndex).trim() : 
+                    value.trim();
                 return getDriverColor(driverName);
             }
             
-            if (customColors[value]) return customColors[value];
+            if (state.customColors[value]) return state.customColors[value];
             
-            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
+            // Use color from palette based on hash
             let hash = 0;
-            if (value) {
-                for (let i = 0; i < value.length; i++) {
-                    hash = value.charCodeAt(i) + ((hash << 5) - hash);
-                }
+            for (let i = 0; i < value.length; i++) {
+                hash = ((hash << 5) - hash) + value.charCodeAt(i);
+                hash = hash & hash;
             }
-            return colors[Math.abs(hash) % colors.length];
-        }
-
-        function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null) {
-            const strokeColor = '#000000';
-            const strokeWidth = isSelected ? 3 : 2;
-            const size = 16; // Standard size for all markers
             
-            // Determine shape based on group
-            if (group === 1 || markerType === 'circle') {
-                // Circle for Group 1
-                return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                    className: 'custom-marker',
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            } else if (group === 2) {
-                // Triangle for Group 2
-                const svgSize = size + 4;
-                return L.divIcon({
-                    html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
-                        <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
-                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                    </svg>`,
-                    className: 'custom-triangle-marker',
-                    iconSize: [svgSize, svgSize],
-                    iconAnchor: [svgSize/2, svgSize/2]
-                });
-            } else if (group === 3) {
-                // Square for Group 3
-                return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                    className: 'custom-square-marker',
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            } else {
-                // Default circle if no group specified
-                return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                    className: 'custom-marker',
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            }
+            const index = Math.abs(hash) % ALL_COLORS.length;
+            return ALL_COLORS[index];
         }
 
+        // Create marker icon with caching
+        const createMarkerIcon = (() => {
+            const iconCache = new Map();
+            const maxCacheSize = 1000;
+            
+            return function(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false) {
+                const cacheKey = `${color}_${isSelected}_${markerType}_${group}_${isInSelection}`;
+                
+                if (iconCache.has(cacheKey)) {
+                    return iconCache.get(cacheKey);
+                }
+                
+                color = validateAndNormalizeColor(color);
+                
+                const strokeColor = isInSelection ? '#007bff' : '#000000';
+                const strokeWidth = isSelected ? 3 : (isInSelection ? 3 : 2);
+                const size = isInSelection ? 20 : 16;
+                
+                let icon;
+                
+                try {
+                    if (group === 2) {
+                        // Triangle
+                        const svgSize = size + 4;
+                        icon = L.divIcon({
+                            html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                                <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
+                                      fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                            </svg>`,
+                            className: `custom-triangle-marker ${isInSelection ? 'marker-selected' : ''}`,
+                            iconSize: [svgSize, svgSize],
+                            iconAnchor: [svgSize/2, svgSize/2]
+                        });
+                    } else if (group === 3) {
+                        // Square
+                        icon = L.divIcon({
+                            html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
+                            className: `custom-square-marker ${isInSelection ? 'marker-selected' : ''}`,
+                            iconSize: [size, size],
+                            iconAnchor: [size/2, size/2]
+                        });
+                    } else {
+                        // Circle (default)
+                        icon = L.divIcon({
+                            html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
+                            className: `custom-marker ${isInSelection ? 'marker-selected' : ''}`,
+                            iconSize: [size, size],
+                            iconAnchor: [size/2, size/2]
+                        });
+                    }
+                    
+                    // Manage cache size
+                    if (iconCache.size >= maxCacheSize) {
+                        const firstKey = iconCache.keys().next().value;
+                        iconCache.delete(firstKey);
+                    }
+                    
+                    iconCache.set(cacheKey, icon);
+                    return icon;
+                    
+                } catch (error) {
+                    console.error('Error creating marker icon:', error);
+                    // Return fallback icon
+                    return L.divIcon({
+                        html: `<div style="width: 16px; height: 16px; background-color: #999999; border: 2px solid #000000; border-radius: 50%;"></div>`,
+                        className: 'custom-marker-fallback',
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    });
+                }
+            };
+        })();
+
+        // Toggle group filter with validation
         function toggleGroupFilter(group) {
             const btn = document.querySelector(`[data-group="${group}"]`);
-            const index = activeGroups.indexOf(group);
+            if (!btn) return;
+            
+            const index = state.activeGroups.indexOf(group);
             
             if (index > -1) {
-                // Remove from active groups
-                activeGroups.splice(index, 1);
-                btn.classList.remove('active');
+                if (state.activeGroups.length > 1) { // Ensure at least one group remains active
+                    state.activeGroups.splice(index, 1);
+                    btn.classList.remove('active');
+                    btn.setAttribute('aria-pressed', 'false');
+                } else {
+                    showNotification('At least one group must remain active', 'error');
+                    return;
+                }
             } else {
-                // Add to active groups
-                activeGroups.push(group);
+                state.activeGroups.push(group);
+                state.activeGroups.sort();
                 btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
             }
             
             updateMap();
         }
 
-        function initMap() {
-            map = L.map('map').setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
+        // Toggle panel for mobile
+        function togglePanel() {
+            const panel = document.getElementById('leftPanel');
+            const toggle = document.getElementById('panelToggle');
+            const icon = document.getElementById('panelToggleIcon');
             
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '© OpenStreetMap contributors, © CARTO',
-                subdomains: 'abcd',
-                maxZoom: 19
-            }).addTo(map);
-
-            document.getElementById('colorBy').addEventListener('change', updateMap);
-            document.getElementById('searchInput').addEventListener('input', updateMap);
+            if (panel && toggle && icon) {
+                panel.classList.toggle('open');
+                icon.textContent = panel.classList.contains('open') ? '▶' : '◀';
+            }
         }
 
-        async function loadData() {
-            updateStatus('Loading data...', 'loading');
+        // Show notification
+        function showNotification(message, type = 'info', duration = 3000) {
+            const existingNotification = document.querySelector('.notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            if (duration > 0) {
+                setTimeout(() => {
+                    notification.style.animation = 'fadeOut 0.3s ease';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }, duration);
+            }
+        }
+
+        // Toggle selection mode with proper cleanup
+        async function toggleSelectionMode() {
+            if (state.isUpdating) {
+                showNotification('Please wait for the current operation to complete', 'error');
+                return;
+            }
+            
+            const currentOpId = getOperationId();
             
             try {
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
-                const response = await fetch(url);
+                const btn = document.getElementById('selectionModeBtn');
+                const clearBtn = document.getElementById('clearSelectionBtn');
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (!btn || !clearBtn) {
+                    console.error('Selection mode buttons not found');
+                    return;
                 }
+                
+                // Prevent double clicks
+                const now = Date.now();
+                if (now - state.lastClickTime < CONFIG.DOUBLE_CLICK_PREVENTION) {
+                    return;
+                }
+                state.lastClickTime = now;
+                
+                btn.disabled = true;
+                
+                state.selectionMode = !state.selectionMode;
+                
+                if (state.selectionMode) {
+                    btn.textContent = '🎯 Exit Select Mode';
+                    btn.classList.add('selection-mode-active');
+                    clearBtn.style.display = 'inline-block';
+                    
+                    enableDrawingTools();
+                    updateStatus('🎯 Selection mode active - Draw a polygon around markers to select them', 'loading');
+                } else {
+                    btn.textContent = '🎯 Select Mode';
+                    btn.classList.remove('selection-mode-active');
+                    clearBtn.style.display = 'none';
+                    
+                    await disableDrawingTools();
+                    clearSelection();
+                }
+                
+                // Re-enable button after animation
+                setTimeout(() => {
+                    if (state.operationId <= currentOpId + 1) {
+                        btn.disabled = false;
+                    }
+                }, 300);
+                
+            } catch (error) {
+                console.error('Error in toggleSelectionMode:', error);
+                const btn = document.getElementById('selectionModeBtn');
+                if (btn) btn.disabled = false;
+                showNotification('Error toggling selection mode', 'error');
+            }
+        }
+
+        // Enable drawing tools with error recovery
+        function enableDrawingTools() {
+            if (!state.map || !state.selectionMode) return;
+            
+            if (!L.Control.Draw) {
+                console.error('Leaflet.draw library not loaded');
+                updateStatus('Drawing tools not available', 'error');
+                return;
+            }
+            
+            try {
+                if (!state.drawnItems) {
+                    state.drawnItems = new L.FeatureGroup();
+                    state.map.addLayer(state.drawnItems);
+                }
+
+                if (!state.drawControl) {
+                    state.drawControl = new L.Control.Draw({
+                        position: 'topleft',
+                        edit: {
+                            featureGroup: state.drawnItems,
+                            remove: true,
+                            edit: true
+                        },
+                        draw: {
+                            polygon: {
+                                allowIntersection: false,
+                                drawError: {
+                                    color: '#e1e100',
+                                    message: '<strong>Error!</strong> Shape intersects itself!'
+                                },
+                                shapeOptions: {
+                                    color: '#007bff',
+                                    fillColor: '#007bff',
+                                    fillOpacity: 0.2,
+                                    weight: 3
+                                },
+                                showArea: true
+                            },
+                            rectangle: {
+                                shapeOptions: {
+                                    color: '#007bff',
+                                    fillColor: '#007bff',
+                                    fillOpacity: 0.2,
+                                    weight: 3
+                                }
+                            },
+                            circle: false,
+                            marker: false,
+                            circlemarker: false,
+                            polyline: false
+                        }
+                    });
+                    
+                    state.map.addControl(state.drawControl);
+                }
+
+                // Event listeners with proper binding
+                state.map.off('draw:created').on('draw:created', onDrawCreated);
+                state.map.off('draw:deleted').on('draw:deleted', onDrawDeleted);
+                state.map.off('draw:edited').on('draw:edited', onDrawEdited);
+                state.map.off('draw:drawstart').on('draw:drawstart', onDrawStart);
+                state.map.off('draw:drawstop').on('draw:drawstop', onDrawStop);
+                
+            } catch (error) {
+                console.error('Error enabling drawing tools:', error);
+                updateStatus('Error enabling selection tools', 'error');
+                
+                // Cleanup on error
+                cleanupDrawingTools();
+            }
+        }
+
+        // Disable drawing tools with cleanup
+        async function disableDrawingTools() {
+            try {
+                if (state.map) {
+                    state.map.off('draw:created', onDrawCreated);
+                    state.map.off('draw:deleted', onDrawDeleted);
+                    state.map.off('draw:edited', onDrawEdited);
+                    state.map.off('draw:drawstart', onDrawStart);
+                    state.map.off('draw:drawstop', onDrawStop);
+                }
+
+                if (state.drawControl && state.map && state.map.hasLayer(state.drawControl)) {
+                    state.map.removeControl(state.drawControl);
+                }
+                state.drawControl = null;
+
+                if (state.drawnItems) {
+                    state.drawnItems.clearLayers();
+                    if (state.map && state.map.hasLayer(state.drawnItems)) {
+                        state.map.removeLayer(state.drawnItems);
+                    }
+                }
+                state.drawnItems = null;
+
+            } catch (error) {
+                console.error('Error disabling drawing tools:', error);
+            }
+        }
+
+        // Cleanup drawing tools
+        function cleanupDrawingTools() {
+            try {
+                if (state.drawControl && state.map) {
+                    state.map.removeControl(state.drawControl);
+                    state.drawControl = null;
+                }
+                if (state.drawnItems && state.map) {
+                    state.map.removeLayer(state.drawnItems);
+                    state.drawnItems = null;
+                }
+            } catch (error) {
+                console.warn('Error during drawing tools cleanup:', error);
+            }
+        }
+
+        // Drawing event handlers
+        function onDrawStart() {
+            updateStatus('🎯 Drawing selection area...', 'loading');
+        }
+
+        function onDrawStop() {
+            if (state.selectionMode) {
+                updateStatus(`🎯 Selected ${state.selectedMarkers.size} markers`, 'loading');
+            }
+        }
+
+        function onDrawCreated(e) {
+            if (!state.selectionMode || !state.drawnItems) return;
+            
+            const layer = e.layer;
+            if (!layer) return;
+            
+            try {
+                state.drawnItems.addLayer(layer);
+                
+                // Add to existing selection
+                selectMarkersInPolygonAdditive(layer);
+                updateSelectedMarkersDisplay();
+                updateBulkEditPanel();
+                
+                // Limit number of drawn shapes
+                const shapeCount = state.drawnItems.getLayers().length;
+                if (shapeCount > 10) {
+                    showNotification('Maximum 10 selection areas allowed', 'error');
+                    // Remove oldest shape
+                    const layers = state.drawnItems.getLayers();
+                    if (layers.length > 0) {
+                        state.drawnItems.removeLayer(layers[0]);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error in onDrawCreated:', error);
+                if (state.drawnItems && state.drawnItems.hasLayer(layer)) {
+                    state.drawnItems.removeLayer(layer);
+                }
+                showNotification('Error creating selection area', 'error');
+            }
+        }
+
+        function onDrawDeleted(e) {
+            if (!state.selectionMode || !state.drawnItems) return;
+            
+            try {
+                // Recalculate selection from remaining shapes
+                state.selectedMarkers.clear();
+                
+                state.drawnItems.eachLayer(function(layer) {
+                    if (layer) {
+                        selectMarkersInPolygonAdditive(layer);
+                    }
+                });
+                
+                updateSelectedMarkersDisplay();
+                updateBulkEditPanel();
+            } catch (error) {
+                console.error('Error in onDrawDeleted:', error);
+                state.selectedMarkers.clear();
+                updateSelectedMarkersDisplay();
+                updateBulkEditPanel();
+            }
+        }
+
+        function onDrawEdited(e) {
+            if (!state.selectionMode || !state.drawnItems) return;
+            
+            try {
+                // Recalculate selection from all shapes
+                state.selectedMarkers.clear();
+                
+                state.drawnItems.eachLayer(function(layer) {
+                    if (layer) {
+                        selectMarkersInPolygonAdditive(layer);
+                    }
+                });
+                
+                updateSelectedMarkersDisplay();
+                updateBulkEditPanel();
+            } catch (error) {
+                console.error('Error in onDrawEdited:', error);
+                state.selectedMarkers.clear();
+                updateSelectedMarkersDisplay();
+                updateBulkEditPanel();
+            }
+        }
+
+        // Select markers in polygon (additive)
+        function selectMarkersInPolygonAdditive(polygon) {
+            if (!state.selectionMode || !state.markers || state.markers.length === 0) return;
+            
+            const bounds = polygon.getBounds();
+            
+            state.markers.forEach(markerData => {
+                if (!markerData || !markerData.marker || !markerData.row) return;
+                
+                const latLng = markerData.marker.getLatLng();
+                if (!latLng) return;
+                
+                // Quick bounds check first
+                if (!bounds.contains(latLng)) return;
+                
+                let isInside = false;
+                try {
+                    if (polygon instanceof L.Polygon || polygon instanceof L.Rectangle) {
+                        const latlngs = polygon.getLatLngs();
+                        if (latlngs && latlngs.length > 0) {
+                            const outerRing = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+                            if (outerRing && outerRing.length >= 3) {
+                                isInside = isPointInPolygon(latLng, outerRing);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error checking polygon intersection:', error);
+                    return;
+                }
+                
+                if (isInside) {
+                    const dogId = getDogId(markerData.row);
+                    if (dogId && state.selectedMarkers.size < CONFIG.MAX_SELECTION) {
+                        state.selectedMarkers.add(dogId);
+                    } else if (state.selectedMarkers.size >= CONFIG.MAX_SELECTION) {
+                        showNotification(`Maximum ${CONFIG.MAX_SELECTION} markers can be selected`, 'error');
+                        return;
+                    }
+                }
+            });
+        }
+
+        // Optimized point in polygon algorithm
+        function isPointInPolygon(point, polygon) {
+            if (!polygon || polygon.length < 3) return false;
+            if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return false;
+            
+            const x = point.lat, y = point.lng;
+            let inside = false;
+            
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].lat, yi = polygon[i].lng;
+                const xj = polygon[j].lat, yj = polygon[j].lng;
+                
+                if (!Number.isFinite(xi) || !Number.isFinite(yi) || 
+                    !Number.isFinite(xj) || !Number.isFinite(yj)) {
+                    continue;
+                }
+                
+                const intersect = ((yi > y) !== (yj > y)) &&
+                    (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                
+                if (intersect) inside = !inside;
+            }
+            
+            return inside;
+        }
+
+        // Get unique dog ID with collision handling
+        function getDogId(row) {
+            if (!row) return null;
+            
+            // Use stored unique ID if available
+            if (row['_uniqueId']) {
+                return row['_uniqueId'];
+            }
+            
+            // Generate ID based on available fields
+            let id = null;
+            
+            if (row['Dog ID'] && typeof row['Dog ID'] === 'string' && row['Dog ID'].trim()) {
+                id = row['Dog ID'].trim();
+            } else if (row['Dog Name'] && typeof row['Dog Name'] === 'string' && row['Dog Name'].trim()) {
+                id = row['Dog Name'].trim();
+                // Add row index to make it unique
+                const index = state.allData.indexOf(row);
+                if (index >= 0) {
+                    id = `${id}_${index}`;
+                }
+            } else {
+                // Use row index if available
+                const index = state.allData.indexOf(row);
+                if (index >= 0) {
+                    id = `dog_${index}`;
+                } else {
+                    id = `unknown_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                }
+            }
+            
+            // Store for future reference
+            row['_uniqueId'] = id;
+            return id;
+        }
+
+        // Update selected markers display
+        const updateSelectedMarkersDisplay = throttle(function() {
+            if (!state.markers || state.markers.length === 0) return;
+            
+            const updates = [];
+            
+            state.markers.forEach(markerData => {
+                if (!markerData || !markerData.marker || !markerData.row) return;
+                
+                try {
+                    const dogId = getDogId(markerData.row);
+                    const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                    const isSelected = state.selectedMarker === markerData.marker;
+                    
+                    const colorBy = document.getElementById('colorBy');
+                    if (!colorBy) return;
+                    
+                    let color;
+                    if (colorBy.value === 'Combined') {
+                        const colonIndex = markerData.row['Combined'] ? 
+                            markerData.row['Combined'].lastIndexOf(':') : -1;
+                        const driverName = colonIndex > -1 ? 
+                            markerData.row['Combined'].substring(0, colonIndex).trim() : '';
+                        color = state.colorMap[driverName] || '#999999';
+                    } else {
+                        color = state.colorMap[markerData.row[colorBy.value]] || '#999999';
+                    }
+                    
+                    const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection);
+                    updates.push({ marker: markerData.marker, icon: newIcon });
+                } catch (error) {
+                    console.error('Error updating marker display:', error);
+                }
+            });
+            
+            // Batch update icons
+            requestAnimationFrame(() => {
+                updates.forEach(({ marker, icon }) => {
+                    try {
+                        marker.setIcon(icon);
+                    } catch (e) {
+                        console.warn('Error setting marker icon:', e);
+                    }
+                });
+            });
+            
+            if (state.selectionMode) {
+                updateStatus(`🎯 Selected ${state.selectedMarkers.size} markers`, 'loading');
+            }
+        }, CONFIG.THROTTLE_DELAY);
+
+        // Update bulk edit panel with validation
+        function updateBulkEditPanel() {
+            const panel = document.getElementById('bulkEditPanel');
+            if (!panel) return;
+            
+            if (state.selectedMarkers.size === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+            
+            if (!state.allData || state.allData.length === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+            
+            panel.style.display = 'block';
+            
+            try {
+                // Get selected rows efficiently
+                const selectedRows = [];
+                for (const dogId of state.selectedMarkers) {
+                    const row = state.markerLookup.get(dogId)?.row || 
+                               state.allData.find(r => getDogId(r) === dogId);
+                    if (row) selectedRows.push(row);
+                }
+                
+                const previewHtml = selectedRows.slice(0, 10).map(row => {
+                    const dogName = escapeHtml(row['Dog Name'] || 'Unknown');
+                    const combined = escapeHtml(row['Combined'] || 'No Driver');
+                    return `<div class="selected-dog-item">${dogName} - ${combined}</div>`;
+                }).join('');
+                
+                const moreText = selectedRows.length > 10 ? 
+                    `<div class="selected-dog-item">... and ${selectedRows.length - 10} more</div>` : '';
+                
+                panel.innerHTML = `
+                    <div class="bulk-edit-panel">
+                        <div class="bulk-edit-header">
+                            <h4>🎯 Bulk Edit Selection</h4>
+                            <span class="selected-count">${state.selectedMarkers.size} selected</span>
+                        </div>
+                        <div class="selected-dogs-preview">
+                            ${previewHtml}
+                            ${moreText}
+                        </div>
+                        <div class="bulk-edit-controls">
+                            <input type="text" id="bulkCombinedInput" class="bulk-edit-input" 
+                                   placeholder="New Combined value (e.g., 'Driver Name:2')"
+                                   autocomplete="off" />
+                            <button class="btn btn-primary" onclick="bulkUpdateSelected()" 
+                                    id="bulkUpdateBtn">💾 Update All</button>
+                            <button class="btn btn-secondary" onclick="clearSelection()">✖️ Cancel</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Focus on input for better UX
+                setTimeout(() => {
+                    const input = document.getElementById('bulkCombinedInput');
+                    if (input) input.focus();
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error updating bulk edit panel:', error);
+                panel.innerHTML = '<div class="error-message">Error loading selection panel</div>';
+            }
+        }
+
+        // Clear selection with cleanup
+        function clearSelection() {
+            state.selectedMarkers.clear();
+            updateSelectedMarkersDisplay();
+            updateBulkEditPanel();
+            
+            if (state.drawnItems) {
+                state.drawnItems.clearLayers();
+            }
+            
+            if (state.selectionMode) {
+                updateStatus('🎯 Selection cleared - Draw a polygon around markers to select them', 'loading');
+            } else {
+                updateStatus(`Showing ${state.filteredData.length} of ${state.allData.length} locations`, 'success');
+            }
+        }
+
+        // Bulk update selected with validation
+        async function bulkUpdateSelected() {
+            if (state.isUpdating) {
+                showNotification('Another update is in progress. Please wait.', 'error');
+                return;
+            }
+            
+            const currentOpId = getOperationId();
+            
+            if (!state.selectionMode) {
+                showNotification('Not in selection mode', 'error');
+                return;
+            }
+            
+            const bulkInput = document.getElementById('bulkCombinedInput');
+            const bulkBtn = document.getElementById('bulkUpdateBtn');
+            
+            if (!bulkInput) {
+                showNotification('Interface not ready. Please try again.', 'error');
+                return;
+            }
+            
+            const newCombined = bulkInput.value.trim();
+            
+            if (!newCombined) {
+                showNotification('Please enter a Combined value', 'error');
+                bulkInput.focus();
+                return;
+            }
+            
+            // Validate combined format
+            if (!newCombined.match(/^[^:]+:\d+$/)) {
+                showNotification('Combined value must be in format "Driver Name:Group" (e.g., "John Doe:2")', 'error');
+                bulkInput.focus();
+                return;
+            }
+            
+            if (state.selectedMarkers.size === 0) {
+                showNotification('No markers selected', 'error');
+                return;
+            }
+            
+            if (!state.allData || state.allData.length === 0) {
+                showNotification('No data available', 'error');
+                return;
+            }
+            
+            try {
+                // Get valid selected rows
+                const validSelectedRows = [];
+                const rowIndices = [];
+                
+                for (const dogId of state.selectedMarkers) {
+                    const markerData = state.markerLookup.get(dogId);
+                    const row = markerData?.row || state.allData.find(r => getDogId(r) === dogId);
+                    if (row) {
+                        const index = state.allData.indexOf(row);
+                        if (index !== -1) {
+                            validSelectedRows.push(row);
+                            rowIndices.push(index);
+                        }
+                    }
+                }
+                
+                if (validSelectedRows.length === 0) {
+                    showNotification('No valid markers selected', 'error');
+                    return;
+                }
+                
+                if (!confirm(`Update ${validSelectedRows.length} dogs with Combined value: "${newCombined}"?\n\nThis action cannot be undone.`)) {
+                    return;
+                }
+                
+                state.isUpdating = true;
+                if (bulkBtn) bulkBtn.disabled = true;
+                updateStatus(`💾 Bulk updating ${validSelectedRows.length} records...`, 'loading');
+                
+                // Prepare bulk update data
+                const updates = [];
+                rowIndices.forEach((actualIndex, i) => {
+                    updates.push({
+                        rowIndex: actualIndex,
+                        updatedData: { 'Combined': newCombined }
+                    });
+                    // Mark as dirty
+                    state.dirtyData.add(actualIndex);
+                });
+                
+                // Update local data first
+                validSelectedRows.forEach(row => {
+                    row['Combined'] = newCombined;
+                });
+                
+                // Send to Google Sheets
+                if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && 
+                    !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
+                    
+                    const payload = {
+                        action: 'bulkUpdate',
+                        updates: updates,
+                        timestamp: Date.now()
+                    };
+                    
+                    try {
+                        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'text/plain;charset=utf-8'
+                            },
+                            body: JSON.stringify(payload),
+                            mode: 'no-cors'
+                        });
+                        
+                        // Since we're using no-cors, we can't read the response
+                        // Assume success and verify with a refresh later if needed
+                        updateStatus(`✅ Bulk updated ${validSelectedRows.length} records: ${newCombined}`, 'success');
+                        showNotification('Bulk update sent to Google Sheets', 'success');
+                        
+                        // Clear dirty flags
+                        updates.forEach(u => state.dirtyData.delete(u.rowIndex));
+                        
+                    } catch (error) {
+                        console.error('Bulk update error:', error);
+                        updateStatus(`⚠️ Updated locally only. Sheets error: ${error.message}`, 'error');
+                        showNotification('Updated locally only - refresh to sync with sheet', 'error', 5000);
+                    }
+                } else {
+                    updateStatus(`✅ Bulk updated ${validSelectedRows.length} records locally: ${newCombined}`, 'success');
+                    showNotification('Bulk update completed (local only - no Apps Script URL)', 'info');
+                }
+                
+                // Only proceed if this is still the current operation
+                if (state.operationId <= currentOpId + 1) {
+                    assignDriverColors();
+                    updateMap();
+                    clearSelection();
+                }
+                
+            } catch (error) {
+                console.error('Bulk update error:', error);
+                updateStatus(`❌ Bulk update failed: ${error.message}`, 'error');
+                showNotification(`Bulk update failed: ${error.message}`, 'error', 5000);
+            } finally {
+                state.isUpdating = false;
+                if (bulkBtn) bulkBtn.disabled = false;
+            }
+        }
+
+        // Initialize map with error handling
+        function initMap() {
+            try {
+                // Check if Leaflet is loaded
+                if (typeof L === 'undefined') {
+                    throw new Error('Leaflet library not loaded');
+                }
+                
+                state.map = L.map('map', {
+                    center: [CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG],
+                    zoom: CONFIG.DEFAULT_ZOOM,
+                    preferCanvas: true, // Better performance
+                    zoomControl: true,
+                    attributionControl: true
+                });
+                
+                // Add tile layer with fallback
+                const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© OpenStreetMap contributors, © CARTO',
+                    subdomains: 'abcd',
+                    maxZoom: 19,
+                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+                });
+                
+                tileLayer.on('tileerror', function(error) {
+                    console.warn('Tile load error:', error);
+                });
+                
+                tileLayer.addTo(state.map);
+                
+                // Handle map errors
+                state.map.on('error', function(e) {
+                    console.error('Map error:', e);
+                    showNotification('Map error occurred', 'error');
+                });
+
+                // Event listeners with debouncing
+                const colorByElement = document.getElementById('colorBy');
+                const searchInputElement = document.getElementById('searchInput');
+                
+                if (colorByElement) {
+                    colorByElement.addEventListener('change', debouncedUpdateMap);
+                }
+                
+                if (searchInputElement) {
+                    searchInputElement.addEventListener('input', debouncedUpdateMap);
+                    searchInputElement.addEventListener('search', debouncedUpdateMap); // For clear button
+                }
+                
+                console.log('Map initialized successfully');
+                
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                updateStatus('Failed to initialize map', 'error');
+                showNotification('Failed to initialize map. Please refresh the page.', 'error', 0);
+            }
+        }
+
+        // Load data with comprehensive error handling
+        async function loadData() {
+            if (state.isUpdating || state.refreshInProgress) {
+                console.log('Load data skipped - operation in progress');
+                return;
+            }
+            
+            const currentOpId = getOperationId();
+            state.isUpdating = true;
+            state.loadAttempts++;
+            
+            updateStatus('<span class="spinner"></span> Loading data...', 'loading');
+            
+            try {
+                // Validate configuration
+                if (!CONFIG.SHEET_ID || !CONFIG.API_KEY) {
+                    throw new Error('Sheet ID or API key not configured');
+                }
+                
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                
+                const response = await retryOperation(async () => {
+                    const res = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        },
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!res.ok) {
+                        if (res.status === 403) {
+                            throw new Error('Access denied - check API key permissions and ensure the sheet is publicly readable');
+                        } else if (res.status === 404) {
+                            throw new Error('Sheet not found - check Sheet ID and worksheet name');
+                        } else if (res.status === 429) {
+                            throw new Error('Rate limit exceeded - please wait a moment and try again');
+                        } else {
+                            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        }
+                    }
+                    
+                    return res;
+                });
                 
                 const data = await response.json();
                 
-                if (!data.values || data.values.length < 2) {
-                    throw new Error('No data found in the sheet');
+                // Validate response structure
+                if (!data || typeof data !== 'object') {
+                    throw new Error('Invalid response format from Google Sheets');
+                }
+                
+                if (!data.values || !Array.isArray(data.values)) {
+                    throw new Error('No data values found in sheet response');
+                }
+                
+                if (data.values.length < 2) {
+                    throw new Error('No data rows found in sheet (only headers or empty)');
                 }
                 
                 const headers = data.values[0];
                 const rows = data.values.slice(1);
                 
-                allData = rows.map(row => {
-                    const obj = {};
-                    headers.forEach((header, index) => {
-                        obj[header] = row[index] || '';
-                    });
-                    return obj;
-                }).filter(row => {
-                    const lat = parseFloat(row['Latitude']);
-                    const lng = parseFloat(row['Longitude']);
-                    return !isNaN(lat) && !isNaN(lng) && row['Dog Name'] && lat !== 0 && lng !== 0;
-                });
-
-                updateStatus(`✅ Loaded ${allData.length} locations`, 'success');
+                // Validate required columns
+                const requiredColumns = ['Dog Name', 'Latitude', 'Longitude'];
+                const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+                if (missingColumns.length > 0) {
+                    throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
+                }
                 
-                assignDriverColors();
-                updateMap();
+                // Check for too much data
+                if (rows.length > CONFIG.MAX_MARKERS) {
+                    console.warn(`Sheet has ${rows.length} rows, limiting to ${CONFIG.MAX_MARKERS}`);
+                    rows.length = CONFIG.MAX_MARKERS;
+                }
+                
+                // Process data with validation
+                const processedData = [];
+                const invalidRows = [];
+                let validRows = 0;
+                
+                rows.forEach((row, index) => {
+                    try {
+                        const obj = {};
+                        headers.forEach((header, headerIndex) => {
+                            obj[header] = row[headerIndex] || '';
+                        });
+                        
+                        // Validate required fields
+                        if (!obj['Dog Name'] || obj['Dog Name'].trim() === '') {
+                            invalidRows.push(index + 2); // +2 for 1-based row number + header
+                            return;
+                        }
+                        
+                        const lat = parseFloat(obj['Latitude']);
+                        const lng = parseFloat(obj['Longitude']);
+                        
+                        if (!validateCoordinates(lat, lng)) {
+                            invalidRows.push(index + 2);
+                            return;
+                        }
+                        
+                        // Store parsed coordinates for efficiency
+                        obj['_lat'] = lat;
+                        obj['_lng'] = lng;
+                        obj['_rowIndex'] = index;
+                        
+                        processedData.push(obj);
+                        validRows++;
+                        
+                    } catch (rowError) {
+                        console.warn(`Error processing row ${index + 2}:`, rowError);
+                        invalidRows.push(index + 2);
+                    }
+                });
+                
+                if (validRows === 0) {
+                    throw new Error('No valid data rows found after processing');
+                }
+                
+                // Only update if this is still the current operation
+                if (state.operationId <= currentOpId + 1) {
+                    state.allData = processedData;
+                    state.markerLookup.clear();
+                    state.coordinateLookup.clear();
+                    state.dirtyData.clear();
+                    state.lastUpdateTime = Date.now();
+                    
+                    let statusMessage = `✅ Loaded ${validRows} locations`;
+                    if (invalidRows.length > 0) {
+                        const showRows = invalidRows.slice(0, 5);
+                        const moreText = invalidRows.length > 5 ? ` and ${invalidRows.length - 5} more` : '';
+                        statusMessage += ` (Invalid rows: ${showRows.join(', ')}${moreText})`;
+                    }
+                    updateStatus(statusMessage, 'success');
+                    
+                    if (invalidRows.length > 0) {
+                        showNotification(`${invalidRows.length} rows skipped due to invalid data`, 'error', 5000);
+                    }
+                    
+                    // Initialize and update
+                    assignDriverColors();
+                    updateMap();
+                    
+                    // Reset load attempts on success
+                    state.loadAttempts = 0;
+                }
                 
             } catch (error) {
-                updateStatus(`Error: ${error.message}`, 'error');
                 console.error('Data loading error:', error);
-            }
-        }
-
-        function updateMap() {
-            const colorBy = document.getElementById('colorBy').value;
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-
-            filteredData = allData.filter(row => {
-                const searchText = `${row['Dog Name']} ${row['Address']} ${row['District']} ${row['Combined']} ${row['Callout']}`.toLowerCase();
-                const matchesSearch = searchText.includes(searchTerm);
                 
-                // Check group filter
-                const group = getGroupFromCombined(row['Combined']);
-                const matchesGroup = group === null || activeGroups.includes(group);
+                let userMessage = 'Error loading data';
+                let notificationDuration = 5000;
                 
-                let matchesFilter = currentFilter === null;
-                if (!matchesFilter && currentFilter !== null) {
-                    if (colorBy === 'Combined') {
-                        const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                        matchesFilter = driverName === currentFilter;
-                    } else {
-                        matchesFilter = row[colorBy] === currentFilter;
-                    }
-                }
-                
-                return matchesSearch && matchesFilter && matchesGroup;
-            });
-
-            markers.forEach(m => map.removeLayer(m.marker));
-            markers = [];
-
-            if (colorBy === 'Combined') {
-                const uniqueDrivers = [...new Set(allData.map(row => {
-                    const combined = row['Combined'] || '';
-                    return combined.split(':')[0];
-                }).filter(driver => driver))];
-                
-                colorMap = {};
-                uniqueDrivers.forEach(driver => {
-                    colorMap[driver] = getDriverColor(driver);
-                });
-            } else {
-                const uniqueValues = [...new Set(allData.map(row => row[colorBy]))];
-                colorMap = {};
-                uniqueValues.forEach(value => {
-                    colorMap[value] = getColorForValue(value, colorBy);
-                });
-            }
-
-            filteredData.forEach((row, index) => {
-                const lat = parseFloat(row['Latitude']);
-                const lng = parseFloat(row['Longitude']);
-                if (isNaN(lat) || isNaN(lng)) return;
-
-                let color;
-                if (colorBy === 'Combined') {
-                    const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                    color = colorMap[driverName] || '#999999';
+                if (error.name === 'AbortError') {
+                    userMessage = 'Request timed out - check your connection';
+                } else if (error.message.includes('API key')) {
+                    userMessage = 'API key issue - check configuration and permissions';
+                    notificationDuration = 0; // Permanent
+                } else if (error.message.includes('Sheet not found')) {
+                    userMessage = 'Sheet not found - verify Sheet ID and worksheet name';
+                    notificationDuration = 0;
+                } else if (error.message.includes('Rate limit')) {
+                    userMessage = 'Rate limit exceeded - please wait and try again';
+                } else if (error.message.includes('timeout')) {
+                    userMessage = 'Request timed out - check your connection';
+                } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                    userMessage = 'Network error - check internet connection';
                 } else {
-                    color = colorMap[row[colorBy]] || '#999999';
+                    userMessage = error.message;
                 }
                 
-                const isSelected = selectedRow === row;
-                const group = getGroupFromCombined(row['Combined']);
+                updateStatus(`❌ ${userMessage}`, 'error');
+                showNotification(userMessage, 'error', notificationDuration);
                 
-                const marker = L.marker([lat, lng], {
-                    icon: createMarkerIcon(color, isSelected, 'group', group)
-                }).addTo(map);
-
-                const groupText = group ? `Group ${group}` : 'No Group';
-                const popupContent = `
-                    <strong>🐕 ${row['Dog Name']}</strong><br>
-                    <strong>🏷️ ${row['Combined']}</strong><br>
-                    <strong>📋 ${groupText}</strong><br>
-                    ${row['Address']}<br>
-                    ${row['District'] && row['District'].trim() !== '' ? `${row['District']}<br>` : ''}
-                    ${row['Capacity'] && row['Capacity'].trim() !== '' ? `${row['Capacity']}<br>` : ''}
-                    ${row['Callout'] && row['Callout'].trim() !== '' ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${row['Callout']}</span><br>` : ''}
-                `;
-
-                marker.bindPopup(popupContent);
-                marker.on('click', () => selectMarker(marker, row, index, group));
-
-                markers.push({marker, row, index, group});
-            });
-
-            updateLegend();
-            updateStatus(`Showing ${filteredData.length} of ${allData.length} locations`, 'success');
+                // Clear data on error
+                if (state.operationId <= currentOpId + 1) {
+                    state.allData = [];
+                    state.markers = [];
+                    state.filteredData = [];
+                    state.markerLookup.clear();
+                    state.coordinateLookup.clear();
+                }
+                
+                // Suggest retry for temporary errors
+                if (state.loadAttempts < 3 && !error.message.includes('API key') && !error.message.includes('Sheet not found')) {
+                    setTimeout(() => {
+                        showNotification('Click Refresh to retry loading data', 'info', 0);
+                    }, 2000);
+                }
+                
+            } finally {
+                state.isUpdating = false;
+            }
         }
 
-        function updateLegend() {
-            const colorBy = document.getElementById('colorBy').value;
-            let html = '';
+        // Update map with batching and optimization
+        const updateMap = async function() {
+            const currentOpId = getOperationId();
             
-            if (colorBy === 'Combined') {
-                Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([driverName, color]) => {
-                    const isActive = currentFilter === driverName;
+            try {
+                const colorByElement = document.getElementById('colorBy');
+                const searchInputElement = document.getElementById('searchInput');
+                
+                if (!colorByElement || !searchInputElement) {
+                    console.error('Required DOM elements not found');
+                    return;
+                }
+                
+                const colorBy = colorByElement.value;
+                const searchTerm = searchInputElement.value.toLowerCase().trim();
+
+                // Handle empty data
+                if (!state.allData || state.allData.length === 0) {
+                    cleanupMarkers();
+                    state.markers = [];
+                    state.filteredData = [];
+                    state.markerLookup.clear();
+                    state.coordinateLookup.clear();
+                    updateLegend();
+                    if (!state.isUpdating) {
+                        updateStatus('No data available', 'error');
+                    }
+                    return;
+                }
+
+                // Filter data efficiently
+                state.filteredData = state.allData.filter(row => {
+                    if (!row) return false;
                     
-                    // Count dogs by group for this driver
-                    const groupCounts = { 1: 0, 2: 0, 3: 0 };
-                    allData.forEach(row => {
-                        const combined = row['Combined'] || '';
-                        if (combined.split(':')[0] === driverName) {
-                            const group = getGroupFromCombined(combined);
-                            if (group && groupCounts[group] !== undefined) {
-                                groupCounts[group]++;
+                    try {
+                        // Search filter
+                        if (searchTerm) {
+                            const searchFields = [
+                                row['Dog Name'],
+                                row['Address'],
+                                row['District'],
+                                row['Combined'],
+                                row['Callout'],
+                                row['Dog ID']
+                            ].filter(Boolean).join(' ').toLowerCase();
+                            
+                            if (!searchFields.includes(searchTerm)) {
+                                return false;
                             }
                         }
+                        
+                        // Group filter
+                        const group = getGroupFromCombined(row['Combined']);
+                        if (group !== null && !state.activeGroups.includes(group)) {
+                            return false;
+                        }
+                        
+                        // Category filter
+                        if (state.currentFilter !== null) {
+                            if (colorBy === 'Combined') {
+                                const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
+                                const driverName = colonIndex > -1 ? 
+                                    row['Combined'].substring(0, colonIndex).trim() : '';
+                                if (driverName !== state.currentFilter) {
+                                    return false;
+                                }
+                            } else {
+                                if (row[colorBy] !== state.currentFilter) {
+                                    return false;
+                                }
+                            }
+                        }
+                        
+                        return true;
+                    } catch (error) {
+                        console.warn('Error filtering row:', error);
+                        return false;
+                    }
+                });
+
+                // Build color map
+                state.colorMap = {};
+                try {
+                    const uniqueValues = new Set();
+                    
+                    if (colorBy === 'Combined') {
+                        state.allData.forEach(row => {
+                            if (row && row['Combined']) {
+                                const colonIndex = row['Combined'].lastIndexOf(':');
+                                const driver = colonIndex > -1 ? 
+                                    row['Combined'].substring(0, colonIndex).trim() : 
+                                    row['Combined'].trim();
+                                if (driver) uniqueValues.add(driver);
+                            }
+                        });
+                        
+                        uniqueValues.forEach(driver => {
+                            state.colorMap[driver] = getDriverColor(driver);
+                        });
+                    } else {
+                        state.allData.forEach(row => {
+                            if (row && row[colorBy]) {
+                                const value = row[colorBy].trim();
+                                if (value) uniqueValues.add(value);
+                            }
+                        });
+                        
+                        uniqueValues.forEach(value => {
+                            state.colorMap[value] = getColorForValue(value, colorBy);
+                        });
+                    }
+                } catch (colorMapError) {
+                    console.error('Error building color map:', colorMapError);
+                    state.colorMap = { 'default': '#999999' };
+                }
+
+                // Only proceed if this is still the current operation
+                if (state.operationId !== currentOpId) return;
+
+                // Clean up existing markers
+                cleanupMarkers();
+                state.markers = [];
+                state.coordinateLookup.clear();
+
+                // Create markers in batches for better performance
+                const batchSize = CONFIG.BATCH_SIZE;
+                const totalBatches = Math.ceil(state.filteredData.length / batchSize);
+                
+                for (let batch = 0; batch < totalBatches; batch++) {
+                    if (state.operationId !== currentOpId) return;
+                    
+                    const start = batch * batchSize;
+                    const end = Math.min(start + batchSize, state.filteredData.length);
+                    const batchData = state.filteredData.slice(start, end);
+                    
+                    // Process batch
+                    await new Promise(resolve => {
+                        requestAnimationFrame(() => {
+                            batchData.forEach((row, index) => {
+                                if (!row) return;
+                                
+                                try {
+                                    const lat = row['_lat'] ?? parseFloat(row['Latitude']);
+                                    const lng = row['_lng'] ?? parseFloat(row['Longitude']);
+                                    
+                                    if (!validateCoordinates(lat, lng)) return;
+                                    
+                                    // Handle overlapping markers
+                                    const coordKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+                                    const existingCount = state.coordinateLookup.get(coordKey) || 0;
+                                    state.coordinateLookup.set(coordKey, existingCount + 1);
+                                    
+                                    // Offset overlapping markers slightly
+                                    const offsetLat = existingCount > 0 ? lat + (existingCount * 0.00001) : lat;
+                                    const offsetLng = existingCount > 0 ? lng + (existingCount * 0.00001) : lng;
+
+                                    let color = '#999999';
+                                    try {
+                                        if (colorBy === 'Combined') {
+                                            const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
+                                            const driverName = colonIndex > -1 ? 
+                                                row['Combined'].substring(0, colonIndex).trim() : '';
+                                            color = state.colorMap[driverName] || '#999999';
+                                        } else {
+                                            const value = row[colorBy] || '';
+                                            color = state.colorMap[value] || '#999999';
+                                        }
+                                    } catch (colorError) {
+                                        console.warn('Error determining color:', colorError);
+                                    }
+                                    
+                                    const isSelected = state.selectedRow === row;
+                                    const group = getGroupFromCombined(row['Combined']);
+                                    const originalIndex = state.allData.indexOf(row);
+                                    const dogId = getDogId(row);
+                                    const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                                    
+                                    const marker = L.marker([offsetLat, offsetLng], {
+                                        icon: createMarkerIcon(color, isSelected, 'group', group, isInSelection),
+                                        riseOnHover: true,
+                                        title: row['Dog Name'] || 'Unknown'
+                                    });
+
+                                    // Only add to map if operation hasn't changed
+                                    if (state.operationId === currentOpId) {
+                                        marker.addTo(state.map);
+                                    } else {
+                                        return;
+                                    }
+
+                                    const groupText = group ? `Group ${group}` : 'No Group';
+                                    const isDirty = state.dirtyData.has(originalIndex);
+                                    const popupContent = `
+                                        <strong>🐕 ${escapeHtml(row['Dog Name'] || 'Unknown')}</strong><br>
+                                        <strong>🏷️ ${escapeHtml(row['Combined'] || 'No Driver')}</strong><br>
+                                        <strong>📋 ${groupText}</strong>${isDirty ? ' <em>(modified)</em>' : ''}<br>
+                                        ${row['Address'] ? escapeHtml(row['Address']) + '<br>' : ''}
+                                        ${row['District'] ? escapeHtml(row['District']) + '<br>' : ''}
+                                        ${row['Capacity'] ? 'Capacity: ' + escapeHtml(row['Capacity']) + '<br>' : ''}
+                                        ${row['Callout'] ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${escapeHtml(row['Callout'])}</span><br>` : ''}
+                                        ${existingCount > 0 ? `<em>⚠️ ${existingCount + 1} dogs at this location</em>` : ''}
+                                    `;
+
+                                    marker.bindPopup(popupContent, {
+                                        maxWidth: 300,
+                                        className: 'custom-popup'
+                                    });
+                                    
+                                    const markerData = {marker, row, index: originalIndex, group};
+                                    
+                                    // Store in lookup for fast access
+                                    if (dogId) {
+                                        state.markerLookup.set(dogId, markerData);
+                                    }
+                                    
+                                    // Click handler with double-click prevention
+                                    marker.on('click', function(e) {
+                                        const now = Date.now();
+                                        if (now - state.lastClickTime < CONFIG.CLICK_DELAY) {
+                                            return;
+                                        }
+                                        state.lastClickTime = now;
+                                        
+                                        try {
+                                            if (!state.allData.includes(row)) {
+                                                console.warn('Marker clicked but row data is no longer valid');
+                                                showNotification('This marker\'s data is outdated. Please refresh.', 'error');
+                                                return;
+                                            }
+                                            
+                                            if (state.selectionMode) {
+                                                e.originalEvent.stopPropagation();
+                                                const dogId = getDogId(row);
+                                                if (!dogId) return;
+                                                
+                                                if (state.selectedMarkers.has(dogId)) {
+                                                    state.selectedMarkers.delete(dogId);
+                                                } else if (state.selectedMarkers.size < CONFIG.MAX_SELECTION) {
+                                                    state.selectedMarkers.add(dogId);
+                                                } else {
+                                                    showNotification(`Maximum ${CONFIG.MAX_SELECTION} markers can be selected`, 'error');
+                                                    return;
+                                                }
+                                                
+                                                updateSelectedMarkersDisplay();
+                                                updateBulkEditPanel();
+                                            } else {
+                                                const validIndex = state.allData.indexOf(row);
+                                                if (validIndex === -1) {
+                                                    showNotification('Marker data not found. Please refresh.', 'error');
+                                                    return;
+                                                }
+                                                
+                                                selectMarker(marker, row, validIndex, group);
+                                            }
+                                        } catch (clickError) {
+                                            console.error('Error handling marker click:', clickError);
+                                            showNotification('Error handling marker click', 'error');
+                                        }
+                                    });
+
+                                    state.markers.push(markerData);
+                                    
+                                } catch (markerError) {
+                                    console.warn('Error creating marker:', markerError);
+                                }
+                            });
+                            
+                            resolve();
+                        });
                     });
                     
-                    // Build simple count display: "10, 11, 12"
-                    const counts = [];
-                    for (let i = 1; i <= 3; i++) {
-                        if (groupCounts[i] > 0) {
-                            counts.push(groupCounts[i]);
-                        }
+                    // Update status periodically during batch processing
+                    if (batch % 5 === 0) {
+                        updateStatus(`Loading markers... ${Math.round((end / state.filteredData.length) * 100)}%`, 'loading');
                     }
-                    const countsDisplay = counts.length > 0 ? ' ' + counts.join(', ') : '';
+                }
+
+                // Only update UI if this is still the current operation
+                if (state.operationId === currentOpId) {
+                    updateLegend();
                     
-                    html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${driverName}')">
-                        <div class="legend-color" style="background-color: ${color}"></div>
-                        <span class="legend-text">${driverName}${countsDisplay}</span>
-                        <input type="color" class="color-picker" value="${color}" 
-                               onclick="event.stopPropagation()" 
-                               onchange="changeCustomColor('${driverName}', this.value)">
-                    </div>`;
-                });
-            } else {
-                Object.entries(colorMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([category, color]) => {
-                    const isActive = currentFilter === category;
-                    html += `<div class="legend-item ${isActive ? 'active' : ''}" onclick="filterByCategory('${category}')">
-                        <div class="legend-color" style="background-color: ${color}"></div>
-                        <span class="legend-text">${category}</span>
-                        <input type="color" class="color-picker" value="${color}" 
-                               onclick="event.stopPropagation()" 
-                               onchange="changeCustomColor('${category}', this.value)">
-                    </div>`;
-                });
+                    // Update selections
+                    if (state.selectionMode && state.selectedMarkers.size > 0) {
+                        const visibleDogIds = new Set();
+                        state.filteredData.forEach(row => {
+                            if (row) {
+                                const dogId = getDogId(row);
+                                if (dogId) visibleDogIds.add(dogId);
+                            }
+                        });
+                        
+                        const toRemove = [];
+                        state.selectedMarkers.forEach(dogId => {
+                            if (!visibleDogIds.has(dogId)) {
+                                toRemove.push(dogId);
+                            }
+                        });
+                        
+                        toRemove.forEach(dogId => state.selectedMarkers.delete(dogId));
+                        
+                        if (state.selectedMarkers.size > 0) {
+                            updateStatus(`🎯 Selected ${state.selectedMarkers.size} markers`, 'loading');
+                            updateBulkEditPanel();
+                        } else {
+                            updateStatus('🎯 Selection cleared (markers filtered out)', 'loading');
+                            updateBulkEditPanel();
+                        }
+                    } else if (!state.selectionMode && !state.isUpdating) {
+                        updateStatus(`Showing ${state.filteredData.length} of ${state.allData.length} locations`, 'success');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error in updateMap:', error);
+                updateStatus('Error updating map display', 'error');
+                showNotification('Error updating map display', 'error');
             }
-            
-            document.getElementById('legendContent').innerHTML = html;
+        };
+
+        // Create debounced version
+        const debouncedUpdateMap = debounce(updateMap, CONFIG.DEBOUNCE_DELAY);
+
+        // Cleanup markers efficiently
+        function cleanupMarkers() {
+            if (state.markers && state.markers.length > 0) {
+                // Remove in batches for better performance
+                const batchSize = 100;
+                const batches = Math.ceil(state.markers.length / batchSize);
+                
+                for (let i = 0; i < batches; i++) {
+                    const start = i * batchSize;
+                    const end = Math.min(start + batchSize, state.markers.length);
+                    const batch = state.markers.slice(start, end);
+                    
+                    requestAnimationFrame(() => {
+                        batch.forEach(m => {
+                            if (m && m.marker) {
+                                try {
+                                    m.marker.off();
+                                    if (state.map.hasLayer(m.marker)) {
+                                        state.map.removeLayer(m.marker);
+                                    }
+                                } catch (e) {
+                                    console.warn('Error removing marker:', e);
+                                }
+                            }
+                        });
+                    });
+                }
+            }
         }
 
+        // Update legend with improved performance
+        const updateLegend = throttle(function() {
+            const colorByElement = document.getElementById('colorBy');
+            const legendContent = document.getElementById('legendContent');
+            
+            if (!colorByElement || !legendContent) return;
+            
+            const colorBy = colorByElement.value;
+            
+            try {
+                // Remove existing event listeners
+                const existingPickers = legendContent.querySelectorAll('.color-picker');
+                existingPickers.forEach(picker => {
+                    if (picker._colorChangeHandler) {
+                        picker.removeEventListener('change', picker._colorChangeHandler);
+                        picker.removeEventListener('input', picker._colorChangeHandler);
+                        delete picker._colorChangeHandler;
+                    }
+                });
+                
+                // Build legend HTML
+                const sortedEntries = Object.entries(state.colorMap).sort(([a], [b]) => a.localeCompare(b));
+                const legendItems = [];
+                
+                sortedEntries.forEach(([key, color]) => {
+                    if (!key || !color) return;
+                    
+                    try {
+                        const isActive = state.currentFilter === key;
+                        let displayText = escapeHtml(key);
+                        
+                        // Add counts for drivers
+                        if (colorBy === 'Combined' && state.allData && state.allData.length > 0) {
+                            const groupCounts = { 1: 0, 2: 0, 3: 0, total: 0 };
+                            
+                            state.allData.forEach(row => {
+                                if (!row || !row['Combined']) return;
+                                
+                                const colonIndex = row['Combined'].lastIndexOf(':');
+                                const rowDriver = colonIndex > -1 ? 
+                                    row['Combined'].substring(0, colonIndex).trim() : 
+                                    row['Combined'].trim();
+                                    
+                                if (rowDriver === key) {
+                                    groupCounts.total++;
+                                    const group = getGroupFromCombined(row['Combined']);
+                                    if (group && groupCounts[group] !== undefined) {
+                                        groupCounts[group]++;
+                                    }
+                                }
+                            });
+                            
+                            if (groupCounts.total > 0) {
+                                const counts = [];
+                                for (let i = 1; i <= 3; i++) {
+                                    if (groupCounts[i] > 0) {
+                                        counts.push(groupCounts[i]);
+                                    }
+                                }
+                                displayText += ` (${counts.join(', ')})`;
+                            }
+                        }
+                        
+                        const dataKey = escapeHtml(key);
+                        const safeKey = key.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\\/g, '\\\\');
+                        
+                        legendItems.push(`
+                            <div class="legend-item ${isActive ? 'active' : ''}" 
+                                 onclick="filterByCategory('${safeKey}')"
+                                 role="button"
+                                 tabindex="0"
+                                 aria-label="Filter by ${dataKey}"
+                                 aria-pressed="${isActive}">
+                                <div class="legend-color" style="background-color: ${color}"></div>
+                                <span class="legend-text">${displayText}</span>
+                                <input type="color" class="color-picker" value="${color}" 
+                                       data-category="${dataKey}"
+                                       aria-label="Change color for ${dataKey}"
+                                       onclick="event.stopPropagation()" />
+                            </div>
+                        `);
+                    } catch (itemError) {
+                        console.warn('Error creating legend item:', itemError);
+                    }
+                });
+                
+                legendContent.innerHTML = legendItems.join('');
+                
+                // Add event listeners for color pickers
+                const newPickers = legendContent.querySelectorAll('.color-picker');
+                newPickers.forEach(picker => {
+                    const handler = function(e) {
+                        e.stopPropagation();
+                        const categoryName = this.getAttribute('data-category');
+                        if (categoryName) {
+                            changeCustomColor(categoryName, this.value);
+                        }
+                    };
+                    picker._colorChangeHandler = handler;
+                    picker.addEventListener('change', handler);
+                    picker.addEventListener('click', e => e.stopPropagation());
+                });
+                
+                // Add keyboard support for legend items
+                const legendItemElements = legendContent.querySelectorAll('.legend-item');
+                legendItemElements.forEach(item => {
+                    item.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            this.click();
+                        }
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Error updating legend:', error);
+                legendContent.innerHTML = '<div class="error-message">Error loading legend</div>';
+            }
+        }, CONFIG.THROTTLE_DELAY);
+
+        // Change custom color
         function changeCustomColor(categoryName, newColor) {
             console.log('Changing color for:', categoryName, 'to:', newColor);
-            customColors[categoryName] = newColor;
+            const normalizedColor = validateAndNormalizeColor(newColor);
+            state.customColors[categoryName] = normalizedColor;
+            assignDriverColors();
             updateMap();
+            showNotification(`Color updated for ${categoryName}`, 'success', 2000);
         }
 
+        // Reset colors
         function resetColors() {
+            if (Object.keys(state.customColors).length === 0) {
+                showNotification('No custom colors to reset', 'info');
+                return;
+            }
+            
             console.log('Resetting all custom colors');
-            customColors = {};
+            state.customColors = {};
+            assignDriverColors();
             updateMap();
+            showNotification('All custom colors reset', 'success');
         }
 
+        // Select marker with validation
         function selectMarker(marker, row, index, group) {
-            if (selectedMarker) {
-                const prevData = markers.find(m => m.marker === selectedMarker);
-                if (prevData) {
-                    const colorBy = document.getElementById('colorBy').value;
-                    let color;
-                    if (colorBy === 'Combined') {
-                        const driverName = prevData.row['Combined'] ? prevData.row['Combined'].split(':')[0] : '';
-                        color = colorMap[driverName] || '#999999';
-                    } else {
-                        color = colorMap[prevData.row[colorBy]] || '#999999';
+            if (!marker || !row || !state.map) {
+                console.error('Invalid parameters for selectMarker');
+                return;
+            }
+            
+            try {
+                // Clear previous selection
+                if (state.selectedMarker && state.selectedMarker !== marker) {
+                    const prevData = state.markers.find(m => m && m.marker === state.selectedMarker);
+                    if (prevData) {
+                        try {
+                            const colorByElement = document.getElementById('colorBy');
+                            if (colorByElement) {
+                                let color = '#999999';
+                                if (colorByElement.value === 'Combined') {
+                                    const colonIndex = prevData.row['Combined'] ? 
+                                        prevData.row['Combined'].lastIndexOf(':') : -1;
+                                    const driverName = colonIndex > -1 ? 
+                                        prevData.row['Combined'].substring(0, colonIndex).trim() : '';
+                                    color = state.colorMap[driverName] || '#999999';
+                                } else {
+                                    color = state.colorMap[prevData.row[colorByElement.value]] || '#999999';
+                                }
+                                
+                                const dogId = getDogId(prevData.row);
+                                const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                                state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection));
+                            }
+                        } catch (clearError) {
+                            console.warn('Error clearing previous marker:', clearError);
+                        }
                     }
-                    selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group));
                 }
-            }
 
-            selectedMarker = marker;
-            selectedRow = row;
-            
-            const colorBy = document.getElementById('colorBy').value;
-            let color;
-            if (colorBy === 'Combined') {
-                const driverName = row['Combined'] ? row['Combined'].split(':')[0] : '';
-                color = colorMap[driverName] || '#999999';
-            } else {
-                color = colorMap[row[colorBy]] || '#999999';
-            }
-            marker.setIcon(createMarkerIcon(color, true, 'group', group));
+                state.selectedMarker = marker;
+                state.selectedRow = row;
+                
+                // Update marker appearance
+                try {
+                    const colorByElement = document.getElementById('colorBy');
+                    if (colorByElement) {
+                        let color = '#999999';
+                        if (colorByElement.value === 'Combined') {
+                            const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
+                            const driverName = colonIndex > -1 ? 
+                                row['Combined'].substring(0, colonIndex).trim() : '';
+                            color = state.colorMap[driverName] || '#999999';
+                        } else {
+                            color = state.colorMap[row[colorByElement.value]] || '#999999';
+                        }
+                        
+                        const dogId = getDogId(row);
+                        const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                        marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection));
+                    }
+                } catch (iconError) {
+                    console.warn('Error updating marker icon:', iconError);
+                }
 
-            const actualIndex = allData.findIndex(r => r === row);
-            const groupText = group ? `Group ${group}` : 'No Group';
-            const detailsHtml = `
-                <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
-                    ${row['Dog Name']} (${groupText})
-                </div>
+                // Update details panel
+                try {
+                    const actualIndex = state.allData.indexOf(row);
+                    const groupText = group ? `Group ${group}` : 'No Group';
+                    const isDirty = state.dirtyData.has(actualIndex);
+                    
+                    const detailsHtml = `
+                        <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
+                            ${escapeHtml(row['Dog Name'] || 'Unknown')} (${groupText})
+                            ${isDirty ? '<span style="color: #dc3545;"> • Modified</span>' : ''}
+                        </div>
+                        
+                        ${row['Address'] ? `<div class="dog-info">📍 ${escapeHtml(row['Address'])}</div>` : ''}
+                        ${row['District'] ? `<div class="dog-info">🗺️ ${escapeHtml(row['District'])}</div>` : ''}
+                        ${row['Capacity'] ? `<div class="dog-info">📊 Capacity: ${escapeHtml(row['Capacity'])}</div>` : ''}
+                        ${row['Callout'] ? `<div class="dog-info" style="background: #fff3cd; padding: 5px; border-radius: 3px; margin: 8px 0;">📝 <strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
+                        
+                        <div style="margin-top: 12px; margin-bottom: 8px;">
+                            <label for="editCombined" style="font-weight: bold; display: block; margin-bottom: 4px;">Combined (Driver:Group):</label>
+                            <input type="text" id="editCombined" value="${escapeHtml(row['Combined'] || '')}" 
+                                   placeholder="e.g., John Doe:2"
+                                   style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
+                                   autocomplete="off">
+                        </div>
+                        
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" 
+                                    id="saveBtn" style="flex: 1; padding: 6px 8px; font-size: 12px;">
+                                💾 Save
+                            </button>
+                            <button class="btn btn-secondary" onclick="cancelEdit()" 
+                                    style="flex: 1; padding: 6px 8px; font-size: 12px;">
+                                ✖️ Cancel
+                            </button>
+                        </div>
+                    `;
+                    
+                    const detailsContent = document.getElementById('detailsContent');
+                    if (detailsContent) {
+                        detailsContent.innerHTML = detailsHtml;
+                        
+                        // Focus on input for quick editing
+                        setTimeout(() => {
+                            const input = document.getElementById('editCombined');
+                            if (input) {
+                                input.focus();
+                                input.select();
+                                
+                                // Add enter key support
+                                input.addEventListener('keydown', function(e) {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        saveCombinedName(actualIndex);
+                                    } else if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        cancelEdit();
+                                    }
+                                });
+                            }
+                        }, 100);
+                    }
+                } catch (panelError) {
+                    console.error('Error updating details panel:', panelError);
+                    showNotification('Error showing dog details', 'error');
+                }
                 
-                <div style="margin-bottom: 8px;">
-                    <input type="text" id="editCombined" value="${row['Combined'] || ''}" 
-                           style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
-                </div>
-                
-                <div style="display: flex; gap: 4px;">
-                    <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" style="flex: 1; padding: 6px 8px; font-size: 12px;">Save</button>
-                    <button class="btn btn-secondary" onclick="cancelEdit()" style="flex: 1; padding: 6px 8px; font-size: 12px;">Cancel</button>
-                </div>
-            `;
-            
-            document.getElementById('detailsContent').innerHTML = detailsHtml;
+            } catch (error) {
+                console.error('Error in selectMarker:', error);
+                showNotification('Error selecting marker', 'error');
+            }
         }
 
+        // Filter by category
         function filterByCategory(category) {
-            currentFilter = currentFilter === category ? null : category;
+            state.currentFilter = state.currentFilter === category ? null : category;
             updateMap();
+            
+            if (state.currentFilter) {
+                showNotification(`Filtering by: ${category}`, 'info', 2000);
+            } else {
+                showNotification('Filter cleared', 'info', 2000);
+            }
         }
 
+        // Clear filter
         function clearFilter() {
-            currentFilter = null;
-            document.getElementById('searchInput').value = '';
+            state.currentFilter = null;
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = '';
             updateMap();
+            showNotification('All filters cleared', 'info', 2000);
         }
 
+        // Show statistics with enhanced formatting
         function showStats() {
-            if (allData.length === 0) return;
+            if (!state.allData || state.allData.length === 0) {
+                showNotification('No data available for statistics', 'error');
+                return;
+            }
             
-            const drivers = allData.reduce((acc, row) => {
-                const combined = row['Combined'] || '';
-                const driverName = combined.split(':')[0];
-                if (driverName && driverName.trim() !== '') {
-                    acc[driverName] = (acc[driverName] || 0) + 1;
+            try {
+                const stats = {
+                    drivers: {},
+                    districts: {},
+                    groups: { 1: 0, 2: 0, 3: 0, 'None': 0 },
+                    callouts: 0,
+                    totalDogs: state.allData.length,
+                    avgDogsPerDriver: 0
+                };
+                
+                state.allData.forEach(row => {
+                    // Count drivers
+                    if (row['Combined']) {
+                        const colonIndex = row['Combined'].lastIndexOf(':');
+                        const driverName = colonIndex > -1 ? 
+                            row['Combined'].substring(0, colonIndex).trim() : 
+                            row['Combined'].trim();
+                        if (driverName) {
+                            stats.drivers[driverName] = (stats.drivers[driverName] || 0) + 1;
+                        }
+                    }
+                    
+                    // Count districts
+                    if (row['District'] && row['District'].trim()) {
+                        stats.districts[row['District']] = (stats.districts[row['District']] || 0) + 1;
+                    }
+                    
+                    // Count groups
+                    const group = getGroupFromCombined(row['Combined']);
+                    if (group && stats.groups[group] !== undefined) {
+                        stats.groups[group]++;
+                    } else {
+                        stats.groups['None']++;
+                    }
+                    
+                    // Count callouts
+                    if (row['Callout'] && row['Callout'].trim()) {
+                        stats.callouts++;
+                    }
+                });
+                
+                const driverCount = Object.keys(stats.drivers).length;
+                stats.avgDogsPerDriver = driverCount > 0 ? 
+                    Math.round(stats.totalDogs / driverCount * 10) / 10 : 0;
+                
+                let statsText = "📊 DOG WALKING STATISTICS\n";
+                statsText += "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                
+                statsText += `📈 SUMMARY:\n`;
+                statsText += `  Total Dogs: ${stats.totalDogs}\n`;
+                statsText += `  Total Drivers: ${driverCount}\n`;
+                statsText += `  Avg Dogs/Driver: ${stats.avgDogsPerDriver}\n`;
+                statsText += `  Dogs with Callouts: ${stats.callouts}\n\n`;
+                
+                statsText += "🔢 GROUPS:\n";
+                Object.entries(stats.groups).forEach(([group, count]) => {
+                    if (count > 0) {
+                        const percent = Math.round(count / stats.totalDogs * 100);
+                        const bar = '█'.repeat(Math.round(percent / 5));
+                        statsText += `  Group ${group}: ${count} dogs (${percent}%) ${bar}\n`;
+                    }
+                });
+                
+                statsText += "\n👤 TOP 10 DRIVERS:\n";
+                Object.entries(stats.drivers)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10)
+                    .forEach(([name, count], index) => {
+                        statsText += `  ${index + 1}. ${name}: ${count} dogs\n`;
+                    });
+                
+                if (Object.keys(stats.districts).length > 0) {
+                    statsText += "\n🗺️ TOP DISTRICTS:\n";
+                    Object.entries(stats.districts)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 5)
+                        .forEach(([district, count]) => {
+                            const percent = Math.round(count / stats.totalDogs * 100);
+                            statsText += `  ${district}: ${count} dogs (${percent}%)\n`;
+                        });
                 }
-                return acc;
-            }, {});
-            
-            const districts = allData.reduce((acc, row) => {
-                if (row['District'] && row['District'].trim() !== '') {
-                    acc[row['District']] = (acc[row['District']] || 0) + 1;
-                }
-                return acc;
-            }, {});
-            
-            const groups = { 1: 0, 2: 0, 3: 0, 'None': 0 };
-            allData.forEach(row => {
-                const group = getGroupFromCombined(row['Combined']);
-                if (group && groups[group] !== undefined) {
-                    groups[group]++;
-                } else {
-                    groups['None']++;
-                }
-            });
-            
-            let statsText = "📊 DETAILED STATISTICS\n\n";
-            
-            statsText += "🔢 GROUPS:\n";
-            Object.entries(groups).forEach(([group, count]) => {
-                if (count > 0) {
-                    statsText += `  Group ${group}: ${count} dogs\n`;
-                }
-            });
-            
-            statsText += "\n👤 DRIVERS:\n";
-            Object.entries(drivers).sort((a, b) => b[1] - a[1]).forEach(([name, count]) => {
-                statsText += `  ${name}: ${count} dogs\n`;
-            });
-            
-            statsText += "\n🗺️ DISTRICTS:\n";
-            Object.entries(districts).sort((a, b) => b[1] - a[1]).forEach(([district, count]) => {
-                statsText += `  ${district}: ${count} dogs\n`;
-            });
-            
-            alert(statsText);
+                
+                alert(statsText);
+            } catch (error) {
+                console.error('Error showing stats:', error);
+                showNotification('Error generating statistics', 'error');
+            }
         }
 
+        // Save combined name with validation
         async function saveCombinedName(index) {
-            const newCombined = document.getElementById('editCombined').value.trim();
+            if (state.isUpdating) {
+                showNotification('Another update is in progress. Please wait.', 'error');
+                return;
+            }
             
-            if (!selectedRow || typeof index !== 'number' || !allData[index]) {
+            const currentOpId = getOperationId();
+            
+            const editInput = document.getElementById('editCombined');
+            const saveBtn = document.getElementById('saveBtn');
+            
+            if (!editInput) {
+                updateStatus('❌ Error: Edit input field not found', 'error');
+                return;
+            }
+            
+            const newCombined = editInput.value.trim();
+            
+            // Validate format (allow empty value)
+            if (newCombined && !newCombined.match(/^[^:]+:\d+$/)) {
+                showNotification('Combined value must be in format "Driver Name:Group" (e.g., "John Doe:2")', 'error');
+                editInput.focus();
+                return;
+            }
+            
+            if (!state.selectedRow || typeof index !== 'number' || !state.allData || !state.allData[index]) {
                 updateStatus('❌ Error: Invalid selection', 'error');
                 return;
             }
 
-            const actualIndex = allData.findIndex(row => row === selectedRow);
+            const actualIndex = state.allData.indexOf(state.selectedRow);
             if (actualIndex === -1) {
                 updateStatus('❌ Error: Could not find row in data', 'error');
                 return;
             }
 
-            selectedRow['Combined'] = newCombined;
-            allData[actualIndex]['Combined'] = newCombined;
-            
-            if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
-                try {
+            try {
+                state.isUpdating = true;
+                if (saveBtn) saveBtn.disabled = true;
+                
+                // Update local data
+                const oldValue = state.selectedRow['Combined'];
+                state.selectedRow['Combined'] = newCombined;
+                state.allData[actualIndex]['Combined'] = newCombined;
+                state.dirtyData.add(actualIndex);
+                
+                if (CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL.trim() !== '' && 
+                    !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
+                    
                     updateStatus('💾 Saving to Google Sheets...', 'loading');
                     
                     const payload = {
-                        action: 'updateCombined',
-                        rowIndex: actualIndex + 2,
-                        dogId: selectedRow['Dog ID'] || '',
-                        newCombined: newCombined
+                        action: 'updateRow',
+                        rowIndex: actualIndex,
+                        updatedData: { 'Combined': newCombined },
+                        timestamp: Date.now()
                     };
-                    
-                    console.log('🔧 DEBUG: Sending to Apps Script:', payload);
-                    
-                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(payload),
-                        mode: 'cors'
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json();
-                        if (result.success) {
-                            updateStatus(`✅ Saved to Google Sheets: ${newCombined}`, 'success');
-                        } else {
-                            throw new Error(result.error || 'Unknown error from Apps Script');
-                        }
-                    } else {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                } catch (error) {
-                    console.error('🔧 DEBUG: Google Sheets save error:', error);
                     
                     try {
                         await fetch(CONFIG.APPS_SCRIPT_URL, {
                             method: 'POST',
-                            mode: 'no-cors',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                action: 'updateCombined',
-                                rowIndex: actualIndex + 2,
-                                dogId: selectedRow['Dog ID'] || '',
-                                newCombined: newCombined
-                            })
+                            headers: { 
+                                'Content-Type': 'text/plain;charset=utf-8'
+                            },
+                            body: JSON.stringify(payload),
+                            mode: 'no-cors'
                         });
-                        updateStatus(`✅ Saved to Google Sheets (no-cors): ${newCombined}`, 'success');
-                    } catch (noCorsError) {
-                        console.error('🔧 DEBUG: No-cors also failed:', noCorsError);
+                        
+                        // Since we're using no-cors, we can't read the response
+                        // Assume success
+                        updateStatus(`✅ Saved to Google Sheets: ${newCombined || '(empty)'}`, 'success');
+                        showNotification('Changes sent to Google Sheets', 'success');
+                        state.dirtyData.delete(actualIndex);
+                        
+                    } catch (error) {
+                        console.error('Google Sheets save error:', error);
                         updateStatus(`⚠️ Saved locally only. Sheets error: ${error.message}`, 'error');
+                        showNotification('Saved locally only - refresh to sync with sheet', 'error', 5000);
+                    }
+                } else {
+                    updateStatus(`✅ Updated locally: ${newCombined || '(empty)'}`, 'success');
+                    showNotification('Updated locally (no Apps Script URL configured)', 'info');
+                }
+                
+                // Only update if this is still the current operation
+                if (state.operationId <= currentOpId + 1) {
+                    assignDriverColors();
+                    updateMap();
+                    
+                    // Refresh the selected marker display
+                    if (state.selectedMarker) {
+                        const markerData = state.markers.find(m => m && m.marker === state.selectedMarker);
+                        if (markerData) {
+                            const newGroup = getGroupFromCombined(newCombined);
+                            selectMarker(state.selectedMarker, state.selectedRow, actualIndex, newGroup);
+                        }
                     }
                 }
-            } else {
-                if (CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
-                    updateStatus(`⚠️ Updated locally only. Please configure APPS_SCRIPT_URL`, 'error');
-                } else {
-                    updateStatus(`✅ Updated locally: ${newCombined}`, 'success');
-                }
-            }
-            
-            assignDriverColors();
-            updateMap();
-            
-            if (selectedMarker) {
-                const markerData = markers.find(m => m.marker === selectedMarker);
-                if (markerData) {
-                    const newGroup = getGroupFromCombined(newCombined);
-                    selectMarker(selectedMarker, selectedRow, actualIndex, newGroup);
-                }
+                
+            } catch (error) {
+                console.error('Error in saveCombinedName:', error);
+                updateStatus(`❌ Save failed: ${error.message}`, 'error');
+                showNotification(`Save failed: ${error.message}`, 'error', 5000);
+            } finally {
+                state.isUpdating = false;
+                if (saveBtn) saveBtn.disabled = false;
             }
         }
 
+        // Cancel edit
         function cancelEdit() {
-            if (selectedMarker && selectedRow) {
-                const markerData = markers.find(m => m.marker === selectedMarker);
+            if (state.selectedMarker && state.selectedRow) {
+                const markerData = state.markers.find(m => m && m.marker === state.selectedMarker);
                 if (markerData) {
-                    const index = allData.findIndex(row => row === selectedRow);
-                    selectMarker(selectedMarker, selectedRow, index, markerData.group);
+                    const index = state.allData.indexOf(state.selectedRow);
+                    selectMarker(state.selectedMarker, state.selectedRow, index, markerData.group);
                 }
             }
         }
 
-        function refreshData() {
-            selectedMarker = null;
-            selectedRow = null;
-            currentFilter = null;
-            document.getElementById('detailsContent').innerHTML = '<div class="no-selection">Click a marker on the map to see details</div>';
-            loadData();
+        // Refresh data with state preservation
+        async function refreshData() {
+            if (state.refreshInProgress) {
+                showNotification('Refresh already in progress', 'info');
+                return;
+            }
+            
+            // Check for unsaved changes
+            if (state.dirtyData.size > 0) {
+                if (!confirm(`You have ${state.dirtyData.size} unsaved changes. Refreshing will lose these changes. Continue?`)) {
+                    return;
+                }
+            }
+            
+            try {
+                state.refreshInProgress = true;
+                
+                // Animate refresh button
+                const refreshIcon = document.getElementById('refreshIcon');
+                if (refreshIcon) {
+                    refreshIcon.style.animation = 'spin 1s linear infinite';
+                }
+                
+                // Reset operation state
+                state.isUpdating = false;
+                state.operationId = getOperationId();
+                
+                // Exit selection mode if active
+                if (state.selectionMode) {
+                    state.selectionMode = false;
+                    const btn = document.getElementById('selectionModeBtn');
+                    const clearBtn = document.getElementById('clearSelectionBtn');
+                    if (btn) {
+                        btn.textContent = '🎯 Select Mode';
+                        btn.classList.remove('selection-mode-active');
+                        btn.disabled = false;
+                    }
+                    if (clearBtn) {
+                        clearBtn.style.display = 'none';
+                    }
+                    await disableDrawingTools();
+                }
+                
+                // Clear selections but preserve filters
+                state.selectedMarker = null;
+                state.selectedRow = null;
+                state.selectedMarkers.clear();
+                state.dirtyData.clear();
+                
+                // Reset UI
+                const detailsContent = document.getElementById('detailsContent');
+                if (detailsContent) {
+                    detailsContent.innerHTML = '<div class="no-selection">Click a marker on the map to see details, or use Select Mode to choose multiple markers</div>';
+                }
+                
+                const bulkEditPanel = document.getElementById('bulkEditPanel');
+                if (bulkEditPanel) {
+                    bulkEditPanel.style.display = 'none';
+                }
+                
+                // Reload data
+                await loadData();
+                
+                showNotification('Data refreshed successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                showNotification('Error refreshing data', 'error');
+            } finally {
+                state.refreshInProgress = false;
+                
+                // Stop animation
+                const refreshIcon = document.getElementById('refreshIcon');
+                if (refreshIcon) {
+                    refreshIcon.style.animation = '';
+                }
+            }
         }
 
+        // Update status with HTML support
         function updateStatus(message, type = '') {
             const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status ${type}`;
+            const statusText = document.getElementById('statusText');
+            
+            if (status && statusText) {
+                statusText.innerHTML = message;
+                status.className = `status ${type}`;
+            }
         }
 
+        // Initialize application
         document.addEventListener('DOMContentLoaded', function() {
-            initMap();
-            loadData();
+            try {
+                console.log('DOM loaded, initializing application...');
+                
+                // Check browser compatibility
+                const requiredFeatures = [
+                    'Promise' in window,
+                    'fetch' in window,
+                    'Map' in window,
+                    'Set' in window,
+                    'requestAnimationFrame' in window
+                ];
+                
+                const missingFeatures = requiredFeatures.filter((feature, index) => {
+                    const featureName = ['Promise', 'fetch', 'Map', 'Set', 'requestAnimationFrame'][index];
+                    if (!eval(feature)) {
+                        console.error(`Missing required feature: ${featureName}`);
+                        return true;
+                    }
+                    return false;
+                });
+                
+                if (missingFeatures.length > 0) {
+                    updateStatus('Your browser is missing required features. Please use a modern browser.', 'error');
+                    showNotification('Browser compatibility issue detected', 'error', 0);
+                    return;
+                }
+                
+                // Validate required DOM elements
+                const requiredElements = [
+                    'map', 'colorBy', 'searchInput', 'status', 'statusText',
+                    'legendContent', 'detailsContent', 'bulkEditPanel',
+                    'selectionModeBtn', 'clearSelectionBtn', 'leftPanel',
+                    'panelToggle', 'refreshIcon'
+                ];
+                
+                const missingElements = requiredElements.filter(id => !document.getElementById(id));
+                
+                if (missingElements.length > 0) {
+                    console.error('Missing required DOM elements:', missingElements);
+                    updateStatus('Application initialization failed - missing interface elements', 'error');
+                    showNotification('Critical error: Missing interface elements', 'error', 0);
+                    return;
+                }
+                
+                // Add keyboard shortcuts
+                document.addEventListener('keydown', function(e) {
+                    // Escape key
+                    if (e.key === 'Escape') {
+                        if (state.selectionMode) {
+                            toggleSelectionMode();
+                        } else if (state.selectedMarker) {
+                            state.selectedMarker = null;
+                            state.selectedRow = null;
+                            updateMap();
+                            const detailsContent = document.getElementById('detailsContent');
+                            if (detailsContent) {
+                                detailsContent.innerHTML = '<div class="no-selection">Click a marker on the map to see details, or use Select Mode to choose multiple markers</div>';
+                            }
+                        }
+                    }
+                    
+                    // Ctrl/Cmd + F for search focus
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                        e.preventDefault();
+                        const searchInput = document.getElementById('searchInput');
+                        if (searchInput) {
+                            searchInput.focus();
+                            searchInput.select();
+                        }
+                    }
+                    
+                    // Ctrl/Cmd + R for refresh
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                        e.preventDefault();
+                        refreshData();
+                    }
+                });
+                
+                // Initialize map
+                initMap();
+                
+                // Load initial data
+                loadData();
+                
+                // Set up periodic auto-save reminder
+                setInterval(() => {
+                    if (state.dirtyData.size > 0) {
+                        showNotification(`${state.dirtyData.size} unsaved changes`, 'info', 3000);
+                    }
+                }, 60000); // Every minute
+                
+                console.log('Application initialized successfully');
+                
+            } catch (error) {
+                console.error('Error during application initialization:', error);
+                updateStatus('Application initialization failed', 'error');
+                showNotification('Failed to initialize application', 'error', 0);
+            }
         });
+
+        // Global error handler
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+            console.error('Stack:', event.error?.stack);
+            
+            // Don't show notification for network errors during normal operation
+            if (event.error?.message?.includes('fetch')) {
+                return;
+            }
+            
+            showNotification('An unexpected error occurred', 'error');
+        });
+
+        // Unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            
+            // Don't show notification for cancelled operations
+            if (event.reason?.message?.includes('aborted')) {
+                return;
+            }
+            
+            showNotification('An unexpected error occurred', 'error');
+            event.preventDefault();
+        });
+
+        // Page visibility handler to pause updates when hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                console.log('Page hidden, pausing updates');
+                // Cancel any pending operations
+                if (debouncedUpdateMap.cancel) {
+                    debouncedUpdateMap.cancel();
+                }
+            } else {
+                console.log('Page visible, resuming updates');
+                // Check if data is stale
+                if (Date.now() - state.lastUpdateTime > 300000) { // 5 minutes
+                    showNotification('Page was inactive. Consider refreshing data.', 'info', 5000);
+                }
+            }
+        });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function(e) {
+            if (state.dirtyData.size > 0) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        });
+
+        // Memory cleanup on unload
+        window.addEventListener('unload', function() {
+            // Clean up map resources
+            if (state.map) {
+                state.map.remove();
+            }
+            
+            // Clear all data structures
+            state.markers = [];
+            state.markerLookup.clear();
+            state.coordinateLookup.clear();
+            state.selectedMarkers.clear();
+            state.dirtyData.clear();
+        });
+
+        // Expose limited API for debugging
+        window.dogWalkingMapDebug = {
+            getState: () => ({ ...state }),
+            getConfig: () => ({ ...CONFIG }),
+            clearCache: () => {
+                if (createMarkerIcon.iconCache) {
+                    createMarkerIcon.iconCache.clear();
+                }
+                console.log('Cache cleared');
+            },
+            getMarkerCount: () => state.markers.length,
+            getSelectedCount: () => state.selectedMarkers.size,
+            getDirtyCount: () => state.dirtyData.size,
+            testAppsScript: async () => {
+                try {
+                    const response = await fetch(CONFIG.APPS_SCRIPT_URL);
+                    const text = await response.text();
+                    console.log('Apps Script response:', text);
+                } catch (error) {
+                    console.error('Apps Script test failed:', error);
+                }
+            }
+        };
+
+        console.log('Dog Walking Map application loaded. Version: 2.1.0-debugged');
     </script>
 </body>
 </html>
