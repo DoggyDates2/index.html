@@ -1821,11 +1821,14 @@
                         </div>
                         <div class="bulk-edit-controls">
                             <input type="text" id="bulkCombinedInput" class="bulk-edit-input" 
-                                   placeholder="New Combined value (e.g., 'Driver Name:2')"
+                                   placeholder="New driver name (groups will be preserved)"
                                    autocomplete="off" />
                             <button class="btn btn-primary" onclick="bulkUpdateSelected()" 
                                     id="bulkUpdateBtn">💾 Update All</button>
                             <button class="btn btn-secondary" onclick="clearSelection()">✖️ Cancel</button>
+                        </div>
+                        <div style="font-size: 11px; color: #666; margin-top: 8px;">
+                            Note: Each dog will keep their current group number
                         </div>
                     </div>
                 `;
@@ -1881,17 +1884,10 @@
                 return;
             }
             
-            const newCombined = bulkInput.value.trim();
+            const newDriverName = bulkInput.value.trim();
             
-            if (!newCombined) {
-                showNotification('Please enter a Combined value', 'error');
-                bulkInput.focus();
-                return;
-            }
-            
-            // Validate combined format
-            if (!newCombined.match(/^[^:]+:\d+$/)) {
-                showNotification('Combined value must be in format "Driver Name:Group" (e.g., "John Doe:2")', 'error');
+            if (!newDriverName) {
+                showNotification('Please enter a driver name', 'error');
                 bulkInput.focus();
                 return;
             }
@@ -1928,7 +1924,18 @@
                     return;
                 }
                 
-                if (!confirm(`Update ${validSelectedRows.length} dogs with Combined value: "${newCombined}"?\n\nThis action cannot be undone.`)) {
+                // Show what will be changed
+                const previewChanges = validSelectedRows.slice(0, 3).map(row => {
+                    const oldCombined = row['Combined'] || '';
+                    const colonIndex = oldCombined.lastIndexOf(':');
+                    const groupPart = colonIndex > -1 ? oldCombined.substring(colonIndex) : '';
+                    const newCombined = newDriverName + groupPart;
+                    return `${oldCombined} → ${newCombined}`;
+                }).join('\n');
+                
+                const moreText = validSelectedRows.length > 3 ? `\n...and ${validSelectedRows.length - 3} more` : '';
+                
+                if (!confirm(`Update ${validSelectedRows.length} dogs with driver name: "${newDriverName}"?\n\nPreview:\n${previewChanges}${moreText}\n\nThis action cannot be undone.`)) {
                     return;
                 }
                 
@@ -1939,17 +1946,22 @@
                 // Prepare bulk update data
                 const updates = [];
                 rowIndices.forEach((actualIndex, i) => {
+                    const row = validSelectedRows[i];
+                    const oldCombined = row['Combined'] || '';
+                    const colonIndex = oldCombined.lastIndexOf(':');
+                    const groupPart = colonIndex > -1 ? oldCombined.substring(colonIndex) : '';
+                    const newCombined = newDriverName + groupPart;
+                    
                     updates.push({
                         rowIndex: actualIndex,
                         updatedData: { 'Combined': newCombined }
                     });
+                    
+                    // Update local data
+                    row['Combined'] = newCombined;
+                    
                     // Mark as dirty
                     state.dirtyData.add(actualIndex);
-                });
-                
-                // Update local data first
-                validSelectedRows.forEach(row => {
-                    row['Combined'] = newCombined;
                 });
                 
                 // Send to Google Sheets
@@ -1966,7 +1978,7 @@
                         const result = await callAppsScript(payload);
                         
                         if (result.success) {
-                            updateStatus(`✅ Bulk updated ${validSelectedRows.length} records: ${newCombined}`, 'success');
+                            updateStatus(`✅ Bulk updated ${validSelectedRows.length} records with driver: ${newDriverName}`, 'success');
                             showNotification('Bulk update completed successfully', 'success');
                             
                             // Clear dirty flags
@@ -1986,7 +1998,7 @@
                         }
                     }
                 } else {
-                    updateStatus(`✅ Bulk updated ${validSelectedRows.length} records locally: ${newCombined}`, 'success');
+                    updateStatus(`✅ Bulk updated ${validSelectedRows.length} records locally with driver: ${newDriverName}`, 'success');
                     showNotification('Bulk update completed (local only - no Apps Script URL)', 'info');
                 }
                 
@@ -2843,9 +2855,11 @@
                         ${row['Callout'] ? `<div class="dog-info" style="background: #fff3cd; padding: 5px; border-radius: 3px; margin: 8px 0;">📝 <strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
                         
                         <div style="margin-top: 12px; margin-bottom: 8px;">
-                            <label for="editCombined" style="font-weight: bold; display: block; margin-bottom: 4px;">Combined (Driver:Group):</label>
-                            <input type="text" id="editCombined" value="${escapeHtml(row['Combined'] || '')}" 
-                                   placeholder="e.g., John Doe:2"
+                            <label for="editCombined" style="font-weight: bold; display: block; margin-bottom: 4px;">
+                                Driver Name (Group ${row['Combined'] ? row['Combined'].split(':').pop() || '?' : '?'} will be preserved):
+                            </label>
+                            <input type="text" id="editCombined" value="${escapeHtml(row['Combined'] ? row['Combined'].split(':')[0] : '')}" 
+                                   placeholder="Driver name only (e.g., John Doe)"
                                    style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
                                    autocomplete="off">
                         </div>
@@ -3031,14 +3045,7 @@
                 return;
             }
             
-            const newCombined = editInput.value.trim();
-            
-            // Validate format (allow empty value)
-            if (newCombined && !newCombined.match(/^[^:]+:\d+$/)) {
-                showNotification('Combined value must be in format "Driver Name:Group" (e.g., "John Doe:2")', 'error');
-                editInput.focus();
-                return;
-            }
+            const newDriverName = editInput.value.trim();
             
             if (!state.selectedRow || typeof index !== 'number' || !state.allData || !state.allData[index]) {
                 updateStatus('❌ Error: Invalid selection', 'error');
@@ -3055,8 +3062,20 @@
                 state.isUpdating = true;
                 if (saveBtn) saveBtn.disabled = true;
                 
+                // Get the current combined value to extract the group number
+                const oldCombined = state.selectedRow['Combined'] || '';
+                const colonIndex = oldCombined.lastIndexOf(':');
+                
+                // Extract the group number (or default to empty)
+                let groupPart = '';
+                if (colonIndex > -1) {
+                    groupPart = oldCombined.substring(colonIndex); // Includes the colon
+                }
+                
+                // Create the new combined value by joining the new driver name with the existing group
+                const newCombined = newDriverName ? newDriverName + groupPart : groupPart.substring(1); // Remove colon if no driver
+                
                 // Update local data
-                const oldValue = state.selectedRow['Combined'];
                 state.selectedRow['Combined'] = newCombined;
                 state.allData[actualIndex]['Combined'] = newCombined;
                 state.dirtyData.add(actualIndex);
@@ -3091,8 +3110,8 @@
                         
                         // Optionally revert changes
                         if (confirm('Save failed. Do you want to revert the changes?')) {
-                            state.selectedRow['Combined'] = oldValue;
-                            state.allData[actualIndex]['Combined'] = oldValue;
+                            state.selectedRow['Combined'] = oldCombined;
+                            state.allData[actualIndex]['Combined'] = oldCombined;
                             state.dirtyData.delete(actualIndex);
                         }
                     }
