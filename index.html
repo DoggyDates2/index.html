@@ -449,7 +449,8 @@
         .dog-info {
             font-size: 12px;
             color: #666;
-            margin: 5px 0;
+            margin: 2px 0;
+            line-height: 1.3;
         }
 
         .shape-legend {
@@ -695,6 +696,7 @@
         /* Custom popup styles */
         .custom-popup {
             font-size: 13px;
+            line-height: 1.3;
         }
         
         .custom-popup strong {
@@ -702,8 +704,8 @@
         }
         
         .leaflet-popup-content {
-            margin: 13px 19px;
-            line-height: 1.4;
+            margin: 10px 15px;
+            line-height: 1.3;
         }
         
         /* High contrast mode support */
@@ -2469,16 +2471,19 @@
                                         return;
                                     }
 
-                                    const groupText = group ? `Group ${group}` : 'No Group';
+                                    // Get driver name
+                                    const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
+                                    const driverName = colonIndex > -1 ? 
+                                        row['Combined'].substring(0, colonIndex).trim() : 
+                                        (row['Combined'] || '').trim();
+                                    
                                     const isDirty = state.dirtyData.has(originalIndex);
                                     const popupContent = `
-                                        <strong>🐕 ${escapeHtml(row['Dog Name'] || 'Unknown')}</strong><br>
-                                        <strong>🏷️ ${escapeHtml(row['Combined'] || 'No Driver')}</strong><br>
-                                        <strong>📋 ${groupText}</strong>${isDirty ? ' <em>(modified)</em>' : ''}<br>
+                                        <strong>${escapeHtml(row['Dog Name'] || 'Unknown')} - ${group || '?'}</strong><br>
+                                        ${driverName ? escapeHtml(driverName) + '<br>' : ''}
                                         ${row['Address'] ? escapeHtml(row['Address']) + '<br>' : ''}
-                                        ${row['District'] ? escapeHtml(row['District']) + '<br>' : ''}
-                                        ${row['Capacity'] ? 'Capacity: ' + escapeHtml(row['Capacity']) + '<br>' : ''}
-                                        ${row['Callout'] ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${escapeHtml(row['Callout'])}</span><br>` : ''}
+                                        ${row['Capacity'] ? escapeHtml(row['Capacity']) + '<br>' : ''}
+                                        ${row['Callout'] ? `<strong style="background: yellow; padding: 2px;">CALLOUT: ${escapeHtml(row['Callout'])}</strong><br>` : ''}
                                         ${existingCount > 0 ? `<em>⚠️ ${existingCount + 1} dogs at this location</em>` : ''}
                                     `;
 
@@ -2837,34 +2842,35 @@
                     console.warn('Error updating marker icon:', iconError);
                 }
 
-                // Update details panel
+                // Update details panel with simplified display
                 try {
                     const actualIndex = state.allData.indexOf(row);
-                    const groupText = group ? `Group ${group}` : 'No Group';
                     const isDirty = state.dirtyData.has(actualIndex);
                     
+                    // Get driver name
+                    const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
+                    const driverName = colonIndex > -1 ? 
+                        row['Combined'].substring(0, colonIndex).trim() : 
+                        (row['Combined'] || '').trim();
+                    
                     const detailsHtml = `
-                        <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
-                            ${escapeHtml(row['Dog Name'] || 'Unknown')} (${groupText})
+                        <div class="dog-info" style="font-weight: bold; color: #333;">
+                            ${escapeHtml(row['Dog Name'] || 'Unknown')} - ${group || '?'}
                             ${isDirty ? '<span style="color: #dc3545;"> • Modified</span>' : ''}
                         </div>
+                        ${driverName ? `<div class="dog-info">${escapeHtml(driverName)}</div>` : ''}
+                        ${row['Address'] ? `<div class="dog-info">${escapeHtml(row['Address'])}</div>` : ''}
+                        ${row['Capacity'] ? `<div class="dog-info">${escapeHtml(row['Capacity'])}</div>` : ''}
+                        ${row['Callout'] ? `<div class="dog-info" style="background: #fff3cd; padding: 4px; border-radius: 3px; margin: 4px 0;"><strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
                         
-                        ${row['Address'] ? `<div class="dog-info">📍 ${escapeHtml(row['Address'])}</div>` : ''}
-                        ${row['District'] ? `<div class="dog-info">🗺️ ${escapeHtml(row['District'])}</div>` : ''}
-                        ${row['Capacity'] ? `<div class="dog-info">📊 Capacity: ${escapeHtml(row['Capacity'])}</div>` : ''}
-                        ${row['Callout'] ? `<div class="dog-info" style="background: #fff3cd; padding: 5px; border-radius: 3px; margin: 8px 0;">📝 <strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
-                        
-                        <div style="margin-top: 12px; margin-bottom: 8px;">
-                            <label for="editCombined" style="font-weight: bold; display: block; margin-bottom: 4px;">
-                                Driver Name (Group ${row['Combined'] ? row['Combined'].split(':').pop() || '?' : '?'} will be preserved):
-                            </label>
-                            <input type="text" id="editCombined" value="${escapeHtml(row['Combined'] ? row['Combined'].split(':')[0] : '')}" 
-                                   placeholder="Driver name only (e.g., John Doe)"
+                        <div style="margin-top: 8px;">
+                            <input type="text" id="editCombined" value="${escapeHtml(driverName)}" 
+                                   placeholder="Driver name"
                                    style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
                                    autocomplete="off">
                         </div>
                         
-                        <div style="display: flex; gap: 4px;">
+                        <div style="display: flex; gap: 4px; margin-top: 6px;">
                             <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" 
                                     id="saveBtn" style="flex: 1; padding: 6px 8px; font-size: 12px;">
                                 💾 Save
@@ -3134,360 +3140,3 @@
                         }
                     }
                 }
-                
-            } catch (error) {
-                console.error('Error in saveCombinedName:', error);
-                updateStatus(`❌ Save failed: ${error.message}`, 'error');
-                showNotification(`Save failed: ${error.message}`, 'error', 5000);
-            } finally {
-                state.isUpdating = false;
-                if (saveBtn) saveBtn.disabled = false;
-            }
-        }
-
-        // Cancel edit
-        function cancelEdit() {
-            if (state.selectedMarker && state.selectedRow) {
-                const markerData = state.markers.find(m => m && m.marker === state.selectedMarker);
-                if (markerData) {
-                    const index = state.allData.indexOf(state.selectedRow);
-                    selectMarker(state.selectedMarker, state.selectedRow, index, markerData.group);
-                }
-            }
-        }
-
-        // Refresh data with state preservation
-        async function refreshData() {
-            if (state.refreshInProgress) {
-                showNotification('Refresh already in progress', 'info');
-                return;
-            }
-            
-            // Check for unsaved changes
-            if (state.dirtyData.size > 0) {
-                if (!confirm(`You have ${state.dirtyData.size} unsaved changes. Refreshing will lose these changes. Continue?`)) {
-                    return;
-                }
-            }
-            
-            try {
-                state.refreshInProgress = true;
-                
-                // Animate refresh button
-                const refreshIcon = document.getElementById('refreshIcon');
-                if (refreshIcon) {
-                    refreshIcon.style.animation = 'spin 1s linear infinite';
-                }
-                
-                // Reset operation state
-                state.isUpdating = false;
-                state.operationId = getOperationId();
-                
-                // Exit selection mode if active
-                if (state.selectionMode) {
-                    state.selectionMode = false;
-                    const btn = document.getElementById('selectionModeBtn');
-                    const clearBtn = document.getElementById('clearSelectionBtn');
-                    if (btn) {
-                        btn.textContent = '🎯 Select Mode';
-                        btn.classList.remove('selection-mode-active');
-                        btn.disabled = false;
-                    }
-                    if (clearBtn) {
-                        clearBtn.style.display = 'none';
-                    }
-                    await disableDrawingTools();
-                }
-                
-                // Clear selections but preserve filters
-                state.selectedMarker = null;
-                state.selectedRow = null;
-                state.selectedMarkers.clear();
-                state.dirtyData.clear();
-                
-                // Reset UI
-                const detailsContent = document.getElementById('detailsContent');
-                if (detailsContent) {
-                    detailsContent.innerHTML = '<div class="no-selection">Click a marker on the map to see details, or use Select Mode to choose multiple markers</div>';
-                }
-                
-                const bulkEditPanel = document.getElementById('bulkEditPanel');
-                if (bulkEditPanel) {
-                    bulkEditPanel.style.display = 'none';
-                }
-                
-                // Reload data
-                await loadData();
-                
-                showNotification('Data refreshed successfully', 'success');
-                
-            } catch (error) {
-                console.error('Error refreshing data:', error);
-                showNotification('Error refreshing data', 'error');
-            } finally {
-                state.refreshInProgress = false;
-                
-                // Stop animation
-                const refreshIcon = document.getElementById('refreshIcon');
-                if (refreshIcon) {
-                    refreshIcon.style.animation = '';
-                }
-            }
-        }
-
-        // Update status with HTML support
-        function updateStatus(message, type = '') {
-            const status = document.getElementById('status');
-            const statusText = document.getElementById('statusText');
-            
-            if (status && statusText) {
-                statusText.innerHTML = message;
-                status.className = `status ${type}`;
-            }
-        }
-
-        // Initialize application
-        document.addEventListener('DOMContentLoaded', function() {
-            try {
-                console.log('DOM loaded, initializing application...');
-                
-                // Check browser compatibility
-                const requiredFeatures = [
-                    'Promise' in window,
-                    'fetch' in window,
-                    'Map' in window,
-                    'Set' in window,
-                    'requestAnimationFrame' in window
-                ];
-                
-                const missingFeatures = requiredFeatures.filter((feature, index) => {
-                    const featureName = ['Promise', 'fetch', 'Map', 'Set', 'requestAnimationFrame'][index];
-                    if (!eval(feature)) {
-                        console.error(`Missing required feature: ${featureName}`);
-                        return true;
-                    }
-                    return false;
-                });
-                
-                if (missingFeatures.length > 0) {
-                    updateStatus('Your browser is missing required features. Please use a modern browser.', 'error');
-                    showNotification('Browser compatibility issue detected', 'error', 0);
-                    return;
-                }
-                
-                // Validate required DOM elements
-                const requiredElements = [
-                    'map', 'colorBy', 'searchInput', 'status', 'statusText',
-                    'legendContent', 'detailsContent', 'bulkEditPanel',
-                    'selectionModeBtn', 'clearSelectionBtn', 'leftPanel',
-                    'panelToggle', 'refreshIcon'
-                ];
-                
-                const missingElements = requiredElements.filter(id => !document.getElementById(id));
-                
-                if (missingElements.length > 0) {
-                    console.error('Missing required DOM elements:', missingElements);
-                    updateStatus('Application initialization failed - missing interface elements', 'error');
-                    showNotification('Critical error: Missing interface elements', 'error', 0);
-                    return;
-                }
-                
-                // Add keyboard shortcuts
-                document.addEventListener('keydown', function(e) {
-                    // Escape key
-                    if (e.key === 'Escape') {
-                        if (state.selectionMode) {
-                            toggleSelectionMode();
-                        } else if (state.selectedMarker) {
-                            state.selectedMarker = null;
-                            state.selectedRow = null;
-                            updateMap();
-                            const detailsContent = document.getElementById('detailsContent');
-                            if (detailsContent) {
-                                detailsContent.innerHTML = '<div class="no-selection">Click a marker on the map to see details, or use Select Mode to choose multiple markers</div>';
-                            }
-                        }
-                    }
-                    
-                    // Ctrl/Cmd + F for search focus
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-                        e.preventDefault();
-                        const searchInput = document.getElementById('searchInput');
-                        if (searchInput) {
-                            searchInput.focus();
-                            searchInput.select();
-                        }
-                    }
-                    
-                    // Ctrl/Cmd + R for refresh
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-                        e.preventDefault();
-                        refreshData();
-                    }
-                });
-                
-                // Initialize map
-                initMap();
-                
-                // Load initial data
-                loadData();
-                
-                // Set up periodic auto-save reminder
-                setInterval(() => {
-                    if (state.dirtyData.size > 0) {
-                        showNotification(`${state.dirtyData.size} unsaved changes`, 'info', 3000);
-                    }
-                }, 60000); // Every minute
-                
-                console.log('Application initialized successfully');
-                
-            } catch (error) {
-                console.error('Error during application initialization:', error);
-                updateStatus('Application initialization failed', 'error');
-                showNotification('Failed to initialize application', 'error', 0);
-            }
-        });
-
-        // Global error handler
-        window.addEventListener('error', function(event) {
-            console.error('Global error:', event.error);
-            console.error('Stack:', event.error?.stack);
-            
-            // Don't show notification for network errors during normal operation
-            if (event.error?.message?.includes('fetch')) {
-                return;
-            }
-            
-            showNotification('An unexpected error occurred', 'error');
-        });
-
-        // Unhandled promise rejection handler
-        window.addEventListener('unhandledrejection', function(event) {
-            console.error('Unhandled promise rejection:', event.reason);
-            
-            // Don't show notification for cancelled operations
-            if (event.reason?.message?.includes('aborted')) {
-                return;
-            }
-            
-            showNotification('An unexpected error occurred', 'error');
-            event.preventDefault();
-        });
-
-        // Page visibility handler to pause updates when hidden
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                console.log('Page hidden, pausing updates');
-                // Cancel any pending operations
-                if (debouncedUpdateMap.cancel) {
-                    debouncedUpdateMap.cancel();
-                }
-            } else {
-                console.log('Page visible, resuming updates');
-                // Check if data is stale
-                if (Date.now() - state.lastUpdateTime > 300000) { // 5 minutes
-                    showNotification('Page was inactive. Consider refreshing data.', 'info', 5000);
-                }
-            }
-        });
-
-        // Handle page unload
-        window.addEventListener('beforeunload', function(e) {
-            if (state.dirtyData.size > 0) {
-                e.preventDefault();
-                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-                return e.returnValue;
-            }
-        });
-
-        // Memory cleanup on unload
-        window.addEventListener('unload', function() {
-            // Clean up map resources
-            if (state.map) {
-                state.map.remove();
-            }
-            
-            // Clear all data structures
-            state.markers = [];
-            state.markerLookup.clear();
-            state.coordinateLookup.clear();
-            state.selectedMarkers.clear();
-            state.dirtyData.clear();
-        });
-
-        // Expose limited API for debugging
-        window.dogWalkingMapDebug = {
-            getState: () => ({ ...state }),
-            getConfig: () => ({ ...CONFIG }),
-            clearCache: () => {
-                if (createMarkerIcon.iconCache) {
-                    createMarkerIcon.iconCache.clear();
-                }
-                console.log('Cache cleared');
-            },
-            getMarkerCount: () => state.markers.length,
-            getSelectedCount: () => state.selectedMarkers.size,
-            getDirtyCount: () => state.dirtyData.size,
-            testAppsScript: async () => {
-                try {
-                    console.log('Testing Apps Script connection...');
-                    const testPayload = {
-                        action: 'getAllData'
-                    };
-                    
-                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(testPayload)
-                    });
-                    
-                    const text = await response.text();
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', response.headers);
-                    console.log('Response text:', text);
-                    
-                    try {
-                        const json = JSON.parse(text);
-                        console.log('Parsed response:', json);
-                        
-                        if (json.success) {
-                            console.log('✅ Apps Script connection successful!');
-                            console.log('Row count:', json.data?.rowCount);
-                        } else {
-                            console.error('❌ Apps Script returned error:', json.message);
-                        }
-                    } catch (e) {
-                        console.error('Failed to parse response as JSON:', e);
-                        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-                            console.error('Apps Script is returning HTML. Check deployment settings.');
-                        }
-                    }
-                } catch (error) {
-                    console.error('Apps Script test failed:', error);
-                }
-            },
-            testSaveOperation: async () => {
-                try {
-                    console.log('Testing save operation...');
-                    const testPayload = {
-                        action: 'updateRow',
-                        rowIndex: 0,
-                        updatedData: { 'Combined': 'Test Driver:1' },
-                        timestamp: Date.now()
-                    };
-                    
-                    const result = await callAppsScript(testPayload);
-                    console.log('Save test result:', result);
-                } catch (error) {
-                    console.error('Save test failed:', error);
-                }
-            }
-        };
-
-        console.log('Dog Walking Map application loaded. Version: 3.0.0');
-        console.log('Use dogWalkingMapDebug.testAppsScript() to test the connection');
-    </script>
-</body>
-</html>
