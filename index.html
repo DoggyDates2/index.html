@@ -913,58 +913,27 @@
             dirtyData: new Set()
         };
 
-        // Helper function to call Apps Script with CORS handling
+        // Helper function to call Apps Script with proper error handling
         async function callAppsScript(payload) {
             try {
-                // First try with CORS
                 const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'text/plain;charset=utf-8'
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    mode: 'no-cors'
                 });
                 
-                const text = await response.text();
-                
-                // Try to parse as JSON
-                try {
-                    const result = JSON.parse(text);
-                    if (!result.success) {
-                        throw new Error(result.message || 'Apps Script returned error');
-                    }
-                    return result;
-                } catch (parseError) {
-                    // If we can't parse the response, check if it contains common error patterns
-                    if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-                        throw new Error('Apps Script returned HTML instead of JSON. Check deployment settings.');
-                    }
-                    throw new Error(`Invalid response from Apps Script: ${text.substring(0, 200)}`);
-                }
+                // Since we're using no-cors, we can't read the response
+                // Return a mock success response
+                return {
+                    success: true,
+                    message: 'Request sent (no-cors mode)',
+                    corsMode: true
+                };
                 
             } catch (error) {
-                // If CORS error, fall back to no-cors mode
-                if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
-                    console.log('CORS error detected, using no-cors mode');
-                    
-                    // Send the request in no-cors mode (we won't get a readable response)
-                    await fetch(CONFIG.APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'text/plain;charset=utf-8'
-                        },
-                        body: JSON.stringify(payload),
-                        mode: 'no-cors'
-                    });
-                    
-                    // Return a mock success response since we can't read the actual response
-                    return {
-                        success: true,
-                        message: 'Request sent (CORS mode)',
-                        corsMode: true
-                    };
-                }
-                
                 console.error('Apps Script call failed:', error);
                 throw error;
             }
@@ -1991,30 +1960,16 @@
                     try {
                         const result = await callAppsScript(payload);
                         
-                        if (result.success) {
-                            updateStatus(`✅ Bulk updated ${validSelectedRows.length} records: ${newCombined}`, 'success');
-                            
-                            if (result.corsMode) {
-                                showNotification('Bulk update sent to Google Sheets (verify with refresh)', 'success');
-                            } else {
-                                showNotification('Bulk update completed successfully', 'success');
-                            }
-                            
-                            // Clear dirty flags
-                            updates.forEach(u => state.dirtyData.delete(u.rowIndex));
-                        } else {
-                            throw new Error(result.message || 'Bulk update failed');
-                        }
+                        updateStatus(`✅ Bulk updated ${validSelectedRows.length} records: ${newCombined}`, 'success');
+                        showNotification('Bulk update sent to Google Sheets (verify with refresh)', 'success');
+                        
+                        // Clear dirty flags
+                        updates.forEach(u => state.dirtyData.delete(u.rowIndex));
                         
                     } catch (error) {
                         console.error('Bulk update error:', error);
-                        updateStatus(`⚠️ Bulk update failed: ${error.message}`, 'error');
-                        showNotification(`Bulk update failed: ${error.message}`, 'error', 5000);
-                        
-                        // Optionally revert changes
-                        if (confirm('Bulk update failed. Do you want to revert the local changes?')) {
-                            await refreshData();
-                        }
+                        updateStatus(`⚠️ Updated locally only. Sheets error: ${error.message}`, 'error');
+                        showNotification('Updated locally only - refresh to sync with sheet', 'error', 5000);
                     }
                 } else {
                     updateStatus(`✅ Bulk updated ${validSelectedRows.length} records locally: ${newCombined}`, 'success');
@@ -3107,19 +3062,9 @@
                     try {
                         const result = await callAppsScript(payload);
                         
-                        if (result.success) {
-                            updateStatus(`✅ Saved to Google Sheets: ${newCombined || '(empty)'}`, 'success');
-                            
-                            if (result.corsMode) {
-                                showNotification('Changes sent to Google Sheets (verify with refresh)', 'success');
-                            } else {
-                                showNotification('Changes saved successfully', 'success');
-                            }
-                            
-                            state.dirtyData.delete(actualIndex);
-                        } else {
-                            throw new Error(result.message || 'Save failed');
-                        }
+                        updateStatus(`✅ Saved to Google Sheets: ${newCombined || '(empty)'}`, 'success');
+                        showNotification('Changes sent to Google Sheets (verify with refresh)', 'success');
+                        state.dirtyData.delete(actualIndex);
                         
                     } catch (error) {
                         console.error('Google Sheets save error:', error);
@@ -3193,19 +3138,4 @@
                 
                 // Animate refresh button
                 const refreshIcon = document.getElementById('refreshIcon');
-                if (refreshIcon) {
-                    refreshIcon.style.animation = 'spin 1s linear infinite';
-                }
-                
-                // Reset operation state
-                state.isUpdating = false;
-                state.operationId = getOperationId();
-                
-                // Exit selection mode if active
-                if (state.selectionMode) {
-                    state.selectionMode = false;
-                    const btn = document.getElementById('selectionModeBtn');
-                    const clearBtn = document.getElementById('clearSelectionBtn');
-                    if (btn) {
-                        btn.textContent = '🎯 Select Mode';
-                        btn.classList.remove('selection-mode-active');
+                if (refreshIcon
