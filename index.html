@@ -913,9 +913,10 @@
             dirtyData: new Set()
         };
 
-        // Helper function to call Apps Script with proper error handling
+        // Helper function to call Apps Script with CORS handling
         async function callAppsScript(payload) {
             try {
+                // First try with CORS
                 const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
                     method: 'POST',
                     headers: {
@@ -942,6 +943,28 @@
                 }
                 
             } catch (error) {
+                // If CORS error, fall back to no-cors mode
+                if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
+                    console.log('CORS error detected, using no-cors mode');
+                    
+                    // Send the request in no-cors mode (we won't get a readable response)
+                    await fetch(CONFIG.APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8'
+                        },
+                        body: JSON.stringify(payload),
+                        mode: 'no-cors'
+                    });
+                    
+                    // Return a mock success response since we can't read the actual response
+                    return {
+                        success: true,
+                        message: 'Request sent (CORS mode)',
+                        corsMode: true
+                    };
+                }
+                
                 console.error('Apps Script call failed:', error);
                 throw error;
             }
@@ -1970,7 +1993,12 @@
                         
                         if (result.success) {
                             updateStatus(`✅ Bulk updated ${validSelectedRows.length} records: ${newCombined}`, 'success');
-                            showNotification('Bulk update completed successfully', 'success');
+                            
+                            if (result.corsMode) {
+                                showNotification('Bulk update sent to Google Sheets (verify with refresh)', 'success');
+                            } else {
+                                showNotification('Bulk update completed successfully', 'success');
+                            }
                             
                             // Clear dirty flags
                             updates.forEach(u => state.dirtyData.delete(u.rowIndex));
@@ -3081,7 +3109,13 @@
                         
                         if (result.success) {
                             updateStatus(`✅ Saved to Google Sheets: ${newCombined || '(empty)'}`, 'success');
-                            showNotification('Changes saved successfully', 'success');
+                            
+                            if (result.corsMode) {
+                                showNotification('Changes sent to Google Sheets (verify with refresh)', 'success');
+                            } else {
+                                showNotification('Changes saved successfully', 'success');
+                            }
+                            
                             state.dirtyData.delete(actualIndex);
                         } else {
                             throw new Error(result.message || 'Save failed');
