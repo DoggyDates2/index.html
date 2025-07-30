@@ -2033,9 +2033,6 @@
                                     id="bulkUpdateBtn">💾 Update All</button>
                             <button class="btn btn-secondary" onclick="clearSelection()">✖️ Cancel</button>
                         </div>
-                        <div style="font-size: 11px; color: #666; margin-top: 8px;">
-                            Note: Each dog will keep their current group number
-                        </div>
                     </div>
                 `;
                 
@@ -2995,9 +2992,6 @@
                         ${row['Callout'] ? `<div class="dog-info" style="background: #fff3cd; padding: 5px; border-radius: 3px; margin: 8px 0;"><strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
                         
                         <div style="margin-top: 12px; margin-bottom: 8px;">
-                            <label for="editCombined" style="font-weight: bold; display: block; margin-bottom: 4px;">
-                                Driver Name (Group ${row['Combined'] ? row['Combined'].split(':').pop() || '?' : '?'} will be preserved):
-                            </label>
                             <input type="text" id="editCombined" value="${escapeHtml(row['Combined'] ? row['Combined'].split(':')[0] : '')}" 
                                    placeholder="Driver name only (e.g., John Doe)"
                                    style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
