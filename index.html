@@ -296,7 +296,7 @@
         }, 5000);
 
         // Initialize application
-        document.addEventListener('DOMContentLoaded', function() {
+        function initializeApp() {
             try {
                 console.log('DOM loaded, initializing application...');
                 
@@ -399,7 +399,7 @@
                 updateStatus('Application initialization failed', 'error');
                 showNotification('Failed to initialize application', 'error', 0);
             }
-        });
+        }
 
         // Global error handler
         window.addEventListener('error', function(event) {
