@@ -2615,13 +2615,11 @@
                                     const isDirty = state.dirtyData.has(originalIndex);
                                     
                                     const popupContent = `
-                                        <strong>🐕 ${escapeHtml(row['Dog Name'] || 'Unknown')}</strong><br>
-                                        <strong>🏷️ ${escapeHtml(row['Combined'] || 'No Driver')}</strong><br>
-                                        <strong>📋 ${groupText}</strong>${isDirty ? ' <em>(modified)</em>' : ''}<br>
+                                        <strong>${escapeHtml(row['Combined'] || 'No Driver')}</strong><br>
+                                        ${escapeHtml(row['Dog Name'] || 'Unknown')}<br>
                                         ${row['Address'] ? escapeHtml(row['Address']) + '<br>' : ''}
-                                        ${row['District'] ? escapeHtml(row['District']) + '<br>' : ''}
-                                        ${row['Capacity'] ? 'Capacity: ' + escapeHtml(row['Capacity']) + '<br>' : ''}
-                                        ${row['Callout'] ? `<strong>📝 CALLOUT:</strong> <span style="background: yellow; padding: 2px;">${escapeHtml(row['Callout'])}</span><br>` : ''}
+                                        ${row['Capacity'] ? escapeHtml(row['Capacity']) + '<br>' : ''}
+                                        ${row['Callout'] ? `<div style="background: #fff3cd; padding: 4px; border-radius: 3px; margin-top: 4px;"><strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
                                         ${existingCount > 0 ? `<em>⚠️ ${existingCount + 1} dogs at this location</em>` : ''}
                                     `;
 
@@ -2988,14 +2986,13 @@
                     
                     const detailsHtml = `
                         <div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px;">
-                            ${escapeHtml(row['Dog Name'] || 'Unknown')} (${groupText})
-                            ${isDirty ? '<span style="color: #dc3545;"> • Modified</span>' : ''}
+                            ${escapeHtml(row['Combined'] || 'No Driver')}
                         </div>
                         
-                        ${row['Address'] ? `<div class="dog-info">📍 ${escapeHtml(row['Address'])}</div>` : ''}
-                        ${row['District'] ? `<div class="dog-info">🗺️ ${escapeHtml(row['District'])}</div>` : ''}
-                        ${row['Capacity'] ? `<div class="dog-info">📊 Capacity: ${escapeHtml(row['Capacity'])}</div>` : ''}
-                        ${row['Callout'] ? `<div class="dog-info" style="background: #fff3cd; padding: 5px; border-radius: 3px; margin: 8px 0;">📝 <strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
+                        <div class="dog-info">${escapeHtml(row['Dog Name'] || 'Unknown')}</div>
+                        ${row['Address'] ? `<div class="dog-info">${escapeHtml(row['Address'])}</div>` : ''}
+                        ${row['Capacity'] ? `<div class="dog-info">${escapeHtml(row['Capacity'])}</div>` : ''}
+                        ${row['Callout'] ? `<div class="dog-info" style="background: #fff3cd; padding: 5px; border-radius: 3px; margin: 8px 0;"><strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
                         
                         <div style="margin-top: 12px; margin-bottom: 8px;">
                             <label for="editCombined" style="font-weight: bold; display: block; margin-bottom: 4px;">
