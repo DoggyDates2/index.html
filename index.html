@@ -1433,7 +1433,7 @@
                 
                 color = validateAndNormalizeColor(color);
                 
-                const strokeColor = isInSelection ? '#007bff' : '#000000';
+                const strokeColor = hasCallout ? '#ff0000' : (isInSelection ? '#007bff' : '#000000');
                 const strokeWidth = isSelected ? 3 : (isInSelection ? 3 : 2);
                 const size = isInSelection ? 20 : 16;
                 
