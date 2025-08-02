@@ -1947,7 +1947,10 @@
                     if (!colorBy) return;
                     
                     let color;
-                    if (colorBy.value === 'Combined') {
+                    // Check if Combined contains ***UNASSIGNED
+                    if (markerData.row['Combined'] && markerData.row['Combined'].includes('***UNASSIGNED')) {
+                        color = '#000000'; // Black for unassigned
+                    } else if (colorBy.value === 'Combined') {
                         const colonIndex = markerData.row['Combined'] ? 
                             markerData.row['Combined'].lastIndexOf(':') : -1;
                         const driverName = colonIndex > -1 ? 
