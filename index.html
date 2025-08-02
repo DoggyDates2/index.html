@@ -2596,7 +2596,7 @@
                                     const isInSelection = dogId && state.selectedMarkers.has(dogId);
                                     
                                     const marker = L.marker([offsetLat, offsetLng], {
-                                        icon: createMarkerIcon(color, isSelected, 'group', group, isInSelection, row['Dog Name']),
+                                        icon: createMarkerIcon(color, isSelected, 'group', group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim()),
                                         riseOnHover: true,
                                         title: row['Dog Name'] || 'Unknown'
                                     });
