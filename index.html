@@ -182,7 +182,7 @@
             border-bottom: 1px solid #e1e5e9;
             padding: 8px;
             overflow-y: auto;
-            max-height: 400px;
+            flex: 1;
             scrollbar-width: thin;
             scrollbar-color: #ccc #f8f9fa;
         }
@@ -286,11 +286,14 @@
         }
 
         .edit-section {
-            flex: 1;
-            padding: 8px;
+            padding: 6px;
             overflow-y: auto;
+            flex-shrink: 0;
+            min-height: 80px;
+            max-height: 120px;
             scrollbar-width: thin;
             scrollbar-color: #ccc #f8f9fa;
+            border-top: 1px solid #e1e5e9;
         }
 
         .edit-section::-webkit-scrollbar {
@@ -316,8 +319,9 @@
             text-align: center;
             color: #6c757d;
             font-style: italic;
-            margin-top: 20px;
-            padding: 0 10px;
+            margin-top: 5px;
+            padding: 0 5px;
+            font-size: 11px;
         }
 
         .btn {
@@ -861,7 +865,7 @@
             <div class="edit-section">
                 <div id="bulkEditPanel" style="display: none;" role="region" aria-label="Bulk edit panel"></div>
                 <div id="detailsContent" class="no-selection" role="region" aria-label="Dog details">
-                    Click a marker on the map to see details, or use Select Mode to choose multiple markers
+                    Click a marker to edit
                 </div>
             </div>
         </div>
@@ -3301,7 +3305,7 @@
                 // Reset UI
                 const detailsContent = document.getElementById('detailsContent');
                 if (detailsContent) {
-                    detailsContent.innerHTML = '<div class="no-selection">Click a marker on the map to see details, or use Select Mode to choose multiple markers</div>';
+                    detailsContent.innerHTML = '<div class="no-selection">Click a marker to edit</div>';
                 }
                 
                 const bulkEditPanel = document.getElementById('bulkEditPanel');
@@ -3407,13 +3411,13 @@
                     if (e.key === 'Escape') {
                         if (state.selectionMode) {
                             toggleSelectionMode();
-                        } else if (state.selectedMarker) {
+                        } else                         if (state.selectedMarker) {
                             state.selectedMarker = null;
                             state.selectedRow = null;
                             updateMap();
                             const detailsContent = document.getElementById('detailsContent');
                             if (detailsContent) {
-                                detailsContent.innerHTML = '<div class="no-selection">Click a marker on the map to see details, or use Select Mode to choose multiple markers</div>';
+                                detailsContent.innerHTML = '<div class="no-selection">Click a marker to edit</div>';
                             }
                         }
                     }
