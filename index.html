@@ -1403,7 +1403,7 @@
             const iconCache = new Map();
             const maxCacheSize = 1000;
             
-            return function(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false, dogName = null) {
+            return function(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false, dogName = null, hasCallout = false) {
                 // Special handling for Park and Field - use diamond shape
                 if (dogName && (dogName.toLowerCase() === 'park' || dogName.toLowerCase() === 'field')) {
                     const isPark = dogName.toLowerCase() === 'park';
@@ -1957,7 +1957,7 @@
                         color = state.colorMap[markerData.row[colorBy.value]] || '#999999';
                     }
                     
-                    const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection, markerData.row ? markerData.row['Dog Name'] : null);
+                    const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection, markerData.row ? markerData.row['Dog Name'] : null, markerData.row && markerData.row['Callout'] && markerData.row['Callout'].trim());
                     updates.push({ marker: markerData.marker, icon: newIcon });
                 } catch (error) {
                     console.error('Error updating marker display:', error);
