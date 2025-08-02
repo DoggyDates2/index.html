@@ -1425,7 +1425,7 @@
                     });
                 }
                 
-                const cacheKey = `${color}_${isSelected}_${markerType}_${group}_${isInSelection}`;
+                const cacheKey = `${color}_${isSelected}_${markerType}_${group}_${isInSelection}_${hasCallout}`;
                 
                 if (iconCache.has(cacheKey)) {
                     return iconCache.get(cacheKey);
