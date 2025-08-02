@@ -1947,8 +1947,8 @@
                     if (!colorBy) return;
                     
                     let color;
-                    // Check if Combined contains ***UNASSIGNED
-                    if (markerData.row['Combined'] && markerData.row['Combined'].includes('***UNASSIGNED')) {
+                    // Check if Combined contains "Unassigned" (case-insensitive)
+                    if (markerData.row['Combined'] && markerData.row['Combined'].toLowerCase().includes('unassigned')) {
                         color = '#000000'; // Black for unassigned
                     } else if (colorBy.value === 'Combined') {
                         const colonIndex = markerData.row['Combined'] ? 
@@ -2579,8 +2579,8 @@
 
                                     let color = '#999999';
                                     try {
-                                        // Check if Combined contains ***UNASSIGNED
-                                        if (row['Combined'] && row['Combined'].includes('***UNASSIGNED')) {
+                                        // Check if Combined contains "Unassigned" (case-insensitive)
+                                        if (row['Combined'] && row['Combined'].toLowerCase().includes('unassigned')) {
                                             color = '#000000'; // Black for unassigned
                                         } else if (colorBy === 'Combined') {
                                             const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
@@ -3607,7 +3607,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map application loaded. Version: 3.1.2 (Park=white, Field=black diamonds)');
+        console.log('Dog Walking Map application loaded. Version: 3.1.2 (Unassigned markers = black)');
         console.log('Use dogWalkingMapDebug.testAppsScript() to test the connection');
     </script>
 </body>
