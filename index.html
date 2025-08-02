@@ -3194,3 +3194,416 @@
                 // Extract the group number (or default to empty)
                 let groupPart = '';
                 if (colonIndex > -1) {
+                    groupPart = oldCombined.substring(colonIndex); // Includes the colon
+                }
+                
+                // Create the new combined value
+                const newCombined = newDriverName ? newDriverName + groupPart : groupPart.substring(1);
+                
+                // Update local data IMMEDIATELY
+                state.selectedRow['Combined'] = newCombined;
+                state.allData[actualIndex]['Combined'] = newCombined;
+                state.dirtyData.add(actualIndex);
+                
+                // Update UI IMMEDIATELY
+                assignDriverColors();
+                updateMap();
+                
+                // Show success feedback IMMEDIATELY
+                showNotification('Updated! Saving to Google Sheets...', 'success', 2000);
+                
+                // Refresh the selected marker display IMMEDIATELY
+                if (state.selectedMarker) {
+                    const markerData = state.markers.find(m => m && m.marker === state.selectedMarker);
+                    if (markerData) {
+                        const newGroup = getGroupFromCombined(newCombined);
+                        selectMarker(state.selectedMarker, state.selectedRow, actualIndex, newGroup);
+                    }
+                }
+                
+                // Queue the save to happen in the background
+                queueSave({
+                    type: 'single',
+                    rowIndex: actualIndex,
+                    updatedData: { 'Combined': newCombined },
+                    oldData: { 'Combined': oldCombined } // Store old data for potential revert
+                });
+                
+            } catch (error) {
+                console.error('Error in saveCombinedName:', error);
+                showNotification(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Cancel edit
+        function cancelEdit() {
+            if (state.selectedMarker && state.selectedRow) {
+                const markerData = state.markers.find(m => m && m.marker === state.selectedMarker);
+                if (markerData) {
+                    const index = state.allData.indexOf(state.selectedRow);
+                    selectMarker(state.selectedMarker, state.selectedRow, index, markerData.group);
+                }
+            }
+        }
+
+        // Refresh data with state preservation
+        async function refreshData() {
+            if (state.refreshInProgress) {
+                showNotification('Refresh already in progress', 'info');
+                return;
+            }
+            
+            // Check for unsaved changes
+            if (state.dirtyData.size > 0 || state.pendingSaves.size > 0) {
+                if (!confirm(`You have ${state.dirtyData.size + state.pendingSaves.size} unsaved changes. Refreshing will lose these changes. Continue?`)) {
+                    return;
+                }
+            }
+            
+            try {
+                state.refreshInProgress = true;
+                
+                // Animate refresh button
+                const refreshIcon = document.getElementById('refreshIcon');
+                if (refreshIcon) {
+                    refreshIcon.style.animation = 'spin 1s linear infinite';
+                }
+                
+                // Reset operation state
+                state.isUpdating = false;
+                state.operationId = getOperationId();
+                
+                // Exit selection mode if active
+                if (state.selectionMode) {
+                    state.selectionMode = false;
+                    const btn = document.getElementById('selectionModeBtn');
+                    const clearBtn = document.getElementById('clearSelectionBtn');
+                    if (btn) {
+                        btn.textContent = '🎯 Select Mode';
+                        btn.classList.remove('selection-mode-active');
+                        btn.disabled = false;
+                    }
+                    if (clearBtn) {
+                        clearBtn.style.display = 'none';
+                    }
+                    await disableDrawingTools();
+                }
+                
+                // Clear selections but preserve filters
+                state.selectedMarker = null;
+                state.selectedRow = null;
+                state.selectedMarkers.clear();
+                state.dirtyData.clear();
+                state.pendingSaves.clear();
+                state.saveQueue = [];
+                state.failedSaves = [];
+                
+                // Reset UI
+                const detailsContent = document.getElementById('detailsContent');
+                if (detailsContent) {
+                    detailsContent.innerHTML = '<div class="no-selection">Click a marker on the map to see details, or use Select Mode to choose multiple markers</div>';
+                }
+                
+                const bulkEditPanel = document.getElementById('bulkEditPanel');
+                if (bulkEditPanel) {
+                    bulkEditPanel.style.display = 'none';
+                }
+                
+                // Reload data
+                await loadData();
+                
+                showNotification('Data refreshed successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                showNotification('Error refreshing data', 'error');
+            } finally {
+                state.refreshInProgress = false;
+                
+                // Stop animation
+                const refreshIcon = document.getElementById('refreshIcon');
+                if (refreshIcon) {
+                    refreshIcon.style.animation = '';
+                }
+            }
+        }
+
+        // Update status with HTML support
+        function updateStatus(message, type = '') {
+            const status = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+            
+            if (status && statusText) {
+                statusText.innerHTML = message;
+                status.className = `status ${type}`;
+            }
+        }
+
+        // Add periodic check for pending saves
+        setInterval(() => {
+            if (state.pendingSaves.size > 0 && !state.isSaving) {
+                const pendingCount = state.pendingSaves.size;
+                console.log(`${pendingCount} saves pending...`);
+                
+                // Show indicator if many saves are pending
+                if (pendingCount > 5) {
+                    updateSaveIndicator('saving', `${pendingCount} saves pending...`);
+                }
+            }
+        }, 5000);
+
+        // Initialize application
+        function initializeApp() {
+            try {
+                console.log('DOM loaded, initializing application...');
+                
+                // Check browser compatibility
+                const requiredFeatures = [
+                    'Promise' in window,
+                    'fetch' in window,
+                    'Map' in window,
+                    'Set' in window,
+                    'requestAnimationFrame' in window
+                ];
+                
+                const missingFeatures = requiredFeatures.filter((feature, index) => {
+                    const featureName = ['Promise', 'fetch', 'Map', 'Set', 'requestAnimationFrame'][index];
+                    if (!eval(feature)) {
+                        console.error(`Missing required feature: ${featureName}`);
+                        return true;
+                    }
+                    return false;
+                });
+                
+                if (missingFeatures.length > 0) {
+                    updateStatus('Your browser is missing required features. Please use a modern browser.', 'error');
+                    showNotification('Browser compatibility issue detected', 'error', 0);
+                    return;
+                }
+                
+                // Validate required DOM elements
+                const requiredElements = [
+                    'map', 'colorBy', 'searchInput', 'status', 'statusText',
+                    'legendContent', 'detailsContent', 'bulkEditPanel',
+                    'selectionModeBtn', 'clearSelectionBtn', 'leftPanel',
+                    'panelToggle', 'refreshIcon'
+                ];
+                
+                const missingElements = requiredElements.filter(id => !document.getElementById(id));
+                
+                if (missingElements.length > 0) {
+                    console.error('Missing required DOM elements:', missingElements);
+                    updateStatus('Application initialization failed - missing interface elements', 'error');
+                    showNotification('Critical error: Missing interface elements', 'error', 0);
+                    return;
+                }
+                
+                // Create save indicator
+                createSaveIndicator();
+                
+                // Add keyboard shortcuts
+                document.addEventListener('keydown', function(e) {
+                    // Escape key
+                    if (e.key === 'Escape') {
+                        if (state.selectionMode) {
+                            toggleSelectionMode();
+                        } else if (state.selectedMarker) {
+                            state.selectedMarker = null;
+                            state.selectedRow = null;
+                            updateMap();
+                            const detailsContent = document.getElementById('detailsContent');
+                            if (detailsContent) {
+                                detailsContent.innerHTML = '<div class="no-selection">Click a marker on the map to see details, or use Select Mode to choose multiple markers</div>';
+                            }
+                        }
+                    }
+                    
+                    // Ctrl/Cmd + F for search focus
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                        e.preventDefault();
+                        const searchInput = document.getElementById('searchInput');
+                        if (searchInput) {
+                            searchInput.focus();
+                            searchInput.select();
+                        }
+                    }
+                    
+                    // Ctrl/Cmd + R for refresh
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                        e.preventDefault();
+                        refreshData();
+                    }
+                });
+                
+                // Initialize map
+                initMap();
+                
+                // Load initial data
+                loadData();
+                
+                // Set up periodic auto-save reminder
+                setInterval(() => {
+                    if (state.dirtyData.size > 0 || state.pendingSaves.size > 0) {
+                        const totalUnsaved = state.dirtyData.size + state.pendingSaves.size;
+                        showNotification(`${totalUnsaved} unsaved changes`, 'info', 3000);
+                    }
+                }, 60000); // Every minute
+                
+                console.log('Application initialized successfully');
+                
+            } catch (error) {
+                console.error('Error during application initialization:', error);
+                updateStatus('Application initialization failed', 'error');
+                showNotification('Failed to initialize application', 'error', 0);
+            }
+        }
+
+        // Global error handler
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+            console.error('Stack:', event.error?.stack);
+            
+            // Don't show notification for network errors during normal operation
+            if (event.error?.message?.includes('fetch')) {
+                return;
+            }
+            
+            showNotification('An unexpected error occurred', 'error');
+        });
+
+        // Unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            
+            // Don't show notification for cancelled operations
+            if (event.reason?.message?.includes('aborted')) {
+                return;
+            }
+            
+            showNotification('An unexpected error occurred', 'error');
+            event.preventDefault();
+        });
+
+        // Page visibility handler to pause updates when hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                console.log('Page hidden, pausing updates');
+                // Cancel any pending operations
+                if (debouncedUpdateMap.cancel) {
+                    debouncedUpdateMap.cancel();
+                }
+            } else {
+                console.log('Page visible, resuming updates');
+                // Check if data is stale
+                if (Date.now() - state.lastUpdateTime > 300000) { // 5 minutes
+                    showNotification('Page was inactive. Consider refreshing data.', 'info', 5000);
+                }
+            }
+        });
+
+        // Handle page unload - updated to check for pending saves
+        window.addEventListener('beforeunload', function(e) {
+            if (state.pendingSaves.size > 0 || state.dirtyData.size > 0) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        });
+
+        // Memory cleanup on unload
+        window.addEventListener('unload', function() {
+            // Clean up map resources
+            if (state.map) {
+                state.map.remove();
+            }
+            
+            // Clear all data structures
+            state.markers = [];
+            state.markerLookup.clear();
+            state.coordinateLookup.clear();
+            state.selectedMarkers.clear();
+            state.dirtyData.clear();
+            state.pendingSaves.clear();
+        });
+
+        // Expose limited API for debugging
+        window.dogWalkingMapDebug = {
+            getState: () => ({ ...state }),
+            getConfig: () => ({ ...CONFIG }),
+            clearCache: () => {
+                if (createMarkerIcon.iconCache) {
+                    createMarkerIcon.iconCache.clear();
+                }
+                console.log('Cache cleared');
+            },
+            getMarkerCount: () => state.markers.length,
+            getSelectedCount: () => state.selectedMarkers.size,
+            getDirtyCount: () => state.dirtyData.size,
+            getPendingSavesCount: () => state.pendingSaves.size,
+            getSaveQueueLength: () => state.saveQueue.length,
+            testAppsScript: async () => {
+                try {
+                    console.log('Testing Apps Script connection...');
+                    const testPayload = {
+                        action: 'getAllData'
+                    };
+                    
+                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(testPayload)
+                    });
+                    
+                    const text = await response.text();
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    console.log('Response text:', text);
+                    
+                    try {
+                        const json = JSON.parse(text);
+                        console.log('Parsed response:', json);
+                        
+                        if (json.success) {
+                            console.log('✅ Apps Script connection successful!');
+                            console.log('Row count:', json.data?.rowCount);
+                        } else {
+                            console.error('❌ Apps Script returned error:', json.message);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse response as JSON:', e);
+                        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                            console.error('Apps Script is returning HTML. Check deployment settings.');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Apps Script test failed:', error);
+                }
+            },
+            testSaveOperation: async () => {
+                try {
+                    console.log('Testing save operation...');
+                    const testPayload = {
+                        action: 'updateRow',
+                        rowIndex: 0,
+                        updatedData: { 'Combined': 'Test Driver:1' },
+                        timestamp: Date.now()
+                    };
+                    
+                    const result = await callAppsScript(testPayload);
+                    console.log('Save test result:', result);
+                } catch (error) {
+                    console.error('Save test failed:', error);
+                }
+            }
+        };
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        console.log('Dog Walking Map application loaded. Version: 3.1.2 (Simplified details panel)');
+        console.log('Use dogWalkingMapDebug.testAppsScript() to test the connection');
+    </script>
+</body>
+</html>
