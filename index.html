@@ -2576,7 +2576,10 @@
 
                                     let color = '#999999';
                                     try {
-                                        if (colorBy === 'Combined') {
+                                        // Check if Combined contains ***UNASSIGNED
+                                        if (row['Combined'] && row['Combined'].includes('***UNASSIGNED')) {
+                                            color = '#000000'; // Black for unassigned
+                                        } else if (colorBy === 'Combined') {
                                             const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
                                             const driverName = colonIndex > -1 ? 
                                                 row['Combined'].substring(0, colonIndex).trim() : '';
