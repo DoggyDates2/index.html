@@ -2942,7 +2942,7 @@
                                 
                                 const dogId = getDogId(prevData.row);
                                 const isInSelection = dogId && state.selectedMarkers.has(dogId);
-                                state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row ? prevData.row['Dog Name'] : null));
+                                state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row ? prevData.row['Dog Name'] : null, prevData.row && prevData.row['Callout'] && prevData.row['Callout'].trim()));
                             }
                         } catch (clearError) {
                             console.warn('Error clearing previous marker:', clearError);
@@ -2969,7 +2969,7 @@
                         
                         const dogId = getDogId(row);
                         const isInSelection = dogId && state.selectedMarkers.has(dogId);
-                        marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row ? row['Dog Name'] : null));
+                        marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row ? row['Dog Name'] : null, row && row['Callout'] && row['Callout'].trim()));
                     }
                 } catch (iconError) {
                     console.warn('Error updating marker icon:', iconError);
