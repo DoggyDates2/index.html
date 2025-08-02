@@ -2988,24 +2988,24 @@
                     const dogName = row['Dog Name'] || 'Unknown';
                     
                     const detailsHtml = `
-                        <div style="font-weight: bold; color: #333; margin-bottom: 12px; font-size: 16px; text-align: center; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                        <div style="font-weight: bold; color: #333; margin-bottom: 6px; font-size: 13px; text-align: center; padding: 4px 6px; background: #f8f9fa; border-radius: 3px;">
                             ${escapeHtml(combinedName)} - ${escapeHtml(dogName)}
                         </div>
                         
-                        <div style="margin-bottom: 8px;">
+                        <div style="margin-bottom: 4px;">
                             <input type="text" id="editCombined" value="${escapeHtml(row['Combined'] ? row['Combined'].split(':')[0] : '')}" 
-                                   placeholder="Driver name only (e.g., John Doe)"
-                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+                                   placeholder="Driver name"
+                                   style="width: 100%; padding: 4px 6px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;"
                                    autocomplete="off">
                         </div>
                         
-                        <div style="display: flex; gap: 6px;">
+                        <div style="display: flex; gap: 3px;">
                             <button class="btn btn-primary" onclick="saveCombinedName(${actualIndex})" 
-                                    id="saveBtn" style="flex: 1; padding: 8px 12px; font-size: 13px;">
+                                    id="saveBtn" style="flex: 1; padding: 4px 6px; font-size: 11px;">
                                 💾 Save
                             </button>
                             <button class="btn btn-secondary" onclick="cancelEdit()" 
-                                    style="flex: 1; padding: 8px 12px; font-size: 13px;">
+                                    style="flex: 1; padding: 4px 6px; font-size: 11px;">
                                 ✖️ Cancel
                             </button>
                         </div>
