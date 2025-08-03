@@ -848,6 +848,10 @@
     
     <script>
         'use strict';
+        
+        // Basic JavaScript test
+        console.log('🚀 JavaScript is working! Starting Dog Walking Map...');
+        console.log('🔍 Checking Leaflet availability:', typeof L !== 'undefined' ? 'FOUND' : 'NOT FOUND');
 
         // Configuration
         const CONFIG = Object.freeze({
@@ -2092,9 +2096,21 @@
         // Initialize map with error handling
         function initMap() {
             try {
+                console.log('DEBUG: initMap() started');
+                
                 // Check if Leaflet is loaded
                 if (typeof L === 'undefined') {
+                    console.error('DEBUG: Leaflet library not loaded');
                     throw new Error('Leaflet library not loaded');
+                }
+                console.log('DEBUG: Leaflet library is loaded');
+                
+                const mapElement = document.getElementById('map');
+                console.log('DEBUG: Map element:', mapElement);
+                
+                if (!mapElement) {
+                    console.error('DEBUG: Map element not found');
+                    throw new Error('Map element not found');
                 }
                 
                 state.map = L.map('map', {
@@ -2104,6 +2120,8 @@
                     zoomControl: true,
                     attributionControl: true
                 });
+                
+                console.log('DEBUG: Leaflet map created:', state.map);
                 
                 // Add tile layer with fallback
                 const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -2118,6 +2136,7 @@
                 });
                 
                 tileLayer.addTo(state.map);
+                console.log('DEBUG: Tile layer added');
                 
                 // Handle map errors
                 state.map.on('error', function(e) {
@@ -2127,16 +2146,21 @@
 
                 // Event listeners with debouncing
                 const searchInputElement = document.getElementById('searchInput');
+                console.log('DEBUG: Search input element:', searchInputElement);
                 
                 if (searchInputElement) {
                     searchInputElement.addEventListener('input', debouncedUpdateMap);
                     searchInputElement.addEventListener('search', debouncedUpdateMap); // For clear button
+                    console.log('DEBUG: Search input event listeners added');
+                } else {
+                    console.error('DEBUG: Search input element not found!');
                 }
                 
                 console.log('Map initialized successfully');
                 
             } catch (error) {
                 console.error('Error initializing map:', error);
+                console.error('Stack trace:', error.stack);
                 updateStatus('Failed to initialize map', 'error');
                 showNotification('Failed to initialize map. Please refresh the page.', 'error', 0);
             }
@@ -2153,6 +2177,7 @@
             state.isUpdating = true;
             state.loadAttempts++;
             
+            console.log('DEBUG: loadData() started, attempt:', state.loadAttempts);
             updateStatus('<span class="spinner"></span> Loading data...', 'loading');
             
             try {
@@ -2161,6 +2186,7 @@
                     throw new Error('Sheet ID or API key not configured');
                 }
                 
+                console.log('DEBUG: Config validated, making API request...');
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
                 
                 const controller = new AbortController();
@@ -2193,7 +2219,9 @@
                     return res;
                 });
                 
+                console.log('DEBUG: API response received');
                 const data = await response.json();
+                console.log('DEBUG: Data parsed, rows:', data.values?.length);
                 
                 // Validate response structure
                 if (!data || typeof data !== 'object') {
@@ -2223,6 +2251,8 @@
                     console.warn(`Sheet has ${rows.length} rows, limiting to ${CONFIG.MAX_MARKERS}`);
                     rows.length = CONFIG.MAX_MARKERS;
                 }
+                
+                console.log('DEBUG: Processing', rows.length, 'data rows...');
                 
                 // Process data with validation
                 const processedData = [];
@@ -2268,6 +2298,8 @@
                     throw new Error('No valid data rows found after processing');
                 }
                 
+                console.log('DEBUG: Processed data - valid rows:', validRows, 'invalid rows:', invalidRows.length);
+                
                 // Only update if this is still the current operation
                 if (state.operationId <= currentOpId + 1) {
                     state.allData = processedData;
@@ -2288,16 +2320,20 @@
                         showNotification(`${invalidRows.length} rows skipped due to invalid data`, 'error', 5000);
                     }
                     
+                    console.log('DEBUG: About to assign driver colors...');
                     // Initialize and update
                     assignDriverColors();
+                    console.log('DEBUG: About to update map...');
                     updateMap();
                     
                     // Reset load attempts on success
                     state.loadAttempts = 0;
+                    console.log('DEBUG: loadData() completed successfully');
                 }
                 
             } catch (error) {
                 console.error('Data loading error:', error);
+                console.error('Stack trace:', error.stack);
                 
                 let userMessage = 'Error loading data';
                 let notificationDuration = 5000;
@@ -2347,6 +2383,7 @@
         // Update map with batching and optimization
         const updateMap = async function() {
             const currentOpId = getOperationId();
+            console.log('DEBUG: updateMap() started, operation ID:', currentOpId);
             
             try {
                 const searchInputElement = document.getElementById('searchInput');
@@ -2357,9 +2394,11 @@
                 }
                 
                 const searchTerm = searchInputElement.value.toLowerCase().trim();
+                console.log('DEBUG: Search term:', searchTerm);
 
                 // Handle empty data
                 if (!state.allData || state.allData.length === 0) {
+                    console.log('DEBUG: No data available, clearing map');
                     cleanupMarkers();
                     state.markers = [];
                     state.filteredData = [];
@@ -2371,6 +2410,8 @@
                     }
                     return;
                 }
+
+                console.log('DEBUG: All data count:', state.allData.length);
 
                 // Filter data efficiently
                 state.filteredData = state.allData.filter(row => {
@@ -2416,6 +2457,8 @@
                     }
                 });
 
+                console.log('DEBUG: Filtered data count:', state.filteredData.length);
+
                 // Build color map - always based on Combined
                 state.colorMap = {};
                 try {
@@ -2434,18 +2477,26 @@
                     uniqueValues.forEach(driver => {
                         state.colorMap[driver] = getDriverColor(driver);
                     });
+                    
+                    console.log('DEBUG: Color map built with', uniqueValues.size, 'drivers');
                 } catch (colorMapError) {
                     console.error('Error building color map:', colorMapError);
                     state.colorMap = { 'default': '#999999' };
                 }
 
                 // Only proceed if this is still the current operation
-                if (state.operationId !== currentOpId) return;
+                if (state.operationId !== currentOpId) {
+                    console.log('DEBUG: Operation changed, aborting');
+                    return;
+                }
 
                 // Clean up existing markers
+                console.log('DEBUG: Cleaning up existing markers');
                 cleanupMarkers();
                 state.markers = [];
                 state.coordinateLookup.clear();
+
+                console.log('DEBUG: About to create markers for', state.filteredData.length, 'items');
 
                 // Create markers in batches for better performance
                 const batchSize = CONFIG.BATCH_SIZE;
@@ -2457,6 +2508,8 @@
                     const start = batch * batchSize;
                     const end = Math.min(start + batchSize, state.filteredData.length);
                     const batchData = state.filteredData.slice(start, end);
+                    
+                    console.log(`DEBUG: Processing batch ${batch + 1}/${totalBatches}, items ${start}-${end}`);
                     
                     // Process batch
                     await new Promise(resolve => {
@@ -2507,7 +2560,7 @@
                                     });
 
                                     // Only add to map if operation hasn't changed
-                                    if (state.operationId === currentOpId) {
+                                    if (state.operationId === currentOpId && state.map) {
                                         marker.addTo(state.map);
                                     } else {
                                         return;
@@ -2600,8 +2653,11 @@
                     }
                 }
 
+                console.log('DEBUG: Created', state.markers.length, 'markers');
+
                 // Only update UI if this is still the current operation
                 if (state.operationId === currentOpId) {
+                    console.log('DEBUG: Updating legend...');
                     updateLegend();
                     
                     // Update selections
@@ -2633,10 +2689,13 @@
                     } else if (!state.selectionMode && !state.isUpdating) {
                         updateStatus(`Showing ${state.filteredData.length} of ${state.allData.length} locations`, 'success');
                     }
+                    
+                    console.log('DEBUG: updateMap() completed successfully');
                 }
                 
             } catch (error) {
                 console.error('Error in updateMap:', error);
+                console.error('Stack trace:', error.stack);
                 updateStatus('Error updating map display', 'error');
                 showNotification('Error updating map display', 'error');
             }
@@ -3116,6 +3175,7 @@
         function initializeApp() {
             try {
                 console.log('DOM loaded, initializing application...');
+                console.log('DEBUG: Starting initialization...');
                 
                 // Check browser compatibility
                 const requiredFeatures = [
@@ -3141,6 +3201,8 @@
                     return;
                 }
                 
+                console.log('DEBUG: Browser compatibility check passed');
+                
                 // Validate required DOM elements
                 const requiredElements = [
                     'map', 'searchInput', 'status', 'statusText',
@@ -3149,7 +3211,11 @@
                     'panelToggle'
                 ];
                 
-                const missingElements = requiredElements.filter(id => !document.getElementById(id));
+                const missingElements = requiredElements.filter(id => {
+                    const element = document.getElementById(id);
+                    console.log(`DEBUG: Checking element '${id}':`, element ? 'FOUND' : 'MISSING');
+                    return !element;
+                });
                 
                 if (missingElements.length > 0) {
                     console.error('Missing required DOM elements:', missingElements);
@@ -3158,8 +3224,11 @@
                     return;
                 }
                 
+                console.log('DEBUG: All required elements found');
+                
                 // Create save indicator
                 createSaveIndicator();
+                console.log('DEBUG: Save indicator created');
                 
                 // Add keyboard shortcuts
                 document.addEventListener('keydown', function(e) {
@@ -3188,12 +3257,17 @@
                         }
                     }
                 });
+                console.log('DEBUG: Keyboard shortcuts added');
                 
                 // Initialize map
+                console.log('DEBUG: About to initialize map...');
                 initMap();
+                console.log('DEBUG: Map initialization called');
                 
                 // Load initial data
+                console.log('DEBUG: About to load data...');
                 loadData();
+                console.log('DEBUG: Data loading called');
                 
                 // Set up periodic auto-save reminder
                 setInterval(() => {
@@ -3207,6 +3281,7 @@
                 
             } catch (error) {
                 console.error('Error during application initialization:', error);
+                console.error('Stack trace:', error.stack);
                 updateStatus('Application initialization failed', 'error');
                 showNotification('Failed to initialize application', 'error', 0);
             }
