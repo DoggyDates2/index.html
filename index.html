@@ -3195,4 +3195,16 @@
                 const missingElements = requiredElements.filter(id => !document.getElementById(id));
                 
                 if (missingElements.length > 0) {
-                    console.error
+                    console.error('Missing required DOM elements:', missingElements);
+                    updateStatus('Application initialization failed - missing interface elements', 'error');
+                    showNotification('Critical error: Missing interface elements', 'error', 0);
+                    return;
+                }
+                
+                // Create save indicator
+                createSaveIndicator();
+                
+                // Add keyboard shortcuts
+                document.addEventListener('keydown', function(e) {
+                    // Escape key
+                    if (e.key === '
