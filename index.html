@@ -456,22 +456,6 @@
             margin: 5px 0;
         }
 
-        .shape-legend {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            font-size: 12px;
-            color: #666;
-            margin-left: 10px;
-            margin-bottom: 10px;
-        }
-
-        .shape-legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
         .bulk-edit-panel {
             background: #f8f9fa;
             border: 2px solid #007bff;
@@ -828,14 +812,6 @@
             <button class="btn btn-danger" id="clearSelectionBtn" onclick="clearSelection()" 
                     style="display: none;" aria-label="Clear selection">✖️ Clear Selection</button>
         </div>
-
-        <div class="control-group">
-            <button class="btn btn-secondary" onclick="refreshData()" aria-label="Refresh data">
-                <span id="refreshIcon">🔄</span> Refresh
-            </button>
-            <button class="btn btn-secondary" onclick="showStats()" aria-label="Show statistics">📊 Stats</button>
-            <button class="btn btn-secondary" onclick="resetColors()" aria-label="Reset custom colors">🎨 Reset Colors</button>
-        </div>
     </div>
 
     <div class="main-content">
@@ -843,20 +819,6 @@
             <div class="legend-section">
                 <div style="text-align: center; margin-bottom: 6px;">
                     <button class="btn btn-clear" onclick="clearFilter()" style="width: 100%; padding: 6px 8px; font-size: 12px;">Show All</button>
-                </div>
-                
-                <div class="shape-legend">
-                    <div class="shape-legend-item">⭕ Group 1</div>
-                    <div class="shape-legend-item">▲ Group 2</div>
-                    <div class="shape-legend-item">■ Group 3</div>
-                    <div class="shape-legend-item">
-                        <svg width="12" height="12" viewBox="0 0 12 12" style="vertical-align: middle;">
-                            <path d="M6 1 L11 6 L6 11 L1 6 Z" fill="#FFFFFF" stroke="#666" stroke-width="1"/>
-                        </svg> Park / 
-                        <svg width="12" height="12" viewBox="0 0 12 12" style="vertical-align: middle;">
-                            <path d="M6 1 L11 6 L6 11 L1 6 Z" fill="#000000" stroke="#000" stroke-width="1"/>
-                        </svg> Field
-                    </div>
                 </div>
                 
                 <div id="legendContent" aria-live="polite">Loading...</div>
@@ -2910,20 +2872,6 @@
             showNotification(`Color updated for ${categoryName}`, 'success', 2000);
         }
 
-        // Reset colors
-        function resetColors() {
-            if (Object.keys(state.customColors).length === 0) {
-                showNotification('No custom colors to reset', 'info');
-                return;
-            }
-            
-            console.log('Resetting all custom colors');
-            state.customColors = {};
-            assignDriverColors();
-            updateMap();
-            showNotification('All custom colors reset', 'success');
-        }
-
         // Select marker with validation
         function selectMarker(marker, row, index, group) {
             if (!marker || !row || !state.map) {
@@ -3071,102 +3019,6 @@
             showNotification('All filters cleared', 'info', 2000);
         }
 
-        // Show statistics with enhanced formatting
-        function showStats() {
-            if (!state.allData || state.allData.length === 0) {
-                showNotification('No data available for statistics', 'error');
-                return;
-            }
-            
-            try {
-                const stats = {
-                    drivers: {},
-                    districts: {},
-                    groups: { 1: 0, 2: 0, 3: 0, 'None': 0 },
-                    callouts: 0,
-                    totalDogs: state.allData.length,
-                    avgDogsPerDriver: 0
-                };
-                
-                state.allData.forEach(row => {
-                    // Count drivers
-                    if (row['Combined']) {
-                        const colonIndex = row['Combined'].lastIndexOf(':');
-                        const driverName = colonIndex > -1 ? 
-                            row['Combined'].substring(0, colonIndex).trim() : 
-                            row['Combined'].trim();
-                        if (driverName) {
-                            stats.drivers[driverName] = (stats.drivers[driverName] || 0) + 1;
-                        }
-                    }
-                    
-                    // Count districts
-                    if (row['District'] && row['District'].trim()) {
-                        stats.districts[row['District']] = (stats.districts[row['District']] || 0) + 1;
-                    }
-                    
-                    // Count groups
-                    const group = getGroupFromCombined(row['Combined']);
-                    if (group && stats.groups[group] !== undefined) {
-                        stats.groups[group]++;
-                    } else {
-                        stats.groups['None']++;
-                    }
-                    
-                    // Count callouts
-                    if (row['Callout'] && row['Callout'].trim()) {
-                        stats.callouts++;
-                    }
-                });
-                
-                const driverCount = Object.keys(stats.drivers).length;
-                stats.avgDogsPerDriver = driverCount > 0 ? 
-                    Math.round(stats.totalDogs / driverCount * 10) / 10 : 0;
-                
-                let statsText = "📊 DOG WALKING STATISTICS\n";
-                statsText += "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
-                
-                statsText += `📈 SUMMARY:\n`;
-                statsText += `  Total Dogs: ${stats.totalDogs}\n`;
-                statsText += `  Total Drivers: ${driverCount}\n`;
-                statsText += `  Avg Dogs/Driver: ${stats.avgDogsPerDriver}\n`;
-                statsText += `  Dogs with Callouts: ${stats.callouts}\n\n`;
-                
-                statsText += "🔢 GROUPS:\n";
-                Object.entries(stats.groups).forEach(([group, count]) => {
-                    if (count > 0) {
-                        const percent = Math.round(count / stats.totalDogs * 100);
-                        const bar = '█'.repeat(Math.round(percent / 5));
-                        statsText += `  Group ${group}: ${count} dogs (${percent}%) ${bar}\n`;
-                    }
-                });
-                
-                statsText += "\n👤 TOP 10 DRIVERS:\n";
-                Object.entries(stats.drivers)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 10)
-                    .forEach(([name, count], index) => {
-                        statsText += `  ${index + 1}. ${name}: ${count} dogs\n`;
-                    });
-                
-                if (Object.keys(stats.districts).length > 0) {
-                    statsText += "\n🗺️ TOP DISTRICTS:\n";
-                    Object.entries(stats.districts)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 5)
-                        .forEach(([district, count]) => {
-                            const percent = Math.round(count / stats.totalDogs * 100);
-                            statsText += `  ${district}: ${count} dogs (${percent}%)\n`;
-                        });
-                }
-                
-                alert(statsText);
-            } catch (error) {
-                console.error('Error showing stats:', error);
-                showNotification('Error generating statistics', 'error');
-            }
-        }
-
         // Save combined name with async version
         async function saveCombinedName(index) {
             const editInput = document.getElementById('editCombined');
@@ -3267,12 +3119,6 @@
             try {
                 state.refreshInProgress = true;
                 
-                // Animate refresh button
-                const refreshIcon = document.getElementById('refreshIcon');
-                if (refreshIcon) {
-                    refreshIcon.style.animation = 'spin 1s linear infinite';
-                }
-                
                 // Reset operation state
                 state.isUpdating = false;
                 state.operationId = getOperationId();
@@ -3323,12 +3169,6 @@
                 showNotification('Error refreshing data', 'error');
             } finally {
                 state.refreshInProgress = false;
-                
-                // Stop animation
-                const refreshIcon = document.getElementById('refreshIcon');
-                if (refreshIcon) {
-                    refreshIcon.style.animation = '';
-                }
             }
         }
 
@@ -3390,7 +3230,7 @@
                     'map', 'colorBy', 'searchInput', 'status', 'statusText',
                     'legendContent', 'detailsContent', 'bulkEditPanel',
                     'selectionModeBtn', 'clearSelectionBtn', 'leftPanel',
-                    'panelToggle', 'refreshIcon'
+                    'panelToggle'
                 ];
                 
                 const missingElements = requiredElements.filter(id => !document.getElementById(id));
@@ -3430,12 +3270,6 @@
                             searchInput.focus();
                             searchInput.select();
                         }
-                    }
-                    
-                    // Ctrl/Cmd + R for refresh
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-                        e.preventDefault();
-                        refreshData();
                     }
                 });
                 
