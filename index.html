@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -290,7 +291,7 @@
             overflow-y: auto;
             flex-shrink: 0;
             min-height: 80px;
-            max-height: 300px;
+            max-height: 120px;
             scrollbar-width: thin;
             scrollbar-color: #ccc #f8f9fa;
             border-top: 1px solid #e1e5e9;
@@ -812,7 +813,8 @@
                    aria-label="Search for dogs, drivers, or addresses" autocomplete="off" />
         </div>
 
-        <div class="group-filters">
+        <div class="control-group group-filters">
+            <label>Show Groups:</label>
             <button class="group-filter-btn active" data-group="1" onclick="toggleGroupFilter(1)" 
                     aria-label="Toggle Group 1" aria-pressed="true">Group 1 ⭕</button>
             <button class="group-filter-btn active" data-group="2" onclick="toggleGroupFilter(2)" 
@@ -826,6 +828,14 @@
                     aria-label="Toggle selection mode">🎯 Select Mode</button>
             <button class="btn btn-danger" id="clearSelectionBtn" onclick="clearSelection()" 
                     style="display: none;" aria-label="Clear selection">✖️ Clear Selection</button>
+        </div>
+
+        <div class="control-group">
+            <button class="btn btn-secondary" onclick="refreshData()" aria-label="Refresh data">
+                <span id="refreshIcon">🔄</span> Refresh
+            </button>
+            <button class="btn btn-secondary" onclick="showStats()" aria-label="Show statistics">📊 Stats</button>
+            <button class="btn btn-secondary" onclick="resetColors()" aria-label="Reset custom colors">🎨 Reset Colors</button>
         </div>
     </div>
 
@@ -2901,6 +2911,20 @@
             showNotification(`Color updated for ${categoryName}`, 'success', 2000);
         }
 
+        // Reset colors
+        function resetColors() {
+            if (Object.keys(state.customColors).length === 0) {
+                showNotification('No custom colors to reset', 'info');
+                return;
+            }
+            
+            console.log('Resetting all custom colors');
+            state.customColors = {};
+            assignDriverColors();
+            updateMap();
+            showNotification('All custom colors reset', 'success');
+        }
+
         // Select marker with validation
         function selectMarker(marker, row, index, group) {
             if (!marker || !row || !state.map) {
@@ -3048,6 +3072,102 @@
             showNotification('All filters cleared', 'info', 2000);
         }
 
+        // Show statistics with enhanced formatting
+        function showStats() {
+            if (!state.allData || state.allData.length === 0) {
+                showNotification('No data available for statistics', 'error');
+                return;
+            }
+            
+            try {
+                const stats = {
+                    drivers: {},
+                    districts: {},
+                    groups: { 1: 0, 2: 0, 3: 0, 'None': 0 },
+                    callouts: 0,
+                    totalDogs: state.allData.length,
+                    avgDogsPerDriver: 0
+                };
+                
+                state.allData.forEach(row => {
+                    // Count drivers
+                    if (row['Combined']) {
+                        const colonIndex = row['Combined'].lastIndexOf(':');
+                        const driverName = colonIndex > -1 ? 
+                            row['Combined'].substring(0, colonIndex).trim() : 
+                            row['Combined'].trim();
+                        if (driverName) {
+                            stats.drivers[driverName] = (stats.drivers[driverName] || 0) + 1;
+                        }
+                    }
+                    
+                    // Count districts
+                    if (row['District'] && row['District'].trim()) {
+                        stats.districts[row['District']] = (stats.districts[row['District']] || 0) + 1;
+                    }
+                    
+                    // Count groups
+                    const group = getGroupFromCombined(row['Combined']);
+                    if (group && stats.groups[group] !== undefined) {
+                        stats.groups[group]++;
+                    } else {
+                        stats.groups['None']++;
+                    }
+                    
+                    // Count callouts
+                    if (row['Callout'] && row['Callout'].trim()) {
+                        stats.callouts++;
+                    }
+                });
+                
+                const driverCount = Object.keys(stats.drivers).length;
+                stats.avgDogsPerDriver = driverCount > 0 ? 
+                    Math.round(stats.totalDogs / driverCount * 10) / 10 : 0;
+                
+                let statsText = "📊 DOG WALKING STATISTICS\n";
+                statsText += "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                
+                statsText += `📈 SUMMARY:\n`;
+                statsText += `  Total Dogs: ${stats.totalDogs}\n`;
+                statsText += `  Total Drivers: ${driverCount}\n`;
+                statsText += `  Avg Dogs/Driver: ${stats.avgDogsPerDriver}\n`;
+                statsText += `  Dogs with Callouts: ${stats.callouts}\n\n`;
+                
+                statsText += "🔢 GROUPS:\n";
+                Object.entries(stats.groups).forEach(([group, count]) => {
+                    if (count > 0) {
+                        const percent = Math.round(count / stats.totalDogs * 100);
+                        const bar = '█'.repeat(Math.round(percent / 5));
+                        statsText += `  Group ${group}: ${count} dogs (${percent}%) ${bar}\n`;
+                    }
+                });
+                
+                statsText += "\n👤 TOP 10 DRIVERS:\n";
+                Object.entries(stats.drivers)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10)
+                    .forEach(([name, count], index) => {
+                        statsText += `  ${index + 1}. ${name}: ${count} dogs\n`;
+                    });
+                
+                if (Object.keys(stats.districts).length > 0) {
+                    statsText += "\n🗺️ TOP DISTRICTS:\n";
+                    Object.entries(stats.districts)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 5)
+                        .forEach(([district, count]) => {
+                            const percent = Math.round(count / stats.totalDogs * 100);
+                            statsText += `  ${district}: ${count} dogs (${percent}%)\n`;
+                        });
+                }
+                
+                alert(statsText);
+            } catch (error) {
+                console.error('Error showing stats:', error);
+                showNotification('Error generating statistics', 'error');
+            }
+        }
+
         // Save combined name with async version
         async function saveCombinedName(index) {
             const editInput = document.getElementById('editCombined');
@@ -3131,6 +3251,88 @@
             }
         }
 
+        // Refresh data with state preservation
+        async function refreshData() {
+            if (state.refreshInProgress) {
+                showNotification('Refresh already in progress', 'info');
+                return;
+            }
+            
+            // Check for unsaved changes
+            if (state.dirtyData.size > 0 || state.pendingSaves.size > 0) {
+                if (!confirm(`You have ${state.dirtyData.size + state.pendingSaves.size} unsaved changes. Refreshing will lose these changes. Continue?`)) {
+                    return;
+                }
+            }
+            
+            try {
+                state.refreshInProgress = true;
+                
+                // Animate refresh button
+                const refreshIcon = document.getElementById('refreshIcon');
+                if (refreshIcon) {
+                    refreshIcon.style.animation = 'spin 1s linear infinite';
+                }
+                
+                // Reset operation state
+                state.isUpdating = false;
+                state.operationId = getOperationId();
+                
+                // Exit selection mode if active
+                if (state.selectionMode) {
+                    state.selectionMode = false;
+                    const btn = document.getElementById('selectionModeBtn');
+                    const clearBtn = document.getElementById('clearSelectionBtn');
+                    if (btn) {
+                        btn.textContent = '🎯 Select Mode';
+                        btn.classList.remove('selection-mode-active');
+                        btn.disabled = false;
+                    }
+                    if (clearBtn) {
+                        clearBtn.style.display = 'none';
+                    }
+                    await disableDrawingTools();
+                }
+                
+                // Clear selections but preserve filters
+                state.selectedMarker = null;
+                state.selectedRow = null;
+                state.selectedMarkers.clear();
+                state.dirtyData.clear();
+                state.pendingSaves.clear();
+                state.saveQueue = [];
+                state.failedSaves = [];
+                
+                // Reset UI
+                const detailsContent = document.getElementById('detailsContent');
+                if (detailsContent) {
+                    detailsContent.innerHTML = '<div class="no-selection">Click a marker to edit</div>';
+                }
+                
+                const bulkEditPanel = document.getElementById('bulkEditPanel');
+                if (bulkEditPanel) {
+                    bulkEditPanel.style.display = 'none';
+                }
+                
+                // Reload data
+                await loadData();
+                
+                showNotification('Data refreshed successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                showNotification('Error refreshing data', 'error');
+            } finally {
+                state.refreshInProgress = false;
+                
+                // Stop animation
+                const refreshIcon = document.getElementById('refreshIcon');
+                if (refreshIcon) {
+                    refreshIcon.style.animation = '';
+                }
+            }
+        }
+
         // Update status with HTML support
         function updateStatus(message, type = '') {
             const status = document.getElementById('status');
@@ -3189,7 +3391,7 @@
                     'map', 'colorBy', 'searchInput', 'status', 'statusText',
                     'legendContent', 'detailsContent', 'bulkEditPanel',
                     'selectionModeBtn', 'clearSelectionBtn', 'leftPanel',
-                    'panelToggle'
+                    'panelToggle', 'refreshIcon'
                 ];
                 
                 const missingElements = requiredElements.filter(id => !document.getElementById(id));
@@ -3207,4 +3409,206 @@
                 // Add keyboard shortcuts
                 document.addEventListener('keydown', function(e) {
                     // Escape key
-                    if (e.key === '
+                    if (e.key === 'Escape') {
+                        if (state.selectionMode) {
+                            toggleSelectionMode();
+                        } else                         if (state.selectedMarker) {
+                            state.selectedMarker = null;
+                            state.selectedRow = null;
+                            updateMap();
+                            const detailsContent = document.getElementById('detailsContent');
+                            if (detailsContent) {
+                                detailsContent.innerHTML = '<div class="no-selection">Click a marker to edit</div>';
+                            }
+                        }
+                    }
+                    
+                    // Ctrl/Cmd + F for search focus
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                        e.preventDefault();
+                        const searchInput = document.getElementById('searchInput');
+                        if (searchInput) {
+                            searchInput.focus();
+                            searchInput.select();
+                        }
+                    }
+                    
+                    // Ctrl/Cmd + R for refresh
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                        e.preventDefault();
+                        refreshData();
+                    }
+                });
+                
+                // Initialize map
+                initMap();
+                
+                // Load initial data
+                loadData();
+                
+                // Set up periodic auto-save reminder
+                setInterval(() => {
+                    if (state.dirtyData.size > 0 || state.pendingSaves.size > 0) {
+                        const totalUnsaved = state.dirtyData.size + state.pendingSaves.size;
+                        showNotification(`${totalUnsaved} unsaved changes`, 'info', 3000);
+                    }
+                }, 60000); // Every minute
+                
+                console.log('Application initialized successfully');
+                
+            } catch (error) {
+                console.error('Error during application initialization:', error);
+                updateStatus('Application initialization failed', 'error');
+                showNotification('Failed to initialize application', 'error', 0);
+            }
+        }
+
+        // Global error handler
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+            console.error('Stack:', event.error?.stack);
+            
+            // Don't show notification for network errors during normal operation
+            if (event.error?.message?.includes('fetch')) {
+                return;
+            }
+            
+            showNotification('An unexpected error occurred', 'error');
+        });
+
+        // Unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            
+            // Don't show notification for cancelled operations
+            if (event.reason?.message?.includes('aborted')) {
+                return;
+            }
+            
+            showNotification('An unexpected error occurred', 'error');
+            event.preventDefault();
+        });
+
+        // Page visibility handler to pause updates when hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                console.log('Page hidden, pausing updates');
+                // Cancel any pending operations
+                if (debouncedUpdateMap.cancel) {
+                    debouncedUpdateMap.cancel();
+                }
+            } else {
+                console.log('Page visible, resuming updates');
+                // Check if data is stale
+                if (Date.now() - state.lastUpdateTime > 300000) { // 5 minutes
+                    showNotification('Page was inactive. Consider refreshing data.', 'info', 5000);
+                }
+            }
+        });
+
+        // Handle page unload - updated to check for pending saves
+        window.addEventListener('beforeunload', function(e) {
+            if (state.pendingSaves.size > 0 || state.dirtyData.size > 0) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        });
+
+        // Memory cleanup on unload
+        window.addEventListener('unload', function() {
+            // Clean up map resources
+            if (state.map) {
+                state.map.remove();
+            }
+            
+            // Clear all data structures
+            state.markers = [];
+            state.markerLookup.clear();
+            state.coordinateLookup.clear();
+            state.selectedMarkers.clear();
+            state.dirtyData.clear();
+            state.pendingSaves.clear();
+        });
+
+        // Expose limited API for debugging
+        window.dogWalkingMapDebug = {
+            getState: () => ({ ...state }),
+            getConfig: () => ({ ...CONFIG }),
+            clearCache: () => {
+                if (createMarkerIcon.iconCache) {
+                    createMarkerIcon.iconCache.clear();
+                }
+                console.log('Cache cleared');
+            },
+            getMarkerCount: () => state.markers.length,
+            getSelectedCount: () => state.selectedMarkers.size,
+            getDirtyCount: () => state.dirtyData.size,
+            getPendingSavesCount: () => state.pendingSaves.size,
+            getSaveQueueLength: () => state.saveQueue.length,
+            testAppsScript: async () => {
+                try {
+                    console.log('Testing Apps Script connection...');
+                    const testPayload = {
+                        action: 'getAllData'
+                    };
+                    
+                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(testPayload)
+                    });
+                    
+                    const text = await response.text();
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    console.log('Response text:', text);
+                    
+                    try {
+                        const json = JSON.parse(text);
+                        console.log('Parsed response:', json);
+                        
+                        if (json.success) {
+                            console.log('✅ Apps Script connection successful!');
+                            console.log('Row count:', json.data?.rowCount);
+                        } else {
+                            console.error('❌ Apps Script returned error:', json.message);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse response as JSON:', e);
+                        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                            console.error('Apps Script is returning HTML. Check deployment settings.');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Apps Script test failed:', error);
+                }
+            },
+            testSaveOperation: async () => {
+                try {
+                    console.log('Testing save operation...');
+                    const testPayload = {
+                        action: 'updateRow',
+                        rowIndex: 0,
+                        updatedData: { 'Combined': 'Test Driver:1' },
+                        timestamp: Date.now()
+                    };
+                    
+                    const result = await callAppsScript(testPayload);
+                    console.log('Save test result:', result);
+                } catch (error) {
+                    console.error('Save test failed:', error);
+                }
+            }
+        };
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        console.log('Dog Walking Map application loaded. Version: 3.1.2 (Simplified details panel)');
+        console.log('Use dogWalkingMapDebug.testAppsScript() to test the connection');
+    </script>
+</body>
+</html>
