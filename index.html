@@ -21,6 +21,83 @@
             box-sizing: border-box;
         }
 
+        // Debug API for testing
+        window.dogWalkingMapDebug = {
+            getState: () => ({ ...state }),
+            getConfig: () => ({ ...CONFIG }),
+            getMarkerCount: () => state.markers.length,
+            getSelectedCount: () => state.selectedMarkers.size,
+            getDirtyCount: () => state.dirtyData.size,
+            getPendingSavesCount: () => state.pendingSaves.size,
+            getSaveQueueLength: () => state.saveQueue.length,
+            testSave: async () => {
+                console.log('🧪 Testing save functionality...');
+                try {
+                    const testPayload = {
+                        action: 'bulkUpdate',
+                        updates: [{
+                            rowIndex: 0,
+                            updatedData: { 'Combined': 'Test Driver:1' }
+                        }],
+                        timestamp: Date.now()
+                    };
+                    
+                    console.log('📤 Sending test save payload:', testPayload);
+                    const result = await callAppsScript(testPayload);
+                    console.log('📥 Test save result:', result);
+                    
+                    if (result.success) {
+                        console.log('✅ Save functionality working!');
+                        alert('✅ Save test successful! Google Sheets integration is working.');
+                    } else {
+                        console.error('❌ Save test failed:', result.message);
+                        alert('❌ Save test failed: ' + result.message);
+                    }
+                } catch (error) {
+                    console.error('❌ Save test error:', error);
+                    alert('❌ Save test error: ' + error.message);
+                }
+            },
+            testAppsScript: async () => {
+                try {
+                    console.log('Testing Apps Script connection...');
+                    const testPayload = {
+                        action: 'getAllData'
+                    };
+                    
+                    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(testPayload)
+                    });
+                    
+                    const text = await response.text();
+                    console.log('Response status:', response.status);
+                    console.log('Response text:', text);
+                    
+                    try {
+                        const json = JSON.parse(text);
+                        console.log('Parsed response:', json);
+                        
+                        if (json.success) {
+                            console.log('✅ Apps Script connection successful!');
+                        } else {
+                            console.error('❌ Apps Script returned error:', json.message);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse response as JSON:', e);
+                        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                            console.error('Apps Script is returning HTML. Check deployment settings.');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Apps Script test failed:', error);
+                }
+            }
+        };
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: #f8f9fa;
@@ -780,7 +857,7 @@
             }
         }
 
-        function updateStatus(message, type = '') {
+            updateStatus(message, type = '') {
             const status = document.getElementById('status');
             const statusText = document.getElementById('statusText');
             
@@ -788,6 +865,171 @@
                 statusText.innerHTML = message;
                 status.className = `status ${type}`;
             }
+        }
+
+        // Google Sheets saving functionality
+        async function callAppsScript(payload) {
+            try {
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                const text = await response.text();
+                
+                try {
+                    const result = JSON.parse(text);
+                    if (!result.success) {
+                        throw new Error(result.message || 'Apps Script returned error');
+                    }
+                    return result;
+                } catch (parseError) {
+                    if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+                        throw new Error('Apps Script returned HTML instead of JSON. Check deployment settings.');
+                    }
+                    throw new Error(`Invalid response from Apps Script: ${text.substring(0, 200)}`);
+                }
+                
+            } catch (error) {
+                console.error('Apps Script call failed:', error);
+                throw error;
+            }
+        }
+
+        function createSaveIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'saveIndicator';
+            indicator.className = 'save-indicator';
+            indicator.style.display = 'none';
+            document.body.appendChild(indicator);
+            return indicator;
+        }
+
+        function updateSaveIndicator(status, message) {
+            let indicator = document.getElementById('saveIndicator');
+            if (!indicator) {
+                indicator = createSaveIndicator();
+            }
+            
+            indicator.style.display = 'flex';
+            indicator.className = `save-indicator ${status}`;
+            
+            if (status === 'saving') {
+                indicator.innerHTML = '<span class="spinner"></span><span>' + message + '</span>';
+            } else {
+                indicator.innerHTML = '<span>' + message + '</span>';
+            }
+            
+            if (status === 'saved' || status === 'error') {
+                setTimeout(() => {
+                    indicator.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        async function processSaveQueue() {
+            if (state.isSaving || state.saveQueue.length === 0) return;
+            
+            state.isSaving = true;
+            const batch = state.saveQueue.splice(0, 10); // Process up to 10 saves at a time
+            
+            try {
+                updateSaveIndicator('saving', `Saving ${batch.length} change${batch.length > 1 ? 's' : ''}...`);
+                
+                const updates = [];
+                const bulkUpdates = [];
+                
+                batch.forEach(save => {
+                    if (save.type === 'single') {
+                        updates.push({
+                            rowIndex: save.rowIndex,
+                            updatedData: save.updatedData
+                        });
+                    } else if (save.type === 'bulk') {
+                        bulkUpdates.push(...save.updates);
+                    }
+                });
+                
+                const allUpdates = [...updates, ...bulkUpdates];
+                
+                console.log('🔄 About to save to Google Sheets:', allUpdates.length, 'updates');
+                console.log('🔗 Apps Script URL:', CONFIG.APPS_SCRIPT_URL);
+                
+                if (allUpdates.length > 0 && CONFIG.APPS_SCRIPT_URL && !CONFIG.APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
+                    const payload = {
+                        action: 'bulkUpdate',
+                        updates: allUpdates,
+                        timestamp: Date.now()
+                    };
+                    
+                    console.log('📤 Sending payload to Apps Script:', payload);
+                    
+                    try {
+                        const result = await callAppsScript(payload);
+                        console.log('📥 Apps Script response:', result);
+                        
+                        if (result.success) {
+                            batch.forEach(save => {
+                                state.pendingSaves.delete(save.id);
+                                if (save.type === 'single') {
+                                    state.dirtyData.delete(save.rowIndex);
+                                } else if (save.type === 'bulk') {
+                                    save.updates.forEach(u => state.dirtyData.delete(u.rowIndex));
+                                }
+                            });
+                            
+                            updateSaveIndicator('saved', '✅ Changes saved to Google Sheets!');
+                            console.log('✅ Successfully saved to Google Sheets');
+                        } else {
+                            throw new Error(result.message || 'Save failed');
+                        }
+                    } catch (error) {
+                        console.error('❌ Apps Script save error:', error);
+                        
+                        batch.forEach(save => {
+                            save.retryCount = (save.retryCount || 0) + 1;
+                            if (save.retryCount < 3) {
+                                state.failedSaves.push(save);
+                                console.log(`⚠️ Queuing retry ${save.retryCount}/3 for save:`, save);
+                            } else {
+                                state.pendingSaves.delete(save.id);
+                                console.error('❌ Save permanently failed after 3 retries:', save);
+                            }
+                        });
+                        
+                        updateSaveIndicator('error', `⚠️ Save failed: ${error.message}`);
+                        showNotification(`Save failed: ${error.message}. Will retry in 5 seconds.`, 'error', 5000);
+                    }
+                } else {
+                    console.warn('⚠️ Apps Script URL not configured or invalid');
+                    updateSaveIndicator('error', '⚠️ Apps Script not configured');
+                    showNotification('Google Sheets saving not configured. Changes saved locally only.', 'error', 5000);
+                }
+            } finally {
+                state.isSaving = false;
+                
+                if (state.saveQueue.length > 0) {
+                    console.log('🔄 Processing remaining saves in queue...');
+                    setTimeout(() => processSaveQueue(), 100);
+                } else if (state.failedSaves.length > 0) {
+                    console.log('🔄 Retrying failed saves in 5 seconds...');
+                    state.saveQueue.push(...state.failedSaves);
+                    state.failedSaves = [];
+                    setTimeout(() => processSaveQueue(), 5000);
+                }
+            }
+        }
+
+        function queueSave(saveData) {
+            const saveId = `${saveData.type}_${saveData.rowIndex || 'bulk'}_${Date.now()}`;
+            saveData.id = saveId;
+            
+            console.log('📋 Queuing save:', saveData);
+            
+            state.pendingSaves.set(saveId, saveData);
+            state.saveQueue.push(saveData);
+            
+            setTimeout(() => processSaveQueue(), 100);
         }
 
         // Group filter functions
@@ -1119,22 +1361,44 @@
             }
             
             let updatedCount = 0;
+            const updates = [];
+            
             for (const dogId of state.selectedMarkers) {
                 const row = state.allData.find(r => getDogId(r) === dogId);
                 if (row) {
+                    const index = state.allData.indexOf(row);
                     const oldCombined = row['Combined'] || '';
                     const colonIndex = oldCombined.lastIndexOf(':');
                     const groupPart = colonIndex > -1 ? oldCombined.substring(colonIndex) : '';
-                    row['Combined'] = newDriverName + groupPart;
+                    const newCombined = newDriverName + groupPart;
+                    
+                    // Update local data IMMEDIATELY
+                    row['Combined'] = newCombined;
+                    state.dirtyData.add(index);
+                    
+                    // Build update for background save
+                    updates.push({
+                        rowIndex: index,
+                        updatedData: { 'Combined': newCombined },
+                        oldData: { 'Combined': oldCombined }
+                    });
+                    
                     updatedCount++;
                 }
             }
             
+            // Update UI IMMEDIATELY
             assignDriverColors();
             updateMap();
             clearSelection();
             
-            showNotification(`Updated ${updatedCount} dogs! (Note: This demo doesn't save to Google Sheets)`, 'success');
+            showNotification(`Updated ${updatedCount} dogs! Saving to Google Sheets...`, 'success');
+            
+            // Queue the bulk save to happen in the background
+            queueSave({
+                type: 'bulk',
+                updates: updates
+            });
         }
 
         function clearSelection() {
@@ -1583,20 +1847,29 @@
             const groupPart = colonIndex > -1 ? oldCombined.substring(colonIndex) : '';
             const newCombined = newDriverName ? newDriverName + groupPart : groupPart.substring(1);
             
-            // Update local data
+            // Update local data IMMEDIATELY
             state.selectedRow['Combined'] = newCombined;
             state.allData[index]['Combined'] = newCombined;
+            state.dirtyData.add(index);
             
-            // Update UI
+            // Update UI IMMEDIATELY
             assignDriverColors();
             updateMap();
             
-            showNotification('Updated locally! (Note: This demo doesn\'t save to Google Sheets)', 'success', 3000);
+            showNotification('Updated! Saving to Google Sheets...', 'success', 2000);
             
             // Refresh the selected marker display
             if (state.selectedMarker) {
                 selectMarker(state.selectedMarker, state.selectedRow);
             }
+            
+            // Queue the save to happen in the background
+            queueSave({
+                type: 'single',
+                rowIndex: index,
+                updatedData: { 'Combined': newCombined },
+                oldData: { 'Combined': oldCombined }
+            });
         }
 
         // Cancel edit
@@ -1652,11 +1925,27 @@
             
             console.log('✅ Keyboard shortcuts added');
             
+            // Create save indicator
+            createSaveIndicator();
+            console.log('✅ Save indicator created');
+            
             // Initialize map
             initMap();
             
             // Load data
             loadData();
+            
+            // Set up periodic save monitoring
+            setInterval(() => {
+                if (state.pendingSaves.size > 0 && !state.isSaving) {
+                    const pendingCount = state.pendingSaves.size;
+                    console.log(`${pendingCount} saves pending...`);
+                    
+                    if (pendingCount > 5) {
+                        updateSaveIndicator('saving', `${pendingCount} saves pending...`);
+                    }
+                }
+            }, 5000);
             
             console.log('✅ Application initialized successfully');
         }
@@ -1685,7 +1974,9 @@
             }, 100);
         }
 
-        console.log('🎉 Dog Walking Map script loaded successfully!');
+        console.log('🎉 Dog Walking Map script loaded successfully with Google Sheets integration!');
+        console.log('💾 All changes will be automatically saved to Google Sheets');
+        console.log('🔧 Use dogWalkingMapDebug.testAppsScript() to test the connection');
     </script>
 </body>
 </html>
