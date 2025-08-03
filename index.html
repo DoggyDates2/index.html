@@ -286,11 +286,12 @@
         }
 
         .edit-section {
-            padding: 6px;
+            padding: 8px;
+            padding-bottom: 20px;
             overflow-y: auto;
             flex-shrink: 0;
-            min-height: 120px;
-            max-height: 200px;
+            min-height: 180px;
+            max-height: 280px;
             scrollbar-width: thin;
             scrollbar-color: #ccc #f8f9fa;
             border-top: 1px solid #e1e5e9;
@@ -1287,8 +1288,22 @@
                 if (colonIndex === -1) return null;
                 
                 const groupPart = combined.substring(colonIndex + 1).trim();
-                const groupMatch = groupPart.match(/^(\d+)/);
                 
+                // Handle multi-group combinations like "1&2", "2&3", "123"
+                if (groupPart.includes('&')) {
+                    // Parse groups separated by &, like "1&2" or "2&3"
+                    const groups = groupPart.split('&').map(g => g.trim()).filter(g => g.match(/^[123]$/));
+                    if (groups.length > 1) {
+                        // Sort the groups to ensure consistent ordering
+                        return groups.sort().join('');
+                    }
+                } else if (groupPart === '123') {
+                    // Handle special case "123" (all groups)
+                    return '123';
+                }
+                
+                // Handle single groups
+                const groupMatch = groupPart.match(/^(\d+)$/);
                 if (groupMatch) {
                     const groupNum = parseInt(groupMatch[1], 10);
                     if (groupNum >= 1 && groupNum <= 3) {
@@ -1430,7 +1445,7 @@
                 
                 try {
                     if (group === 2) {
-                        // Triangle
+                        // Triangle for Group 2
                         const svgSize = size + 4;
                         icon = L.divIcon({
                             html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
@@ -1442,15 +1457,54 @@
                             iconAnchor: [svgSize/2, svgSize/2]
                         });
                     } else if (group === 3) {
-                        // Square
+                        // Square for Group 3
                         icon = L.divIcon({
                             html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
                             className: `custom-square-marker ${isInSelection ? 'marker-selected' : ''}`,
                             iconSize: [size, size],
                             iconAnchor: [size/2, size/2]
                         });
+                    } else if (group === '12') {
+                        // Diamond for Group 1&2
+                        const svgSize = size + 4;
+                        icon = L.divIcon({
+                            html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                                <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize/2} L${svgSize/2} ${svgSize-2} L2 ${svgSize/2} Z" 
+                                      fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                            </svg>`,
+                            className: `custom-diamond-marker ${isInSelection ? 'marker-selected' : ''}`,
+                            iconSize: [svgSize, svgSize],
+                            iconAnchor: [svgSize/2, svgSize/2]
+                        });
+                    } else if (group === '23') {
+                        // Cone/Trapezoid for Group 2&3
+                        const svgSize = size + 4;
+                        icon = L.divIcon({
+                            html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                                <path d="M3 2 L${svgSize-3} 2 L${svgSize-5} ${svgSize-2} L5 ${svgSize-2} Z" 
+                                      fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                            </svg>`,
+                            className: `custom-cone-marker ${isInSelection ? 'marker-selected' : ''}`,
+                            iconSize: [svgSize, svgSize],
+                            iconAnchor: [svgSize/2, svgSize/2]
+                        });
+                    } else if (group === '123') {
+                        // Hexagon for Group 1&2&3
+                        const svgSize = size + 4;
+                        const cx = svgSize/2;
+                        const cy = svgSize/2;
+                        const r = (svgSize-4)/2;
+                        icon = L.divIcon({
+                            html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                                <polygon points="${cx+r},${cy} ${cx+r/2},${cy-r*0.866} ${cx-r/2},${cy-r*0.866} ${cx-r},${cy} ${cx-r/2},${cy+r*0.866} ${cx+r/2},${cy+r*0.866}" 
+                                         fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                            </svg>`,
+                            className: `custom-hexagon-marker ${isInSelection ? 'marker-selected' : ''}`,
+                            iconSize: [svgSize, svgSize],
+                            iconAnchor: [svgSize/2, svgSize/2]
+                        });
                     } else {
-                        // Circle (default)
+                        // Circle for Group 1 (default)
                         icon = L.divIcon({
                             html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
                             className: `custom-marker ${isInSelection ? 'marker-selected' : ''}`,
@@ -2463,8 +2517,20 @@
                         
                         // Group filter
                         const group = getGroupFromCombined(row['Combined']);
-                        if (group !== null && !state.activeGroups.includes(group)) {
-                            return false;
+                        if (group !== null) {
+                            // Handle multi-group combinations like "12", "23", "123"
+                            if (typeof group === 'string' && group.length > 1) {
+                                // Check if any of the groups in the combination are active
+                                const hasActiveGroup = group.split('').some(g => state.activeGroups.includes(parseInt(g)));
+                                if (!hasActiveGroup) {
+                                    return false;
+                                }
+                            } else if (typeof group === 'number') {
+                                // Single group
+                                if (!state.activeGroups.includes(group)) {
+                                    return false;
+                                }
+                            }
                         }
                         
                         // Category filter
@@ -3092,8 +3158,17 @@
                     
                     // Count groups
                     const group = getGroupFromCombined(row['Combined']);
-                    if (group && stats.groups[group] !== undefined) {
-                        stats.groups[group]++;
+                    if (group) {
+                        if (typeof group === 'string' && group.length > 1) {
+                            // Multi-group combination like "12", "23", "123"
+                            if (!stats.groups[group]) stats.groups[group] = 0;
+                            stats.groups[group]++;
+                        } else if (typeof group === 'number' && stats.groups[group] !== undefined) {
+                            // Single group
+                            stats.groups[group]++;
+                        } else {
+                            stats.groups['None']++;
+                        }
                     } else {
                         stats.groups['None']++;
                     }
@@ -3591,7 +3666,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map application loaded. Version: 3.1.2 (Simplified details panel)');
+        console.log('Dog Walking Map application loaded. Version: 3.1.3 (Multi-group shapes & larger edit area)');
         console.log('Use dogWalkingMapDebug.testAppsScript() to test the connection');
     </script>
 </body>
