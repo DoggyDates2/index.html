@@ -290,7 +290,7 @@
             overflow-y: auto;
             flex-shrink: 0;
             min-height: 80px;
-            max-height: 200px;
+            max-height: 300px;
             scrollbar-width: thin;
             scrollbar-color: #ccc #f8f9fa;
             border-top: 1px solid #e1e5e9;
@@ -813,7 +813,6 @@
         </div>
 
         <div class="control-group group-filters">
-            <label>Show Groups:</label>
             <button class="group-filter-btn active" data-group="1" onclick="toggleGroupFilter(1)" 
                     aria-label="Toggle Group 1" aria-pressed="true">Group 1 ⭕</button>
             <button class="group-filter-btn active" data-group="2" onclick="toggleGroupFilter(2)" 
@@ -827,14 +826,6 @@
                     aria-label="Toggle selection mode">🎯 Select Mode</button>
             <button class="btn btn-danger" id="clearSelectionBtn" onclick="clearSelection()" 
                     style="display: none;" aria-label="Clear selection">✖️ Clear Selection</button>
-        </div>
-
-        <div class="control-group">
-            <button class="btn btn-secondary" onclick="refreshData()" aria-label="Refresh data">
-                <span id="refreshIcon">🔄</span> Refresh
-            </button>
-            <button class="btn btn-secondary" onclick="showStats()" aria-label="Show statistics">📊 Stats</button>
-            <button class="btn btn-secondary" onclick="resetColors()" aria-label="Reset custom colors">🎨 Reset Colors</button>
         </div>
     </div>
 
@@ -3267,12 +3258,6 @@
             try {
                 state.refreshInProgress = true;
                 
-                // Animate refresh button
-                const refreshIcon = document.getElementById('refreshIcon');
-                if (refreshIcon) {
-                    refreshIcon.style.animation = 'spin 1s linear infinite';
-                }
-                
                 // Reset operation state
                 state.isUpdating = false;
                 state.operationId = getOperationId();
@@ -3323,12 +3308,6 @@
                 showNotification('Error refreshing data', 'error');
             } finally {
                 state.refreshInProgress = false;
-                
-                // Stop animation
-                const refreshIcon = document.getElementById('refreshIcon');
-                if (refreshIcon) {
-                    refreshIcon.style.animation = '';
-                }
             }
         }
 
@@ -3390,7 +3369,7 @@
                     'map', 'colorBy', 'searchInput', 'status', 'statusText',
                     'legendContent', 'detailsContent', 'bulkEditPanel',
                     'selectionModeBtn', 'clearSelectionBtn', 'leftPanel',
-                    'panelToggle', 'refreshIcon'
+                    'panelToggle'
                 ];
                 
                 const missingElements = requiredElements.filter(id => !document.getElementById(id));
@@ -3430,12 +3409,6 @@
                             searchInput.focus();
                             searchInput.select();
                         }
-                    }
-                    
-                    // Ctrl/Cmd + R for refresh
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-                        e.preventDefault();
-                        refreshData();
                     }
                 });
                 
