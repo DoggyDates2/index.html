@@ -410,6 +410,13 @@
                 ✖️ Clear Selection
             </button>
         </div>
+        
+        <div class="control-group" style="font-size: 12px; color: #666; display: flex; gap: 15px;">
+            <span>🔴 Red border = Callout</span>
+            <span>⭕ = Group 1</span>
+            <span>▲ = Group 2</span>
+            <span>■ = Group 3</span>
+        </div>
     </div>
 
     <div class="main-content">
@@ -546,17 +553,17 @@
         }
 
         // Create marker icon based on group and color
-        function createMarkerIcon(color, group, isSelected = false, isInSelection = false) {
+        function createMarkerIcon(color, group, isSelected = false, isInSelection = false, hasCallout = false) {
             const size = isSelected || isInSelection ? 20 : 16;
             const strokeWidth = isSelected ? 3 : 2;
-            const strokeColor = isInSelection ? '#007bff' : '#000';
+            const strokeColor = hasCallout ? '#ff0000' : (isInSelection ? '#007bff' : '#000');
             
             if (group === 2) {
-                // Triangle
-                const svgSize = size + 4;
+                // Triangle for Group 2
+                const svgSize = size + 6;
                 return L.divIcon({
-                    html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">
-                        <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
+                    html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M${svgSize/2} 3 L${svgSize-3} ${svgSize-3} L3 ${svgSize-3} Z" 
                               fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                     </svg>`,
                     className: 'custom-triangle-marker',
@@ -564,17 +571,17 @@
                     iconAnchor: [svgSize/2, svgSize/2]
                 });
             } else if (group === 3) {
-                // Square
+                // Square for Group 3
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor};"></div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                     className: 'custom-square-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
                 });
             } else {
-                // Circle (Group 1 or default)
+                // Circle for Group 1 (or default/no group)
                 return L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%;"></div>`,
+                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                     className: 'custom-circle-marker',
                     iconSize: [size, size],
                     iconAnchor: [size/2, size/2]
@@ -672,9 +679,10 @@
                 const dogId = getDogId(row, row._index);
                 const isInSelection = state.selectedMarkers.has(dogId);
                 const isSelected = state.selectedMarker && state.selectedRow === row;
+                const hasCallout = row.Callout && row.Callout.trim();
                 
                 const marker = L.marker([lat, lng], {
-                    icon: createMarkerIcon(color, group, isSelected, isInSelection)
+                    icon: createMarkerIcon(color, group, isSelected, isInSelection, hasCallout)
                 }).addTo(state.map);
                 
                 // Popup
@@ -701,6 +709,18 @@
             });
             
             updateStatus(`Showing ${state.filteredData.length} of ${state.allData.length} locations`, 'success');
+            
+            // Debug: Show group counts
+            const groupCounts = { 1: 0, 2: 0, 3: 0, none: 0 };
+            state.filteredData.forEach(row => {
+                const group = getGroupFromCombined(row.Combined);
+                if (group >= 1 && group <= 3) {
+                    groupCounts[group]++;
+                } else {
+                    groupCounts.none++;
+                }
+            });
+            console.log('Group counts:', groupCounts);
         }
 
         // Group filter toggle
@@ -819,8 +839,9 @@
                 const color = state.driverColors[driverName] || '#999999';
                 const isInSelection = state.selectedMarkers.has(dogId);
                 const isSelected = state.selectedMarker && state.selectedRow === row;
+                const hasCallout = row.Callout && row.Callout.trim();
                 
-                marker.setIcon(createMarkerIcon(color, group, isSelected, isInSelection));
+                marker.setIcon(createMarkerIcon(color, group, isSelected, isInSelection, hasCallout));
             });
         }
 
@@ -845,7 +866,8 @@
                 const prevGroup = getGroupFromCombined(prevRow.Combined);
                 const prevDriverName = prevRow.Combined ? prevRow.Combined.split(':')[0].trim() : 'Unassigned';
                 const prevColor = state.driverColors[prevDriverName] || '#999999';
-                state.selectedMarker.setIcon(createMarkerIcon(prevColor, prevGroup, false, false));
+                const prevHasCallout = prevRow.Callout && prevRow.Callout.trim();
+                state.selectedMarker.setIcon(createMarkerIcon(prevColor, prevGroup, false, false, prevHasCallout));
             }
             
             state.selectedMarker = marker;
@@ -855,7 +877,8 @@
             const group = getGroupFromCombined(row.Combined);
             const driverName = row.Combined ? row.Combined.split(':')[0].trim() : 'Unassigned';
             const color = state.driverColors[driverName] || '#999999';
-            marker.setIcon(createMarkerIcon(color, group, true, false));
+            const hasCallout = row.Callout && row.Callout.trim();
+            marker.setIcon(createMarkerIcon(color, group, true, false, hasCallout));
             
             updateSingleEditPanel();
         }
