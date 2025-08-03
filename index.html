@@ -122,6 +122,22 @@
             flex-direction: column;
             overflow: hidden;
             z-index: 999;
+            transition: transform 0.3s ease;
+        }
+
+        .panel-toggle {
+            display: none;
+            position: absolute;
+            left: 300px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            border: 2px solid #e1e5e9;
+            border-left: none;
+            padding: 10px 5px;
+            cursor: pointer;
+            z-index: 1000;
+            border-radius: 0 5px 5px 0;
         }
 
         .legend-section {
@@ -442,6 +458,21 @@
             .left-panel.open {
                 transform: translateX(0);
             }
+            
+            .panel-toggle {
+                display: block;
+                left: 0;
+            }
+            
+            .left-panel.open ~ .panel-toggle {
+                left: 300px;
+            }
+        }
+
+        /* Marker selection highlighting */
+        .marker-selected {
+            filter: drop-shadow(0 0 10px #007bff) brightness(1.2);
+            transform: scale(1.1);
         }
     </style>
 </head>
@@ -488,6 +519,10 @@
                 </div>
             </div>
         </div>
+        
+        <button class="panel-toggle" id="panelToggle" onclick="togglePanel()" aria-label="Toggle side panel">
+            <span id="panelToggleIcon">◀</span>
+        </button>
 
         <div class="map-container">
             <div id="map" role="application" aria-label="Dog walking locations map"></div>
@@ -546,6 +581,8 @@
             activeGroups: [1, 2, 3],
             selectionMode: false,
             selectedMarkers: new Set(),
+            drawControl: null,
+            drawnItems: null,
             isUpdating: false,
             operationId: 0
         };
@@ -642,35 +679,37 @@
                 const diamondSize = isInSelection ? 24 : 20;
                 
                 return L.divIcon({
-                    html: `<svg width="${diamondSize}" height="${diamondSize}" viewBox="0 0 ${diamondSize} ${diamondSize}">
+                    html: `<svg width="${diamondSize}" height="${diamondSize}" viewBox="0 0 ${diamondSize} ${diamondSize}" style="${isInSelection ? 'filter: drop-shadow(0 0 10px #007bff);' : ''}">
                         <path d="M${diamondSize/2} 2 L${diamondSize-2} ${diamondSize/2} L${diamondSize/2} ${diamondSize-2} L2 ${diamondSize/2} Z" 
                               fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                     </svg>`,
-                    className: 'custom-diamond-marker',
+                    className: `custom-diamond-marker ${isInSelection ? 'marker-selected' : ''}`,
                     iconSize: [diamondSize, diamondSize],
                     iconAnchor: [diamondSize/2, diamondSize/2]
                 });
             }
             
             let html;
+            const glowStyle = isInSelection ? 'filter: drop-shadow(0 0 10px #007bff);' : '';
+            
             if (group === 2) {
                 // Triangle
                 const svgSize = size + 4;
-                html = `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">
+                html = `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="${glowStyle}">
                     <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
                           fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                 </svg>`;
             } else if (group === 3) {
                 // Square
-                html = `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor};"></div>`;
+                html = `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; ${glowStyle}"></div>`;
             } else {
                 // Circle (default)
-                html = `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%;"></div>`;
+                html = `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; ${glowStyle}"></div>`;
             }
             
             return L.divIcon({
                 html: html,
-                className: 'custom-marker',
+                className: `custom-marker ${isInSelection ? 'marker-selected' : ''}`,
                 iconSize: [size, size],
                 iconAnchor: [size/2, size/2]
             });
@@ -739,6 +778,18 @@
             showNotification('All filters cleared', 'info', 2000);
         }
 
+        // Toggle panel for mobile
+        function togglePanel() {
+            const panel = document.getElementById('leftPanel');
+            const toggle = document.getElementById('panelToggle');
+            const icon = document.getElementById('panelToggleIcon');
+            
+            if (panel && toggle && icon) {
+                panel.classList.toggle('open');
+                icon.textContent = panel.classList.contains('open') ? '▶' : '◀';
+            }
+        }
+
         function filterByCategory(category) {
             state.currentFilter = state.currentFilter === category ? null : category;
             updateMap();
@@ -761,12 +812,285 @@
                 btn.classList.add('selection-mode-active');
                 clearBtn.style.display = 'inline-block';
                 updateStatus('🎯 Selection mode active - Click markers to select them', 'loading');
+                enableDrawingTools();
             } else {
                 btn.textContent = '🎯 Select Mode';
                 btn.classList.remove('selection-mode-active');
                 clearBtn.style.display = 'none';
+                disableDrawingTools();
                 clearSelection();
             }
+        }
+
+        // Drawing tools functions
+        function enableDrawingTools() {
+            if (!state.map || !state.selectionMode) return;
+            
+            if (typeof L.Control.Draw === 'undefined') {
+                console.warn('Leaflet.draw not available, using click-only selection');
+                return;
+            }
+            
+            try {
+                if (!state.drawnItems) {
+                    state.drawnItems = new L.FeatureGroup();
+                    state.map.addLayer(state.drawnItems);
+                }
+
+                if (!state.drawControl) {
+                    state.drawControl = new L.Control.Draw({
+                        position: 'topleft',
+                        edit: {
+                            featureGroup: state.drawnItems,
+                            remove: true,
+                            edit: true
+                        },
+                        draw: {
+                            polygon: {
+                                allowIntersection: false,
+                                shapeOptions: {
+                                    color: '#007bff',
+                                    fillColor: '#007bff',
+                                    fillOpacity: 0.2,
+                                    weight: 3
+                                }
+                            },
+                            rectangle: {
+                                shapeOptions: {
+                                    color: '#007bff',
+                                    fillColor: '#007bff',
+                                    fillOpacity: 0.2,
+                                    weight: 3
+                                }
+                            },
+                            circle: false,
+                            marker: false,
+                            circlemarker: false,
+                            polyline: false
+                        }
+                    });
+                    
+                    state.map.addControl(state.drawControl);
+                }
+
+                state.map.on('draw:created', onDrawCreated);
+                state.map.on('draw:deleted', onDrawDeleted);
+                state.map.on('draw:edited', onDrawEdited);
+                
+            } catch (error) {
+                console.error('Error enabling drawing tools:', error);
+            }
+        }
+
+        function disableDrawingTools() {
+            try {
+                if (state.map) {
+                    state.map.off('draw:created', onDrawCreated);
+                    state.map.off('draw:deleted', onDrawDeleted);
+                    state.map.off('draw:edited', onDrawEdited);
+                }
+
+                if (state.drawControl && state.map) {
+                    state.map.removeControl(state.drawControl);
+                    state.drawControl = null;
+                }
+
+                if (state.drawnItems) {
+                    state.drawnItems.clearLayers();
+                    if (state.map) {
+                        state.map.removeLayer(state.drawnItems);
+                    }
+                    state.drawnItems = null;
+                }
+            } catch (error) {
+                console.error('Error disabling drawing tools:', error);
+            }
+        }
+
+        function onDrawCreated(e) {
+            if (!state.selectionMode || !state.drawnItems) return;
+            
+            const layer = e.layer;
+            state.drawnItems.addLayer(layer);
+            selectMarkersInPolygon(layer);
+            updateBulkEditPanel();
+        }
+
+        function onDrawDeleted(e) {
+            if (!state.selectionMode) return;
+            state.selectedMarkers.clear();
+            
+            if (state.drawnItems) {
+                state.drawnItems.eachLayer(layer => {
+                    selectMarkersInPolygon(layer);
+                });
+            }
+            updateBulkEditPanel();
+        }
+
+        function onDrawEdited(e) {
+            if (!state.selectionMode) return;
+            state.selectedMarkers.clear();
+            
+            if (state.drawnItems) {
+                state.drawnItems.eachLayer(layer => {
+                    selectMarkersInPolygon(layer);
+                });
+            }
+            updateBulkEditPanel();
+        }
+
+        function selectMarkersInPolygon(polygon) {
+            if (!state.selectionMode || !state.markers) return;
+            
+            state.markers.forEach(markerData => {
+                const latLng = markerData.marker.getLatLng();
+                
+                if (isPointInPolygon(latLng, polygon)) {
+                    const dogId = getDogId(markerData.row);
+                    if (dogId) {
+                        state.selectedMarkers.add(dogId);
+                    }
+                }
+            });
+        }
+
+        function isPointInPolygon(point, polygon) {
+            try {
+                const bounds = polygon.getBounds();
+                if (!bounds.contains(point)) return false;
+                
+                const latlngs = polygon.getLatLngs();
+                if (!latlngs || latlngs.length === 0) return false;
+                
+                const outerRing = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+                if (!outerRing || outerRing.length < 3) return false;
+                
+                const x = point.lat, y = point.lng;
+                let inside = false;
+                
+                for (let i = 0, j = outerRing.length - 1; i < outerRing.length; j = i++) {
+                    const xi = outerRing[i].lat, yi = outerRing[i].lng;
+                    const xj = outerRing[j].lat, yj = outerRing[j].lng;
+                    
+                    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+                        inside = !inside;
+                    }
+                }
+                
+                return inside;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function getDogId(row) {
+            if (!row) return null;
+            if (row['_uniqueId']) return row['_uniqueId'];
+            
+            let id = null;
+            if (row['Dog ID'] && row['Dog ID'].trim()) {
+                id = row['Dog ID'].trim();
+            } else if (row['Dog Name'] && row['Dog Name'].trim()) {
+                const index = state.allData.indexOf(row);
+                id = `${row['Dog Name'].trim()}_${index}`;
+            } else {
+                const index = state.allData.indexOf(row);
+                id = `dog_${index}`;
+            }
+            
+            row['_uniqueId'] = id;
+            return id;
+        }
+
+        function updateBulkEditPanel() {
+            const panel = document.getElementById('bulkEditPanel');
+            if (!panel) return;
+            
+            if (state.selectedMarkers.size === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+            
+            panel.style.display = 'block';
+            
+            const selectedRows = [];
+            for (const dogId of state.selectedMarkers) {
+                const row = state.allData.find(r => getDogId(r) === dogId);
+                if (row) selectedRows.push(row);
+            }
+            
+            const previewHtml = selectedRows.slice(0, 10).map(row => {
+                const dogName = escapeHtml(row['Dog Name'] || 'Unknown');
+                const combined = escapeHtml(row['Combined'] || 'No Driver');
+                return `<div class="selected-dog-item">${dogName} - ${combined}</div>`;
+            }).join('');
+            
+            const moreText = selectedRows.length > 10 ? 
+                `<div class="selected-dog-item">... and ${selectedRows.length - 10} more</div>` : '';
+            
+            panel.innerHTML = `
+                <div class="bulk-edit-panel">
+                    <div class="bulk-edit-header">
+                        <h4>🎯 Bulk Edit Selection</h4>
+                        <span class="selected-count">${state.selectedMarkers.size} selected</span>
+                    </div>
+                    <div class="selected-dogs-preview">
+                        ${previewHtml}
+                        ${moreText}
+                    </div>
+                    <div class="bulk-edit-controls">
+                        <input type="text" id="bulkCombinedInput" class="bulk-edit-input" 
+                               placeholder="New driver name (groups will be preserved)"
+                               autocomplete="off" />
+                        <button class="btn btn-primary" onclick="bulkUpdateSelected()">💾 Update All</button>
+                        <button class="btn btn-secondary" onclick="clearSelection()">✖️ Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                const input = document.getElementById('bulkCombinedInput');
+                if (input) input.focus();
+            }, 100);
+        }
+
+        function bulkUpdateSelected() {
+            const bulkInput = document.getElementById('bulkCombinedInput');
+            if (!bulkInput) return;
+            
+            const newDriverName = bulkInput.value.trim();
+            if (!newDriverName) {
+                showNotification('Please enter a driver name', 'error');
+                return;
+            }
+            
+            if (state.selectedMarkers.size === 0) {
+                showNotification('No markers selected', 'error');
+                return;
+            }
+            
+            if (!confirm(`Update ${state.selectedMarkers.size} dogs with driver name: "${newDriverName}"?`)) {
+                return;
+            }
+            
+            let updatedCount = 0;
+            for (const dogId of state.selectedMarkers) {
+                const row = state.allData.find(r => getDogId(r) === dogId);
+                if (row) {
+                    const oldCombined = row['Combined'] || '';
+                    const colonIndex = oldCombined.lastIndexOf(':');
+                    const groupPart = colonIndex > -1 ? oldCombined.substring(colonIndex) : '';
+                    row['Combined'] = newDriverName + groupPart;
+                    updatedCount++;
+                }
+            }
+            
+            assignDriverColors();
+            updateMap();
+            clearSelection();
+            
+            showNotification(`Updated ${updatedCount} dogs! (Note: This demo doesn't save to Google Sheets)`, 'success');
         }
 
         function clearSelection() {
@@ -776,8 +1100,12 @@
                 bulkEditPanel.style.display = 'none';
             }
             
+            if (state.drawnItems) {
+                state.drawnItems.clearLayers();
+            }
+            
             if (state.selectionMode) {
-                updateStatus('🎯 Selection cleared - Click markers to select them', 'loading');
+                updateStatus('🎯 Selection cleared - Click markers or draw polygons to select them', 'loading');
             } else {
                 updateStatus(`Showing ${state.filteredData.length} of ${state.allData.length} locations`, 'success');
             }
@@ -995,9 +1323,11 @@
                 const isSelected = state.selectedRow === row;
                 const group = getGroupFromCombined(row['Combined']);
                 const hasCallout = row['Callout'] && row['Callout'].trim();
+                const dogId = getDogId(row);
+                const isInSelection = dogId && state.selectedMarkers.has(dogId);
                 
                 const marker = L.marker([lat, lng], {
-                    icon: createMarkerIcon(color, isSelected, group, false, row['Dog Name'], hasCallout),
+                    icon: createMarkerIcon(color, isSelected, group, isInSelection, row['Dog Name'], hasCallout),
                     title: row['Dog Name'] || 'Unknown'
                 });
                 
@@ -1013,10 +1343,21 @@
                     className: 'custom-popup'
                 });
                 
-                marker.on('click', function() {
+                marker.on('click', function(e) {
                     if (state.selectionMode) {
-                        // Selection mode logic would go here
-                        console.log('Marker selected in selection mode');
+                        e.originalEvent.stopPropagation();
+                        const dogId = getDogId(row);
+                        if (!dogId) return;
+                        
+                        if (state.selectedMarkers.has(dogId)) {
+                            state.selectedMarkers.delete(dogId);
+                        } else {
+                            state.selectedMarkers.add(dogId);
+                        }
+                        
+                        updateMap(); // Refresh to show selection
+                        updateBulkEditPanel();
+                        updateStatus(`🎯 Selected ${state.selectedMarkers.size} markers`, 'loading');
                     } else {
                         selectMarker(marker, row);
                     }
@@ -1120,7 +1461,9 @@
                         color = state.colorMap[driverName] || '#999999';
                     }
                     
-                    state.selectedMarker.setIcon(createMarkerIcon(color, false, prevData.group, false, prevData.row['Dog Name'], prevData.row['Callout'] && prevData.row['Callout'].trim()));
+                    const dogId = getDogId(prevData.row);
+                    const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                    state.selectedMarker.setIcon(createMarkerIcon(color, false, prevData.group, isInSelection, prevData.row['Dog Name'], prevData.row['Callout'] && prevData.row['Callout'].trim()));
                 }
             }
             
@@ -1139,7 +1482,9 @@
             }
             
             const group = getGroupFromCombined(row['Combined']);
-            marker.setIcon(createMarkerIcon(color, true, group, false, row['Dog Name'], row['Callout'] && row['Callout'].trim()));
+            const dogId = getDogId(row);
+            const isInSelection = dogId && state.selectedMarkers.has(dogId);
+            marker.setIcon(createMarkerIcon(color, true, group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim()));
             
             // Update details panel
             const detailsContent = document.getElementById('detailsContent');
@@ -1232,6 +1577,36 @@
             }
             
             console.log('✅ All required DOM elements found');
+            
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                // Escape key
+                if (e.key === 'Escape') {
+                    if (state.selectionMode) {
+                        toggleSelectionMode();
+                    } else if (state.selectedMarker) {
+                        state.selectedMarker = null;
+                        state.selectedRow = null;
+                        updateMap();
+                        const detailsContent = document.getElementById('detailsContent');
+                        if (detailsContent) {
+                            detailsContent.innerHTML = '<div class="no-selection">Click a marker to edit</div>';
+                        }
+                    }
+                }
+                
+                // Ctrl/Cmd + F for search focus
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    e.preventDefault();
+                    const searchInput = document.getElementById('searchInput');
+                    if (searchInput) {
+                        searchInput.focus();
+                        searchInput.select();
+                    }
+                }
+            });
+            
+            console.log('✅ Keyboard shortcuts added');
             
             // Initialize map
             initMap();
