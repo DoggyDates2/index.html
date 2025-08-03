@@ -290,7 +290,7 @@
             overflow-y: auto;
             flex-shrink: 0;
             min-height: 80px;
-            max-height: 120px;
+            max-height: 200px;
             scrollbar-width: thin;
             scrollbar-color: #ccc #f8f9fa;
             border-top: 1px solid #e1e5e9;
@@ -3411,7 +3411,7 @@
                     if (e.key === 'Escape') {
                         if (state.selectionMode) {
                             toggleSelectionMode();
-                        } else                         if (state.selectedMarker) {
+                        } else if (state.selectedMarker) {
                             state.selectedMarker = null;
                             state.selectedRow = null;
                             updateMap();
@@ -3606,7 +3606,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map application loaded. Version: 3.1.2 (Simplified details panel)');
+        console.log('Dog Walking Map application loaded. Version: 3.1.2 (Simplified details panel with increased edit section height)');
         console.log('Use dogWalkingMapDebug.testAppsScript() to test the connection');
     </script>
 </body>
