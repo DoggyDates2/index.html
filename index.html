@@ -57,7 +57,7 @@
             white-space: nowrap;
         }
 
-        select, input[type="text"] {
+        input[type="text"] {
             padding: 6px 10px;
             border: 2px solid #e1e5e9;
             border-radius: 6px;
@@ -66,7 +66,7 @@
             background: white;
         }
 
-        select:focus, input[type="text"]:focus {
+        input[type="text"]:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -783,14 +783,6 @@
 <body>
     <div class="controls">
         <div class="control-group">
-            <label for="colorBy">Color by:</label>
-            <select id="colorBy" aria-label="Color markers by">
-                <option value="Combined">Combined (Driver:Group)</option>
-                <option value="District">District</option>
-            </select>
-        </div>
-        
-        <div class="control-group">
             <label for="searchInput">Search:</label>
             <input type="text" id="searchInput" placeholder="Search dogs, combined names, addresses..." 
                    aria-label="Search for dogs, drivers, or addresses" autocomplete="off" />
@@ -1339,31 +1331,6 @@
             return state.driverColorMap[trimmedName] || '#999999';
         }
 
-        // Get color for value
-        function getColorForValue(value, attribute) {
-            if (!value) return '#999999';
-            
-            if (attribute === 'Combined') {
-                const colonIndex = value.lastIndexOf(':');
-                const driverName = colonIndex > -1 ? 
-                    value.substring(0, colonIndex).trim() : 
-                    value.trim();
-                return getDriverColor(driverName);
-            }
-            
-            if (state.customColors[value]) return state.customColors[value];
-            
-            // Use color from palette based on hash
-            let hash = 0;
-            for (let i = 0; i < value.length; i++) {
-                hash = ((hash << 5) - hash) + value.charCodeAt(i);
-                hash = hash & hash;
-            }
-            
-            const index = Math.abs(hash) % ALL_COLORS.length;
-            return ALL_COLORS[index];
-        }
-
         // Create marker icon with caching
         const createMarkerIcon = (() => {
             const iconCache = new Map();
@@ -1909,21 +1876,16 @@
                     const isInSelection = dogId && state.selectedMarkers.has(dogId);
                     const isSelected = state.selectedMarker === markerData.marker;
                     
-                    const colorBy = document.getElementById('colorBy');
-                    if (!colorBy) return;
-                    
                     let color;
                     // Check if Combined contains "Unassigned" (case-insensitive)
                     if (markerData.row['Combined'] && markerData.row['Combined'].toLowerCase().includes('unassigned')) {
                         color = '#000000'; // Black for unassigned
-                    } else if (colorBy.value === 'Combined') {
+                    } else {
                         const colonIndex = markerData.row['Combined'] ? 
                             markerData.row['Combined'].lastIndexOf(':') : -1;
                         const driverName = colonIndex > -1 ? 
                             markerData.row['Combined'].substring(0, colonIndex).trim() : '';
                         color = state.colorMap[driverName] || '#999999';
-                    } else {
-                        color = state.colorMap[markerData.row[colorBy.value]] || '#999999';
                     }
                     
                     const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection, markerData.row ? markerData.row['Dog Name'] : null, markerData.row && markerData.row['Callout'] && markerData.row['Callout'].trim());
@@ -2164,12 +2126,7 @@
                 });
 
                 // Event listeners with debouncing
-                const colorByElement = document.getElementById('colorBy');
                 const searchInputElement = document.getElementById('searchInput');
-                
-                if (colorByElement) {
-                    colorByElement.addEventListener('change', debouncedUpdateMap);
-                }
                 
                 if (searchInputElement) {
                     searchInputElement.addEventListener('input', debouncedUpdateMap);
@@ -2392,15 +2349,13 @@
             const currentOpId = getOperationId();
             
             try {
-                const colorByElement = document.getElementById('colorBy');
                 const searchInputElement = document.getElementById('searchInput');
                 
-                if (!colorByElement || !searchInputElement) {
+                if (!searchInputElement) {
                     console.error('Required DOM elements not found');
                     return;
                 }
                 
-                const colorBy = colorByElement.value;
                 const searchTerm = searchInputElement.value.toLowerCase().trim();
 
                 // Handle empty data
@@ -2444,19 +2399,13 @@
                             return false;
                         }
                         
-                        // Category filter
+                        // Category filter - always use Combined
                         if (state.currentFilter !== null) {
-                            if (colorBy === 'Combined') {
-                                const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
-                                const driverName = colonIndex > -1 ? 
-                                    row['Combined'].substring(0, colonIndex).trim() : '';
-                                if (driverName !== state.currentFilter) {
-                                    return false;
-                                }
-                            } else {
-                                if (row[colorBy] !== state.currentFilter) {
-                                    return false;
-                                }
+                            const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
+                            const driverName = colonIndex > -1 ? 
+                                row['Combined'].substring(0, colonIndex).trim() : '';
+                            if (driverName !== state.currentFilter) {
+                                return false;
                             }
                         }
                         
@@ -2467,37 +2416,24 @@
                     }
                 });
 
-                // Build color map
+                // Build color map - always based on Combined
                 state.colorMap = {};
                 try {
                     const uniqueValues = new Set();
                     
-                    if (colorBy === 'Combined') {
-                        state.allData.forEach(row => {
-                            if (row && row['Combined']) {
-                                const colonIndex = row['Combined'].lastIndexOf(':');
-                                const driver = colonIndex > -1 ? 
-                                    row['Combined'].substring(0, colonIndex).trim() : 
-                                    row['Combined'].trim();
-                                if (driver) uniqueValues.add(driver);
-                            }
-                        });
-                        
-                        uniqueValues.forEach(driver => {
-                            state.colorMap[driver] = getDriverColor(driver);
-                        });
-                    } else {
-                        state.allData.forEach(row => {
-                            if (row && row[colorBy]) {
-                                const value = row[colorBy].trim();
-                                if (value) uniqueValues.add(value);
-                            }
-                        });
-                        
-                        uniqueValues.forEach(value => {
-                            state.colorMap[value] = getColorForValue(value, colorBy);
-                        });
-                    }
+                    state.allData.forEach(row => {
+                        if (row && row['Combined']) {
+                            const colonIndex = row['Combined'].lastIndexOf(':');
+                            const driver = colonIndex > -1 ? 
+                                row['Combined'].substring(0, colonIndex).trim() : 
+                                row['Combined'].trim();
+                            if (driver) uniqueValues.add(driver);
+                        }
+                    });
+                    
+                    uniqueValues.forEach(driver => {
+                        state.colorMap[driver] = getDriverColor(driver);
+                    });
                 } catch (colorMapError) {
                     console.error('Error building color map:', colorMapError);
                     state.colorMap = { 'default': '#999999' };
@@ -2548,14 +2484,11 @@
                                         // Check if Combined contains "Unassigned" (case-insensitive)
                                         if (row['Combined'] && row['Combined'].toLowerCase().includes('unassigned')) {
                                             color = '#000000'; // Black for unassigned
-                                        } else if (colorBy === 'Combined') {
+                                        } else {
                                             const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
                                             const driverName = colonIndex > -1 ? 
                                                 row['Combined'].substring(0, colonIndex).trim() : '';
                                             color = state.colorMap[driverName] || '#999999';
-                                        } else {
-                                            const value = row[colorBy] || '';
-                                            color = state.colorMap[value] || '#999999';
                                         }
                                     } catch (colorError) {
                                         console.warn('Error determining color:', colorError);
@@ -2744,12 +2677,9 @@
 
         // Update legend with improved performance
         const updateLegend = throttle(function() {
-            const colorByElement = document.getElementById('colorBy');
             const legendContent = document.getElementById('legendContent');
             
-            if (!colorByElement || !legendContent) return;
-            
-            const colorBy = colorByElement.value;
+            if (!legendContent) return;
             
             try {
                 // Remove existing event listeners
@@ -2774,7 +2704,7 @@
                         let displayText = escapeHtml(key);
                         
                         // Add counts for drivers
-                        if (colorBy === 'Combined' && state.allData && state.allData.length > 0) {
+                        if (state.allData && state.allData.length > 0) {
                             const groupCounts = { 1: 0, 2: 0, 3: 0, total: 0 };
                             
                             state.allData.forEach(row => {
@@ -2885,23 +2815,16 @@
                     const prevData = state.markers.find(m => m && m.marker === state.selectedMarker);
                     if (prevData) {
                         try {
-                            const colorByElement = document.getElementById('colorBy');
-                            if (colorByElement) {
-                                let color = '#999999';
-                                if (colorByElement.value === 'Combined') {
-                                    const colonIndex = prevData.row['Combined'] ? 
-                                        prevData.row['Combined'].lastIndexOf(':') : -1;
-                                    const driverName = colonIndex > -1 ? 
-                                        prevData.row['Combined'].substring(0, colonIndex).trim() : '';
-                                    color = state.colorMap[driverName] || '#999999';
-                                } else {
-                                    color = state.colorMap[prevData.row[colorByElement.value]] || '#999999';
-                                }
-                                
-                                const dogId = getDogId(prevData.row);
-                                const isInSelection = dogId && state.selectedMarkers.has(dogId);
-                                state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row ? prevData.row['Dog Name'] : null, prevData.row && prevData.row['Callout'] && prevData.row['Callout'].trim()));
-                            }
+                            let color = '#999999';
+                            const colonIndex = prevData.row['Combined'] ? 
+                                prevData.row['Combined'].lastIndexOf(':') : -1;
+                            const driverName = colonIndex > -1 ? 
+                                prevData.row['Combined'].substring(0, colonIndex).trim() : '';
+                            color = state.colorMap[driverName] || '#999999';
+                            
+                            const dogId = getDogId(prevData.row);
+                            const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                            state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row ? prevData.row['Dog Name'] : null, prevData.row && prevData.row['Callout'] && prevData.row['Callout'].trim()));
                         } catch (clearError) {
                             console.warn('Error clearing previous marker:', clearError);
                         }
@@ -2913,22 +2836,15 @@
                 
                 // Update marker appearance
                 try {
-                    const colorByElement = document.getElementById('colorBy');
-                    if (colorByElement) {
-                        let color = '#999999';
-                        if (colorByElement.value === 'Combined') {
-                            const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
-                            const driverName = colonIndex > -1 ? 
-                                row['Combined'].substring(0, colonIndex).trim() : '';
-                            color = state.colorMap[driverName] || '#999999';
-                        } else {
-                            color = state.colorMap[row[colorByElement.value]] || '#999999';
-                        }
-                        
-                        const dogId = getDogId(row);
-                        const isInSelection = dogId && state.selectedMarkers.has(dogId);
-                        marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row ? row['Dog Name'] : null, row && row['Callout'] && row['Callout'].trim()));
-                    }
+                    let color = '#999999';
+                    const colonIndex = row['Combined'] ? row['Combined'].lastIndexOf(':') : -1;
+                    const driverName = colonIndex > -1 ? 
+                        row['Combined'].substring(0, colonIndex).trim() : '';
+                    color = state.colorMap[driverName] || '#999999';
+                    
+                    const dogId = getDogId(row);
+                    const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                    marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row ? row['Dog Name'] : null, row && row['Callout'] && row['Callout'].trim()));
                 } catch (iconError) {
                     console.warn('Error updating marker icon:', iconError);
                 }
@@ -3227,7 +3143,7 @@
                 
                 // Validate required DOM elements
                 const requiredElements = [
-                    'map', 'colorBy', 'searchInput', 'status', 'statusText',
+                    'map', 'searchInput', 'status', 'statusText',
                     'legendContent', 'detailsContent', 'bulkEditPanel',
                     'selectionModeBtn', 'clearSelectionBtn', 'leftPanel',
                     'panelToggle'
@@ -3251,7 +3167,7 @@
                     if (e.key === 'Escape') {
                         if (state.selectionMode) {
                             toggleSelectionMode();
-                        } else                         if (state.selectedMarker) {
+                        } else if (state.selectedMarker) {
                             state.selectedMarker = null;
                             state.selectedRow = null;
                             updateMap();
@@ -3440,8 +3356,5 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map application loaded. Version: 3.1.2 (Simplified details panel)');
+        console.log('Dog Walking Map application loaded. Version: 3.2.0 (Simplified - Always Combined Colors)');
         console.log('Use dogWalkingMapDebug.testAppsScript() to test the connection');
-    </script>
-</body>
-</html>
