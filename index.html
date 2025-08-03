@@ -474,6 +474,44 @@
             filter: drop-shadow(0 0 10px #007bff) brightness(1.2);
             transform: scale(1.1);
         }
+
+        /* Save indicator styles */
+        .save-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .save-indicator.saving {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .save-indicator.saved {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .save-indicator.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .save-indicator .spinner {
+            width: 14px;
+            height: 14px;
+            border-width: 2px;
+        }
     </style>
 </head>
 <body>
@@ -584,7 +622,13 @@
             drawControl: null,
             drawnItems: null,
             isUpdating: false,
-            operationId: 0
+            operationId: 0,
+            // Save queue system
+            pendingSaves: new Map(),
+            saveQueue: [],
+            isSaving: false,
+            failedSaves: [],
+            dirtyData: new Set()
         };
 
         // Utility functions
